@@ -2,7 +2,8 @@
 
 import { requireSection } from "@/lib/guard";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { PUBLIC_DATA_TAG } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
 import { carFormSchema } from "@/lib/schemas";
 import { vehicleSlug } from "@/lib/slug";
@@ -20,6 +21,8 @@ export interface SaveResult {
 
 /** Revalida as páginas públicas afetadas por uma alteração de inventário. */
 function revalidatePublic(slug?: string) {
+  // As leituras públicas estão em cache: limpa-as para o site mostrar já.
+  revalidateTag(PUBLIC_DATA_TAG);
   revalidatePath("/");
   revalidatePath("/inventario");
   revalidatePath("/sitemap.xml");

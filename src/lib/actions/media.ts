@@ -2,7 +2,7 @@
 
 import { requireSection } from "@/lib/guard";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePublic } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
 import { MEDIA_BUCKET } from "@/lib/storage";
 import type { MediaKind } from "@/lib/supabase/database.types";
@@ -28,10 +28,10 @@ async function revalidateCar(carId: string) {
     .select("slug")
     .eq("id", carId)
     .maybeSingle();
-  if (data?.slug) revalidatePath(`/viaturas/${data.slug}`);
-  revalidatePath("/inventario");
-  revalidatePath("/");
-  revalidatePath(`/admin/carros/${carId}`);
+  if (data?.slug) revalidatePublic(`/viaturas/${data.slug}`);
+  revalidatePublic("/inventario");
+  revalidatePublic("/");
+  revalidatePublic(`/admin/carros/${carId}`);
   // As fotografias também vão para o anúncio do OLX.
   await queueOlxSync([carId]);
 }

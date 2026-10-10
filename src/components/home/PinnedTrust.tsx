@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LazyVideo } from "@/components/ui/LazyVideo";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import {
@@ -168,16 +169,11 @@ export function PinnedTrust({
               existirem em public/media/carros|motas/. Silencioso e em loop.
             */}
             {video && (
-              <video
+              <LazyVideo
                 className="absolute inset-0 h-full w-full object-cover"
-                autoPlay
-                muted
-                loop
-                playsInline
+                src={video}
                 poster={poster ?? undefined}
-              >
-                <source src={video} type="video/mp4" />
-              </video>
+              />
             )}
 
             {/* Scrim para legibilidade do texto sobreposto. */}

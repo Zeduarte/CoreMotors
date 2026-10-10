@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
+import { revalidatePublic } from "@/lib/public-cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/admin-queries";
@@ -55,8 +56,8 @@ export async function saveBadges(input: unknown): Promise<SettingsResult> {
     .upsert({ key: "badges", content: { items } }, { onConflict: "key" });
   if (error) return { ok: false, error: error.message };
   // Os cards aparecem em todo o site público.
-  revalidatePath("/", "layout");
-  revalidatePath("/admin/definicoes");
+  revalidatePublic("/", "layout");
+  revalidatePublic("/admin/definicoes");
   return { ok: true };
 }
 
@@ -83,8 +84,8 @@ export async function saveWorkshopRate(input: unknown): Promise<SettingsResult> 
       : error.message;
     return { ok: false, error: hint };
   }
-  revalidatePath("/admin/definicoes");
-  revalidatePath("/admin/financeiro");
+  revalidatePublic("/admin/definicoes");
+  revalidatePublic("/admin/financeiro");
   return { ok: true };
 }
 
@@ -122,8 +123,8 @@ export async function saveSiteSettings(input: unknown): Promise<SettingsResult> 
 
   // A marca aparece em todo o site → invalida a cache e revalida as páginas.
   revalidateTag("branding");
-  revalidatePath("/", "layout");
-  revalidatePath("/admin", "layout");
+  revalidatePublic("/", "layout");
+  revalidatePublic("/admin", "layout");
   return { ok: true };
 }
 
@@ -162,7 +163,7 @@ export async function saveCompany(input: unknown): Promise<SettingsResult> {
 
   // Os contactos aparecem em todo o site → invalida a cache e revalida.
   revalidateTag("branding");
-  revalidatePath("/", "layout");
+  revalidatePublic("/", "layout");
   return { ok: true };
 }
 
@@ -198,7 +199,7 @@ export async function saveMarketing(input: unknown): Promise<SettingsResult> {
   }
 
   revalidateTag("branding");
-  revalidatePath("/", "layout");
+  revalidatePublic("/", "layout");
   return { ok: true };
 }
 
@@ -227,6 +228,6 @@ export async function saveIntegrations(input: unknown): Promise<SettingsResult> 
     return { ok: false, error: error.message };
   }
 
-  revalidatePath("/admin/integracoes");
+  revalidatePublic("/admin/integracoes");
   return { ok: true };
 }

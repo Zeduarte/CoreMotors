@@ -97,7 +97,7 @@ function load(file) {
     if (id === "server-only") return {};
     if (id === "next/headers") return {cookies:async()=>({get:key=>({value:key === "engineline_admin_type" ? adminType : publicType})})};
     if (id === "next/cache")
-      return { revalidatePath() {}, unstable_cache: (f) => f };
+      return { revalidatePath() {}, revalidateTag() {}, unstable_cache: (f) => f };
     if (id === "@/lib/guard")
       return {
         requireSection: async (section) => requestedSections.push(section),

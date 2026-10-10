@@ -1,7 +1,7 @@
 "use server";
 
 import { getAdminVehicleType } from "@/lib/vehicle-context";
-import { revalidatePath } from "next/cache";
+import { revalidatePublic } from "@/lib/public-cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireSection } from "@/lib/guard";
@@ -69,8 +69,8 @@ export async function createWorklog(formData: FormData): Promise<ActionResult> {
           : `Não foi possível registar: ${error.message}`,
     };
   }
-  revalidatePath(`/admin/oficina/${v.car_id}`);
-  revalidatePath("/admin/oficina");
+  revalidatePublic(`/admin/oficina/${v.car_id}`);
+  revalidatePublic("/admin/oficina");
   return { ok: true };
 }
 
@@ -85,7 +85,7 @@ export async function deleteWorklog(id: string): Promise<ActionResult> {
     .select("car_id")
     .maybeSingle();
   if (error) return { ok: false, error: "Erro ao apagar." };
-  if (data?.car_id) revalidatePath(`/admin/oficina/${data.car_id}`);
+  if (data?.car_id) revalidatePublic(`/admin/oficina/${data.car_id}`);
   return { ok: true };
 }
 
@@ -125,9 +125,9 @@ export async function addWorkshopCost(formData: FormData): Promise<ActionResult>
       : `Não foi possível registar: ${error.message}`;
     return { ok: false, error: hint };
   }
-  revalidatePath(`/admin/oficina/${parsed.data.car_id}`);
-  revalidatePath(`/admin/financeiro/${parsed.data.car_id}`);
-  revalidatePath("/admin/financeiro");
+  revalidatePublic(`/admin/oficina/${parsed.data.car_id}`);
+  revalidatePublic(`/admin/financeiro/${parsed.data.car_id}`);
+  revalidatePublic("/admin/financeiro");
   return { ok: true };
 }
 
@@ -143,8 +143,8 @@ export async function deleteWorkshopCost(id: string): Promise<ActionResult> {
     .maybeSingle();
   if (error) return { ok: false, error: "Não foi possível apagar." };
   if (!data) return { ok: false, error: "Só pode apagar custos que você registou." };
-  revalidatePath(`/admin/oficina/${data.car_id}`);
-  revalidatePath("/admin/financeiro");
+  revalidatePublic(`/admin/oficina/${data.car_id}`);
+  revalidatePublic("/admin/financeiro");
   return { ok: true };
 }
 
@@ -176,7 +176,7 @@ export async function createWorkshopVehicle(
     plate: parsed.data.plate.toUpperCase().replace(/\s+/g, ""),
   });
   if (error || !data) return { ok: false, error: "Não foi possível criar a viatura." };
-  revalidatePath("/admin/oficina");
+  revalidatePublic("/admin/oficina");
   return { ok: true, id: data };
 }
 
@@ -214,8 +214,8 @@ function rpcMessage(message: string, fallback: string): string {
 }
 
 function revalidateVehicle(id: string) {
-  revalidatePath("/admin/oficina");
-  revalidatePath(`/admin/oficina/${id}`);
-  revalidatePath("/admin/carros");
-  revalidatePath(`/admin/carros/${id}`);
+  revalidatePublic("/admin/oficina");
+  revalidatePublic(`/admin/oficina/${id}`);
+  revalidatePublic("/admin/carros");
+  revalidatePublic(`/admin/carros/${id}`);
 }

@@ -2,7 +2,7 @@
 
 import { publicSubmissionClient } from "@/lib/public-submissions";
 import { requireSection } from "@/lib/guard";
-import { revalidatePath } from "next/cache";
+import { revalidatePublic } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
 import { publicTestimonialSchema } from "@/lib/schemas";
 
@@ -40,13 +40,13 @@ export async function submitPublicTestimonial(input: unknown): Promise<TResult> 
     console.error("submitPublicTestimonial:", error.message);
     return { ok: false, error: "Não foi possível enviar. Tente novamente." };
   }
-  revalidatePath("/admin/testemunhos");
+  revalidatePublic("/admin/testemunhos");
   return { ok: true };
 }
 
 function refresh() {
-  revalidatePath("/");
-  revalidatePath("/admin/testemunhos");
+  revalidatePublic("/");
+  revalidatePublic("/admin/testemunhos");
 }
 
 export async function createTestimonial(input: {

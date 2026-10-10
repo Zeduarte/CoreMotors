@@ -28,10 +28,12 @@ import { OPTIONAL_MEDIA } from "@/lib/media";
 export default async function PublicLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const branding = await getBranding();
-  const type = await getPublicVehicleType();
-  const selection = await getVehicleSelection();
-  const badges = await getBadges();
+  const [branding, type, selection, badges] = await Promise.all([
+    getBranding(),
+    getPublicVehicleType(),
+    getVehicleSelection(),
+    getBadges(),
+  ]);
 
   return (
     <VehicleWorld key={type} type={type}><BadgesProvider badges={badges}><LenisProvider>

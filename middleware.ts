@@ -6,8 +6,13 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Corre em todas as rotas excepto estáticos e imagens. Protege /admin/*.
+  // Só onde há sessão: o backoffice e as rotas que o servem. As páginas
+  // públicas não precisam de sessão — correr isto em cada visita só as atrasava
+  // e gastava créditos do Netlify.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|mp4|webm)$).*)",
+    "/admin/:path*",
+    "/api/admin/:path*",
+    "/api/olx/:path*",
+    "/api/vehicle-context",
   ],
 };

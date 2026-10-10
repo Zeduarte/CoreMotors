@@ -2,7 +2,7 @@
 
 import { requireSection } from "@/lib/guard";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePublic } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
 import { homeContentSchema } from "@/lib/schemas";
 
@@ -33,7 +33,7 @@ export async function saveHomeContent(input: unknown): Promise<ContentResult> {
   }
 
   // A homepage é ISR — revalida para refletir de imediato.
-  revalidatePath("/");
-  revalidatePath("/admin/pagina-inicial");
+  revalidatePublic("/");
+  revalidatePublic("/admin/pagina-inicial");
   return { ok: true };
 }

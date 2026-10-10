@@ -1,6 +1,6 @@
 "use server";
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
+import { revalidatePublic } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireSection } from "@/lib/guard";
 import { worklogHours } from "@/lib/operations";
@@ -11,8 +11,8 @@ const optionalDate = z.union([z.string().date(), z.literal("")]).transform(v => 
 const optionalMoney = z.preprocess(v => v === "" ? null : v, z.coerce.number().min(0).max(9999999999).nullable());
 const result = (error: {message: string} | null) => error ? {ok: false, error: error.message} : {ok: true};
 function refresh() {
-  revalidatePath("/admin", "layout");
-  revalidatePath("/", "layout");
+  revalidatePublic("/admin", "layout");
+  revalidatePublic("/", "layout");
 }
 const crmSchema = z.object({
   id: uuid, assigned_to: optionalId, car_id: optionalId,

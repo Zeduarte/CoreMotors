@@ -1,5 +1,6 @@
 "use server";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
+import { revalidatePublic } from "@/lib/public-cache";
 import { requireSection } from "@/lib/guard";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -65,9 +66,9 @@ export async function saveShowroom(
   // O ponto de venda principal é a fonte dos contactos de todo o site
   // (rodapé, contactos, WhatsApp, OLX): a cache da marca tem de cair.
   revalidateTag("branding");
-  revalidatePath("/", "layout");
-  revalidatePath("/admin/pagina-inicial");
-  revalidatePath("/admin/carros", "layout");
-  revalidatePath("/sitemap.xml");
+  revalidatePublic("/", "layout");
+  revalidatePublic("/admin/pagina-inicial");
+  revalidatePublic("/admin/carros", "layout");
+  revalidatePublic("/sitemap.xml");
   return { ok: true };
 }

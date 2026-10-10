@@ -32,9 +32,9 @@ export const revalidate = 60;
 // servidor e passados às ilhas cliente. Zero JS de dados enviado para o browser.
 export default async function HomePage() {
   const type = await getPublicVehicleType();
-  const showroom = await getShowroomContent();
-  const [recent, content, testimonials, branding, allVehicles, sold] =
+  const [showroom, recent, content, testimonials, branding, allVehicles, sold] =
     await Promise.all([
+      getShowroomContent(),
       getRecentVehicles(),
       getHomeContent(),
       getTestimonials(),

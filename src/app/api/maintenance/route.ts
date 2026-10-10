@@ -1,5 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
+import { PUBLIC_DATA_TAG } from "@/lib/public-cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processNotificationJobs } from "@/lib/notifications";
 import { refreshIfNeeded } from "@/lib/olx/client";
@@ -14,6 +16,8 @@ export async function POST(request: Request) {
   if (!db) return NextResponse.json({error:"Unavailable"},{status:503});
   const {error} = await db.rpc("expire_reservations");
   if (error) return NextResponse.json({error:"Maintenance failed"},{status:503});
+  // Reservas expiradas voltam a "publicada": o site tem de o mostrar já.
+  revalidateTag(PUBLIC_DATA_TAG);
   const result = await processNotificationJobs();
   await db.rpc("prune_submission_limits");
   // Mensagens do WhatsApp já vistas (7 dias) e propostas resolvidas (1 dia).

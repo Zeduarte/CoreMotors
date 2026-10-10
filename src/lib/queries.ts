@@ -3,6 +3,7 @@ import "server-only";
 import type { VehicleType } from "./vehicle-categories";
 import { getShowroomContent } from "./showroom-queries";
 import { unstable_cache } from "next/cache";
+import { cachedPublic, safely } from "@/lib/public-cache";
 import { supabasePublic } from "@/lib/supabase/public";
 import { toVehicle } from "@/lib/mappers";
 import type { CarWithMedia } from "@/lib/supabase/database.types";
@@ -21,9 +22,12 @@ import { publicMediaUrl } from "@/lib/storage";
 /**
  * Leituras PÚBLICAS do inventário (Supabase).
  *
- * Correm em Server Components com ISR (`revalidate`). O cliente usa a chave
- * anónima, por isso a RLS garante que apenas viaturas `published` são
- * devolvidas ao público — sem filtros manuais frágeis.
+ * O cliente usa a chave anónima, por isso a RLS garante que apenas viaturas
+ * `published` são devolvidas ao público — sem filtros manuais frágeis.
+ *
+ * Cada leitura tem duas camadas: a interior (`fetch…`) vai ao Supabase e fica
+ * em cache (ver `public-cache.ts`); a exterior lê o cookie carros/motas — que
+ * não pode entrar na cache — e passa-o como argumento.
  */
 
 async function mapPublicCars(rows: CarWithMedia[]): Promise<Vehicle[]> {
@@ -37,59 +41,58 @@ async function mapPublicCars(rows: CarWithMedia[]): Promise<Vehicle[]> {
 
 const CAR_SELECT = "*, car_media(*)";
 
-export async function getVehicles(
-  vehicleType?: VehicleType | null,
-): Promise<Vehicle[]> {
-  vehicleType = vehicleType ?? await getPublicVehicleType();
-  const supabase = supabasePublic;
-  let query = supabase
+const fetchVehicles = cachedPublic(async (vehicleType: VehicleType) => {
+  const { data, error } = await supabasePublic
     .from("cars")
     .select(CAR_SELECT)
     .in("status", ["published", "reserved"])
     .order("featured", { ascending: false })
-    .order("published_at", { ascending: false, nullsFirst: false });
-  if (vehicleType) query = query.eq("vehicle_type", vehicleType);
-  const { data, error } = await query;
-
-  if (error) {
-    console.error("getVehicles:", error.message);
-    return [];
-  }
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .eq("vehicle_type", vehicleType);
+  if (error) throw new Error(error.message);
   return mapPublicCars(data as unknown as CarWithMedia[]);
+}, "vehicles");
+
+export async function getVehicles(
+  vehicleType?: VehicleType | null,
+): Promise<Vehicle[]> {
+  const type = vehicleType ?? (await getPublicVehicleType());
+  return safely("getVehicles", () => fetchVehicles(type), []);
 }
 
-export async function getFeaturedVehicles(limit = 3): Promise<Vehicle[]> {
-  const supabase = supabasePublic;
-  const { data, error } = await supabase
+const fetchFeatured = cachedPublic(async (vehicleType: VehicleType, limit: number) => {
+  const { data, error } = await supabasePublic
     .from("cars")
-    .select(CAR_SELECT).eq("vehicle_type", await getPublicVehicleType())
+    .select(CAR_SELECT).eq("vehicle_type", vehicleType)
     .in("status", ["published", "reserved"])
     .eq("featured", true)
     .order("published_at", { ascending: false, nullsFirst: false })
     .limit(limit);
-
-  if (error) {
-    console.error("getFeaturedVehicles:", error.message);
-    return [];
-  }
+  if (error) throw new Error(error.message);
   return mapPublicCars(data as unknown as CarWithMedia[]);
+}, "featured");
+
+export async function getFeaturedVehicles(limit = 3): Promise<Vehicle[]> {
+  const type = await getPublicVehicleType();
+  return safely("getFeaturedVehicles", () => fetchFeatured(type, limit), []);
 }
 
 /** Viaturas publicadas mais recentes (para o carrossel da homepage). */
-export async function getRecentVehicles(limit = 12): Promise<Vehicle[]> {
+const fetchRecent = cachedPublic(async (vehicleType: VehicleType, limit: number) => {
   const { data, error } = await supabasePublic
     .from("cars")
-    .select(CAR_SELECT).eq("vehicle_type", await getPublicVehicleType())
+    .select(CAR_SELECT).eq("vehicle_type", vehicleType)
     .in("status", ["published", "reserved"])
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(limit);
-
-  if (error) {
-    console.error("getRecentVehicles:", error.message);
-    return [];
-  }
+  if (error) throw new Error(error.message);
   return mapPublicCars(data as unknown as CarWithMedia[]);
+}, "recent");
+
+export async function getRecentVehicles(limit = 12): Promise<Vehicle[]> {
+  const type = await getPublicVehicleType();
+  return safely("getRecentVehicles", () => fetchRecent(type, limit), []);
 }
 
 /**
@@ -97,75 +100,77 @@ export async function getRecentVehicles(limit = 12): Promise<Vehicle[]> {
  * recente. `limit` opcional — a homepage mostra as últimas 10, a página
  * `/vendidos` mostra todas.
  */
-export async function getSoldVehicles(limit?: number): Promise<Vehicle[]> {
+const fetchSold = cachedPublic(async (vehicleType: VehicleType, limit: number | null) => {
   let query = supabasePublic
     .from("cars")
-    .select(CAR_SELECT).eq("vehicle_type", await getPublicVehicleType())
+    .select(CAR_SELECT).eq("vehicle_type", vehicleType)
     .eq("status", "sold")
     .order("sold_at", { ascending: false, nullsFirst: false })
     .order("updated_at", { ascending: false });
   if (limit) query = query.limit(limit);
-
   const { data, error } = await query;
-  if (error) {
-    console.error("getSoldVehicles:", error.message);
-    return [];
-  }
+  if (error) throw new Error(error.message);
   return mapPublicCars(data as unknown as CarWithMedia[]);
+}, "sold");
+
+export async function getSoldVehicles(limit?: number): Promise<Vehicle[]> {
+  const type = await getPublicVehicleType();
+  return safely("getSoldVehicles", () => fetchSold(type, limit ?? null), []);
 }
+
+// `null` e não `undefined`: a cache guarda em JSON.
+const fetchBySlug = cachedPublic(async (vehicleType: VehicleType, slug: string) => {
+  const { data, error } = await supabasePublic
+    .from("cars")
+    .select(CAR_SELECT).eq("vehicle_type", vehicleType)
+    .eq("slug", slug)
+    .in("status", ["published", "reserved", "sold"])
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? (await mapPublicCars([data as unknown as CarWithMedia]))[0] ?? null : null;
+}, "by-slug");
 
 export async function getVehicleBySlug(
   slug: string,
 ): Promise<Vehicle | undefined> {
-  const supabase = supabasePublic;
-  const { data, error } = await supabase
-    .from("cars")
-    .select(CAR_SELECT).eq("vehicle_type", await getPublicVehicleType())
-    .eq("slug", slug)
-    .in("status", ["published", "reserved", "sold"])
-    .maybeSingle();
-
-  if (error) {
-    console.error("getVehicleBySlug:", error.message);
-    return undefined;
-  }
-  return data
-    ? (await mapPublicCars([data as unknown as CarWithMedia]))[0]
-    : undefined;
+  const type = await getPublicVehicleType();
+  return (await safely("getVehicleBySlug", () => fetchBySlug(type, slug), null)) ?? undefined;
 }
 
 /**
  * Etiquetas dos cards (texto, cor, ligadas) — Definições → Etiquetas. Sem nada
  * guardado (ou sem acesso), ficam as de fábrica.
  */
-export async function getBadges(): Promise<BadgeDef[]> {
+const fetchBadges = cachedPublic(async () => {
   const { data, error } = await supabasePublic
     .from("site_content")
     .select("content")
     .eq("key", "badges")
     .maybeSingle();
-  if (error) console.error("getBadges:", error.message);
+  if (error) throw new Error(error.message);
   return mergeBadges(data?.content ?? null);
+}, "badges");
+
+export async function getBadges(): Promise<BadgeDef[]> {
+  return safely("getBadges", fetchBadges, mergeBadges(null));
 }
 
 /**
  * Conteúdo da página inicial (textos editáveis). Funde o que está guardado em
  * `site_content` sobre os defaults — se nada foi editado, devolve o original.
  */
-export async function getHomeContent(): Promise<HomeContent> {
+const fetchHomeContent = cachedPublic(async () => {
   const { data, error } = await supabasePublic
     .from("site_content")
     .select("content")
     .eq("key", "home")
     .maybeSingle();
+  if (error) throw new Error(error.message);
+  return mergeHomeContent((data?.content as Partial<HomeContent> | undefined) ?? null);
+}, "home");
 
-  if (error) {
-    console.error("getHomeContent:", error.message);
-    return mergeHomeContent(null);
-  }
-  return mergeHomeContent(
-    (data?.content as Partial<HomeContent> | undefined) ?? null,
-  );
+export async function getHomeContent(): Promise<HomeContent> {
+  return safely("getHomeContent", fetchHomeContent, mergeHomeContent(null));
 }
 
 /**
@@ -236,19 +241,19 @@ export interface Testimonial {
 }
 
 /** Testemunhos publicados (para a secção de confiança). */
-export async function getTestimonials(): Promise<Testimonial[]> {
+const fetchTestimonials = cachedPublic(async () => {
   const { data, error } = await supabasePublic
     .from("testimonials")
     .select("id, name, rating, body, role")
     .eq("published", true)
     .order("position", { ascending: true })
     .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("getTestimonials:", error.message);
-    return [];
-  }
+  if (error) throw new Error(error.message);
   return data as Testimonial[];
+}, "testimonials");
+
+export async function getTestimonials(): Promise<Testimonial[]> {
+  return safely("getTestimonials", fetchTestimonials, []);
 }
 
 /**
