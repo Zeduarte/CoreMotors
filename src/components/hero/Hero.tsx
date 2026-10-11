@@ -56,9 +56,9 @@ export function Hero({
   // fixa simples ocupa só o ecrã (melhor no telemóvel).
   const needsScroll = isVideo || crossfade;
   // Telemóvel com pesquisa: título no topo e pesquisa no fundo, para não
-  // taparem o centro da imagem. A imagem é mais baixa do que o ecrã (menos o
-  // header e mais 5rem): corta-se por baixo, continua centrada, a pesquisa
-  // fica acima do botão do WhatsApp e o início da secção seguinte já se vê.
+  // taparem o centro da imagem. A imagem ocupa o primeiro ecrã todo (menos o
+  // header); a secção seguinte só aparece ao fazer scroll. A pesquisa fica
+  // acima do botão do WhatsApp (fixo no canto de baixo).
   const split = Boolean(search);
 
   return (
@@ -71,12 +71,12 @@ export function Hero({
             // Com a pesquisa, no telemóvel nem há pista: o hero tem só a
             // altura da imagem e o vídeo avança enquanto sai do ecrã.
             split
-            ? "h-[calc(100svh-9rem)] md:h-[140vh]"
+            ? "h-[calc(100svh-4rem)] md:h-[140vh]"
             : "h-[120vh] md:h-[140vh]"
           : crossfade
             ? "h-[200vh]"
             : split
-              ? "h-[calc(100svh-9rem)] md:h-dvh"
+              ? "h-[calc(100svh-4rem)] md:h-dvh"
               : "h-dvh"
       }`}
       aria-label="Viatura em destaque"
@@ -137,7 +137,7 @@ export function Hero({
         {/* Conteúdo */}
         <div
           className={`container-px pointer-events-none relative z-10 text-center ${
-            split ? "max-md:flex max-md:flex-col max-md:pb-6 max-md:pt-6" : ""
+            split ? "max-md:flex max-md:flex-col max-md:pb-[5.75rem] max-md:pt-6" : ""
           }`}
         >
           <motion.p
