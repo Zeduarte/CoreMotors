@@ -171,27 +171,47 @@ export default async function VehiclePage({ params }: { params: Params }) {
             </div>
           </header>
 
-          {/* Foto e informação lado a lado no desktop (foto à esquerda, preço
-              e especificações à direita). Em mobile a mesma ordem empilha-se:
-              primeiro a fotografia, só depois a informação.
+          {/* Duas colunas no desktop, cada uma corre sozinha (sem linhas
+              partilhadas, por isso sem buracos):
+                - esquerda: fotos e, logo por baixo, descrição, extras, ficha
+                  técnica e transparência;
+                - direita: preço, características, contacto rápido e o painel
+                  "Interessado?", que fica fixo ao descer.
+              Em mobile as duas colunas desfazem-se (`contents`) e as peças
+              intercalam pela ordem do `order-*`: fotos, preço, características,
+              contacto, descrição, "Interessado?", extras, ficha técnica.
 
-              `minmax(0,…)`: sem isto o mínimo de uma coluna `fr` é o seu
-              min-content, e a tira de miniaturas da galeria esticava a coluna
-              da foto até esmagar as especificações (texto cortado). */}
-          <div className="mt-8 grid gap-8 min-[900px]:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] min-[900px]:items-start min-[900px]:gap-12">
-            {/* `min-w-0` nos itens: em mobile a grelha é de uma coluna e o
-                `minmax(0,…)` não se aplica — sem isto a tira de miniaturas
-                (8 × 80px) empurrava a página para 724px de largura. */}
-            <div className="min-w-0">
-              <Gallery
-                slug={vehicle.slug}
-                images={vehicle.images}
-                video={vehicle.video}
-              />
+              `minmax(0,…)` e `min-w-0`: sem isto a tira de miniaturas da
+              galeria esticava a coluna da foto e empurrava a página. */}
+          <div className="mt-8 flex flex-col gap-8 min-[900px]:grid min-[900px]:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] min-[900px]:items-start min-[900px]:gap-12">
+            <div className="contents min-[900px]:block min-[900px]:min-w-0 min-[900px]:space-y-10">
+              <div className="order-1 min-w-0">
+                <Gallery
+                  slug={vehicle.slug}
+                  images={vehicle.images}
+                  video={vehicle.video}
+                />
+              </div>
+              {vehicle.description && (
+                <div className="order-5 min-w-0">
+                  <DescriptionCard text={vehicle.description} />
+                </div>
+              )}
+              <div className="order-7 min-w-0 empty:hidden">
+                <ExtrasGroups extras={vehicle.extras} />
+              </div>
+              <div className="order-8 min-w-0 empty:hidden">
+                <Specs vehicle={vehicle} />
+              </div>
+              <div className="order-9 min-w-0 empty:hidden">
+                <TransparencySection vehicle={vehicle} />
+              </div>
             </div>
 
-            <div className="min-w-0 space-y-8">
-              <div className="rounded-3xl bg-ink-soft p-6">
+            {/* `self-stretch`: a coluna da direita acompanha a altura da
+                esquerda, para o painel "Interessado?" ficar fixo ao descer. */}
+            <div className="contents min-[900px]:flex min-[900px]:min-w-0 min-[900px]:flex-col min-[900px]:gap-8 min-[900px]:self-stretch">
+              <div className="order-2 rounded-3xl bg-ink-soft p-6">
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-lg font-medium text-paper/70">
                     Preço de venda
@@ -202,30 +222,23 @@ export default async function VehiclePage({ params }: { params: Params }) {
                 </div>
               </div>
 
-              {/* Contacto logo no primeiro ecrã, ao lado das fotos: quem
-                  gostou não tem de procurar como falar connosco. */}
-              <QuickContact
-                vehicleName={`${vehicle.make} ${vehicle.model} ${vehicle.year}`}
-                url={`${site.url}/viaturas/${vehicle.slug}`}
-                status={vehicle.status ?? "published"}
-                company={branding.company}
-                recentViews={recentViews}
-              />
+              <div className="order-3 min-w-0">
+                <SpecGrid vehicle={vehicle} />
+              </div>
 
-              <SpecGrid vehicle={vehicle} />
-            </div>
-          </div>
+              {/* Contacto logo a seguir às características: quem gostou não
+                  tem de procurar como falar connosco. */}
+              <div className="order-4 min-w-0">
+                <QuickContact
+                  vehicleName={`${vehicle.make} ${vehicle.model} ${vehicle.year}`}
+                  url={`${site.url}/viaturas/${vehicle.slug}`}
+                  status={vehicle.status ?? "published"}
+                  company={branding.company}
+                  recentViews={recentViews}
+                />
+              </div>
 
-          {/* Resto do conteúdo, com o painel de contacto fixo à direita */}
-          <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:gap-14">
-            <div className="min-w-0 space-y-8 lg:space-y-10">
-              {vehicle.description && (
-                <DescriptionCard text={vehicle.description} />
-              )}
-
-              {/* "Interessado?" logo a seguir à descrição — só em mobile/tablet
-                  (no desktop está no painel lateral fixo à direita). */}
-              <div className="lg:hidden">
+              <div className="order-6 min-w-0 min-[900px]:sticky min-[900px]:top-28">
                 <VehicleActions
                   vehicleName={`${vehicle.make} ${vehicle.model}`}
                   vehicleId={vehicle.id}
@@ -234,22 +247,6 @@ export default async function VehiclePage({ params }: { params: Params }) {
                   depositAmount={branding.depositAmount}
                 />
               </div>
-
-              <ExtrasGroups extras={vehicle.extras} />
-
-              <Specs vehicle={vehicle} />
-
-              <TransparencySection vehicle={vehicle} />
-            </div>
-
-            <div className="hidden space-y-8 lg:block lg:sticky lg:top-28 lg:self-start">
-              <VehicleActions
-                vehicleName={`${vehicle.make} ${vehicle.model}`}
-                vehicleId={vehicle.id}
-                price={vehicle.priceOnRequest ? null : vehicle.price}
-                canReserve={canReserve}
-                depositAmount={branding.depositAmount}
-              />
             </div>
           </div>
 
