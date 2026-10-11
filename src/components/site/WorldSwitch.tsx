@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import type { VehicleType } from "@/lib/vehicle-categories";
 import { WORLD_LABEL, otherWorld, pathHasWorld } from "@/lib/world";
 import { asset } from "@/lib/asset";
 import { mediaFor } from "@/lib/media";
-import { markWorldArrival, prefersReducedMotion } from "@/lib/world-arrival";
+import { markWorldArrival, prefersReducedMotion, runWorldProgress } from "@/lib/world-arrival";
 import { WorldCoverArt, worldCoverStyles } from "./WorldCover";
 
 /** Quanto dura a entrada do outro mundo antes de mudar de página. */
@@ -23,7 +23,8 @@ const DEPART_MS = 800;
  * É uma navegação completa (`<a>`, não `<Link>`): a rota grava o cookie do
  * mundo e volta, o que refaz todas as queries do servidor. Antes de sair, a
  * foto do outro mundo entra por cima da página (o visual do ecrã de entrada)
- * e a página nova abre tapada por ela e revela-se (`WorldArrival`).
+ * e a página nova abre tapada por ela e revela-se (`WorldArrival`). Um anel com
+ * a percentagem mostra que está a carregar enquanto o servidor responde.
  */
 export function WorldSwitch({
   world,
@@ -35,6 +36,8 @@ export function WorldSwitch({
 }) {
   const pathname = usePathname();
   const [leaving, setLeaving] = useState(false);
+  const overlay = useRef<HTMLDivElement>(null);
+  const startedAt = useRef(0);
 
   // Voltar atrás para esta página (cache do browser) não pode ficar tapado.
   useEffect(() => {
@@ -42,6 +45,12 @@ export function WorldSwitch({
     window.addEventListener("pageshow", onShow);
     return () => window.removeEventListener("pageshow", onShow);
   }, []);
+
+  // O anel de progresso anda enquanto o browser espera pela página nova.
+  useEffect(() => {
+    if (!leaving) return;
+    return runWorldProgress(overlay.current, startedAt.current);
+  }, [leaving]);
 
   if (!pathHasWorld(pathname)) return null;
 
@@ -61,7 +70,8 @@ export function WorldSwitch({
     if (prefersReducedMotion()) return;
     e.preventDefault();
     const href = e.currentTarget.href;
-    markWorldArrival(target);
+    startedAt.current = Date.now();
+    markWorldArrival(target, startedAt.current);
     setLeaving(true);
     window.setTimeout(() => window.location.assign(href), DEPART_MS);
   }
@@ -81,7 +91,7 @@ export function WorldSwitch({
     </a>
     {leaving &&
       createPortal(
-        <div className={`${worldCoverStyles.overlay} ${worldCoverStyles.depart}`} role="status">
+        <div ref={overlay} className={`${worldCoverStyles.overlay} ${worldCoverStyles.depart}`} role="status">
           <span className="sr-only">A mudar para {label}…</span>
           <WorldCoverArt type={target} />
         </div>,

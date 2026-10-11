@@ -4,28 +4,29 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { OfferForm } from "./OfferForm";
 import { InfoForm } from "./InfoForm";
-import { TestDriveForm } from "./TestDriveForm";
 import { ReserveForm } from "./ReserveForm";
 import { VEHICLE_CONTACT_EVENT, type VehicleContactDetail } from "@/lib/vehicle-contact";
 
-type Mode = "offer" | "info" | "testdrive" | "reserve";
+type Mode = "offer" | "info" | "reserve";
 
 /**
  * Painel de ações da ficha de viatura: um único ponto de contacto, com o
  * pedido de informações já aberto (é o que a maioria quer) e separadores para
- * proposta, test drive e reserva. Antes era preciso escolher num menu e só
+ * proposta e reserva. Antes era preciso escolher num menu e só
  * depois aparecia o formulário — um clique a mais que fazia desistir.
  */
 export function VehicleActions({
   vehicleName,
   vehicleId,
   price,
+  status = "published",
   canReserve,
   depositAmount,
 }: {
   vehicleName: string;
   vehicleId?: string;
   price?: number | null;
+  status?: string;
   canReserve: boolean;
   depositAmount: number;
 }) {
@@ -52,13 +53,11 @@ export function VehicleActions({
   const actions: { id: Mode; label: string }[] = [
     { id: "info", label: "Informações" },
     { id: "offer", label: "Proposta" },
-    { id: "testdrive", label: "Test drive" },
     ...(canReserve ? [{ id: "reserve" as Mode, label: "Reservar" }] : []),
   ];
   const titles: Record<Mode, string> = {
     offer: "Fazer uma proposta",
     info: "Pedir mais informações",
-    testdrive: "Marcar test drive",
     reserve: "Reservar viatura",
   };
 
@@ -114,10 +113,14 @@ export function VehicleActions({
               vehicleName={vehicleName}
               vehicleId={vehicleId}
               initialMessage={message?.text}
+              suggestions={
+                status === "sold"
+                  ? ["Têm alguma semelhante?", "Avisem-me quando entrar outra"]
+                  : status === "reserved"
+                    ? ["Posso ficar em lista de espera?", "Têm alguma semelhante?"]
+                    : ["Ainda está disponível?", "Aceitam retoma?", "Tem financiamento?", "Posso marcar uma visita?"]
+              }
             />
-          )}
-          {mode === "testdrive" && (
-            <TestDriveForm vehicleName={vehicleName} vehicleId={vehicleId} bare />
           )}
           {mode === "reserve" && (
             <ReserveForm

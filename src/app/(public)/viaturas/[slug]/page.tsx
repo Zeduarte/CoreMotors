@@ -1,6 +1,4 @@
-import { Locations } from "@/components/showroom/Locations";
 import { getShowroomContent } from "@/lib/showroom-queries";
-import { VehiclePrice } from "@/components/vehicle/VehiclePrice";
 import { registrationLabel } from "@/lib/vehicle-categories";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -16,7 +14,7 @@ import { formatKm, priceLabel } from "@/lib/format";
 import { Gallery } from "@/components/vehicle/Gallery";
 import { Specs } from "@/components/vehicle/Specs";
 import { SpecGrid } from "@/components/vehicle/SpecGrid";
-import { DescriptionCard } from "@/components/vehicle/DescriptionCard";
+import { InfoTabs, type VehiclePlace } from "@/components/vehicle/InfoTabs";
 import { ExtrasGroups } from "@/components/vehicle/ExtrasGroups";
 import { TransparencySection } from "@/components/vehicle/TransparencySection";
 import { VehicleActions } from "@/components/vehicle/VehicleActions";
@@ -26,7 +24,7 @@ import { FavoriteButton } from "@/components/inventory/FavoriteButton";
 import { RecentlyViewed } from "@/components/vehicle/RecentlyViewed";
 import { SellCTA } from "@/components/home/SellCTA";
 import { ContactBar } from "@/components/vehicle/ContactBar";
-import { QuickContact } from "@/components/vehicle/QuickContact";
+import { PriceCard } from "@/components/vehicle/PriceCard";
 import { getRecentViews } from "@/lib/vehicle-views";
 import { safely } from "@/lib/public-cache";
 import { site } from "@/lib/site";
@@ -83,12 +81,48 @@ export default async function VehiclePage({ params }: { params: Params }) {
   const vehicle = await getVehicleBySlug(slug);
   if (!vehicle) notFound();
 
-  const [branding, recentViews] = await Promise.all([
+  const [branding, recentViews, showroom] = await Promise.all([
     getBranding(),
     vehicle.id ? safely("getRecentViews", () => getRecentViews(vehicle.id!), null) : null,
+    getShowroomContent(),
   ]);
   const canReserve =
     branding.reservationEnabled && vehicle.status === "published";
+
+  // Onde está a viatura: o ponto de venda dela; se não tiver, o único stand
+  // registado; senão, a morada da empresa.
+  const { locations } = showroom;
+  const pos =
+    locations.find((p) => p.id === vehicle.pointOfSaleId) ??
+    (locations.length === 1 ? locations[0] : undefined);
+  const { address, geo } = branding.company;
+  const place: VehiclePlace | null = pos
+    ? {
+        name: pos.name,
+        address: pos.address,
+        postalCode: pos.postalCode,
+        city: pos.city,
+        hours: pos.hours,
+        phone: pos.phone,
+        query:
+          pos.latitude != null && pos.longitude != null
+            ? `${pos.latitude},${pos.longitude}`
+            : `${pos.address}, ${pos.postalCode} ${pos.city}, Portugal`,
+      }
+    : address.street
+      ? {
+          name: branding.companyName,
+          address: address.street,
+          postalCode: address.postalCode,
+          city: address.city,
+          hours: branding.company.hours,
+          phone: branding.company.phone,
+          query:
+            geo.lat && geo.lng
+              ? `${geo.lat},${geo.lng}`
+              : `${address.street}, ${address.postalCode} ${address.city}, Portugal`,
+        }
+      : null;
 
   // Viaturas relacionadas: prioriza a mesma marca, depois preenche com outras.
   const all = await getVehicles();
@@ -102,11 +136,11 @@ export default async function VehiclePage({ params }: { params: Params }) {
       <VehicleJsonLd vehicle={vehicle} sellerName={branding.companyName} />
       <ViewTracker carId={vehicle.id} slug={vehicle.slug} />
 
-      <article className="pt-24 md:pt-28">
+      <article className="md:pt-8">
         <div className="container-px">
           {(vehicle.status === "reserved" || vehicle.status === "sold") && (
             <div
-              className={`mb-6 rounded-xl px-4 py-3 text-sm font-medium ${
+              className={`mb-5 mt-4 rounded-xl px-4 py-3 text-sm font-medium md:mt-0 ${
                 vehicle.status === "sold"
                   ? "bg-red-500/15 text-red-300"
                   : "bg-amber-500/15 text-amber-300"
@@ -118,38 +152,38 @@ export default async function VehiclePage({ params }: { params: Params }) {
             </div>
           )}
 
-          {/* Cabeçalho: identificação da viatura antes de qualquer foto. */}
-          <header>
-            {vehicle.warrantyMonths ? (
-              <p className="mb-3 text-sm font-semibold text-paper/80">
-                Garantia: {vehicle.warrantyMonths} meses
-              </p>
-            ) : null}
-
-            <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-              <div>
-                <p className="eyebrow mb-2">
+          {/* Primeiro ecrã.
+                - Computador (xl): título por cima; fotos à esquerda (miniaturas
+                  em coluna) e, à direita, preço, características e
+                  "Descrição | Localização". A foto estica até à altura da
+                  coluna da direita e o último cartão desta estica até ao fundo
+                  da foto: as duas acabam alinhadas.
+                - Telemóvel/tablet: fotos primeiro, de ponta a ponta, depois o
+                  título, o preço e o resto (ordem do `order-*`). */}
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-x-6 xl:gap-y-5">
+            <header className="order-2 flex min-w-0 flex-col gap-3 md:flex-row md:items-end md:justify-between xl:order-none xl:col-span-2">
+              <div className="min-w-0">
+                <p className="eyebrow mb-1.5">
                   {registrationLabel(vehicle.year, vehicle.registrationMonth)} ·{" "}
                   {vehicle.body}
                 </p>
-                <h1 className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-headline font-semibold text-paper">
+                <h1 className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-2xl font-semibold text-paper md:text-3xl">
                   <span>
                     {vehicle.make} {vehicle.model}
                   </span>
                   {vehicle.variant && (
-                    <span className="flex items-baseline gap-3 text-xl font-light text-paper/60">
+                    <span className="flex items-baseline gap-3 text-base font-normal text-paper/70 md:text-lg">
                       <span
                         aria-hidden
-                        className="h-6 w-0.5 self-center bg-accent"
+                        className="h-5 w-0.5 self-center bg-accent"
                       />
                       {vehicle.variant}
                     </span>
                   )}
                 </h1>
-
                 {/* Descrição breve (slogan definido no backoffice). */}
                 {vehicle.tagline && (
-                  <p className="mt-3 max-w-xl text-lg font-light leading-relaxed text-paper/70">
+                  <p className="mt-2 max-w-2xl text-sm font-light leading-relaxed text-paper/65 md:text-base">
                     {vehicle.tagline}
                   </p>
                 )}
@@ -165,96 +199,54 @@ export default async function VehiclePage({ params }: { params: Params }) {
                   href={`/viaturas/${vehicle.slug}/ficha`}
                   className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs font-medium text-paper/80 transition-colors hover:border-accent hover:text-accent"
                 >
-                  ⤓ Ficha PDF + QR
+                  ⤓ Ficha PDF<span className="hidden sm:inline"> + QR</span>
                 </Link>
               </div>
+            </header>
+
+            <div className="order-1 min-w-0 xl:order-none">
+              <Gallery
+                slug={vehicle.slug}
+                images={vehicle.images}
+                video={vehicle.video}
+              />
             </div>
-          </header>
 
-          {/* Duas colunas no desktop, cada uma corre sozinha (sem linhas
-              partilhadas, por isso sem buracos):
-                - esquerda: fotos e, logo por baixo, descrição, extras, ficha
-                  técnica e transparência;
-                - direita: preço, características, contacto rápido e o painel
-                  "Interessado?", que fica fixo ao descer.
-              Em mobile as duas colunas desfazem-se (`contents`) e as peças
-              intercalam pela ordem do `order-*`: fotos, preço, características,
-              contacto, descrição, "Interessado?", extras, ficha técnica.
+            <aside className="order-3 flex min-w-0 flex-col gap-4 xl:order-none xl:gap-3 xl:[&>*:last-child]:flex-1">
+              <PriceCard
+                vehicle={vehicle}
+                company={branding.company}
+                url={`${site.url}/viaturas/${vehicle.slug}`}
+                recentViews={recentViews}
+              />
+              <SpecGrid vehicle={vehicle} />
+              <InfoTabs description={vehicle.description} place={place} />
+            </aside>
+          </div>
 
-              `minmax(0,…)` e `min-w-0`: sem isto a tira de miniaturas da
-              galeria esticava a coluna da foto e empurrava a página. */}
-          <div className="mt-8 flex flex-col gap-8 min-[900px]:grid min-[900px]:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] min-[900px]:items-start min-[900px]:gap-12">
-            <div className="contents min-[900px]:block min-[900px]:min-w-0 min-[900px]:space-y-10">
-              <div className="order-1 min-w-0">
-                <Gallery
-                  slug={vehicle.slug}
-                  images={vehicle.images}
-                  video={vehicle.video}
-                />
-              </div>
-              {vehicle.description && (
-                <div className="order-5 min-w-0">
-                  <DescriptionCard text={vehicle.description} />
-                </div>
-              )}
-              <div className="order-7 min-w-0 empty:hidden">
+          {/* Depois do primeiro ecrã: extras, ficha técnica e transparência à
+              esquerda; o painel "Interessado?" à direita, fixo ao descer. No
+              telemóvel o painel vem primeiro. */}
+          <div className="mt-12 flex flex-col gap-12 xl:mt-16 xl:grid xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start xl:gap-x-6">
+            <div className="order-2 flex min-w-0 flex-col gap-12 xl:order-none">
+              <div className="empty:hidden">
                 <ExtrasGroups extras={vehicle.extras} />
               </div>
-              <div className="order-8 min-w-0 empty:hidden">
-                <Specs vehicle={vehicle} />
-              </div>
-              <div className="order-9 min-w-0 empty:hidden">
-                <TransparencySection vehicle={vehicle} />
-              </div>
+              <Specs vehicle={vehicle} />
+              <TransparencySection vehicle={vehicle} />
             </div>
-
-            {/* `self-stretch`: a coluna da direita acompanha a altura da
-                esquerda, para o painel "Interessado?" ficar fixo ao descer. */}
-            <div className="contents min-[900px]:flex min-[900px]:min-w-0 min-[900px]:flex-col min-[900px]:gap-8 min-[900px]:self-stretch">
-              <div className="order-2 rounded-3xl bg-ink-soft p-6">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-lg font-medium text-paper/70">
-                    Preço de venda
-                  </span>
-                  <span className="text-3xl font-bold text-accent">
-                    {<VehiclePrice vehicle={vehicle} />}
-                  </span>
-                </div>
-              </div>
-
-              <div className="order-3 min-w-0">
-                <SpecGrid vehicle={vehicle} />
-              </div>
-
-              {/* Contacto logo a seguir às características: quem gostou não
-                  tem de procurar como falar connosco. */}
-              <div className="order-4 min-w-0">
-                <QuickContact
-                  vehicleName={`${vehicle.make} ${vehicle.model} ${vehicle.year}`}
-                  url={`${site.url}/viaturas/${vehicle.slug}`}
-                  status={vehicle.status ?? "published"}
-                  company={branding.company}
-                  recentViews={recentViews}
-                />
-              </div>
-
-              <div className="order-6 min-w-0 min-[900px]:sticky min-[900px]:top-28">
-                <VehicleActions
-                  vehicleName={`${vehicle.make} ${vehicle.model}`}
-                  vehicleId={vehicle.id}
-                  price={vehicle.priceOnRequest ? null : vehicle.price}
-                  canReserve={canReserve}
-                  depositAmount={branding.depositAmount}
-                />
-              </div>
+            <div className="order-1 min-w-0 xl:order-none xl:sticky xl:top-28">
+              <VehicleActions
+                vehicleName={`${vehicle.make} ${vehicle.model}`}
+                vehicleId={vehicle.id}
+                price={vehicle.priceOnRequest ? null : vehicle.price}
+                status={vehicle.status ?? "published"}
+                canReserve={canReserve}
+                depositAmount={branding.depositAmount}
+              />
             </div>
           </div>
 
-          <Locations
-            items={(await getShowroomContent()).locations.filter(
-              (p) => p.id === vehicle.pointOfSaleId,
-            )}
-          />
           {/* Viaturas relacionadas */}
           {related.length > 0 && (
             <section className="mt-24">

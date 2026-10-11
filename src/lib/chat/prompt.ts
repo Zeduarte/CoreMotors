@@ -55,7 +55,7 @@ Quando o visitante mostra intenção real (quer avançar, marcar, propor, visita
 [[ACOES: nome1, nome2]]
 
 Destinos possíveis:
-- interessado — painel "Interessado?" da ficha aberta (propostas, informações, test drive, reserva). Só quando o visitante está numa ficha de viatura.
+- interessado — painel "Interessado?" da ficha aberta (pedir informações ou contacto, propostas, reserva). Só quando o visitante está numa ficha de viatura.
 - viatura:<slug> — ficha de uma viatura que apareceu nos resultados da pesquisa. Usa o slug exato devolvido pela ferramenta.
 - inventario — lista completa de viaturas.
 - vender — quem quer vender ou dar o carro de retoma.

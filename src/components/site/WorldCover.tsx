@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type { VehicleType } from "@/lib/vehicle-categories";
 import { asset } from "@/lib/asset";
 import { mediaFor } from "@/lib/media";
+import { WorldProgress } from "./WorldProgress";
 import styles from "./WorldCover.module.css";
 
 /** Textos e cor de cada mundo — os mesmos do ecrã de entrada. */
@@ -58,6 +59,8 @@ export function WorldCoverArt({ type, lazy = false }: { type: VehicleType; lazy?
         </span>
         <span className={styles.line}>{w.line}</span>
       </span>
+      {/* Quanto falta para a página nova (ver `world-arrival.ts`). */}
+      <WorldProgress className={styles.progress} />
     </div>
   );
 }

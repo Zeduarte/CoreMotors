@@ -105,7 +105,7 @@ export const DEFAULT_SHOWROOM: ShowroomContent = {
       category: "geral",
       question: "Como posso conhecer uma viatura?",
       answer:
-        "Abra o anúncio e utilize a opção de marcar test drive. A equipa entrará em contacto para confirmar a disponibilidade e o horário.",
+        "Abra o anúncio e use \"Pedir contacto\" ou fale connosco por WhatsApp. A equipa combina consigo a visita ao stand e confirma a disponibilidade.",
     },
     {
       category: "geral",

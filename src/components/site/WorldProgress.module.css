@@ -1,0 +1,13 @@
+/* Anel de progresso da troca de mundo (ver WorldProgress.tsx). */
+.ring { position: relative; display: inline-grid; place-items: center; width: 64px; height: 64px; color: var(--world-accent, #e8b15a); }
+.ring svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 2.5; }
+.track { stroke: #ffffff24; }
+/* Um traço curto a rodar: mostra que está a trabalhar mesmo quando a
+   percentagem abranda à espera do servidor. */
+.spin { stroke: #ffffff59; stroke-linecap: round; stroke-dasharray: 8 92; transform-box: fill-box; transform-origin: center; animation: spin 1.1s linear infinite; }
+.bar { stroke: currentColor; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset .25s linear; }
+.pct { font-size: 13px; font-weight: 600; letter-spacing: .02em; font-variant-numeric: tabular-nums; color: #fff; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+@media (min-width: 761px) { .ring { width: 76px; height: 76px; } .pct { font-size: 14px; } }

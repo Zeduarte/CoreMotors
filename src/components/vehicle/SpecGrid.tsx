@@ -3,8 +3,9 @@ import type { Vehicle } from "@/types/vehicle";
 import { formatKm, formatNumber } from "@/lib/format";
 
 /**
- * Grelha de especificações essenciais ao estilo dos grandes portais:
- * duas colunas, cada item com ícone + valor em destaque + rótulo pequeno.
+ * Características essenciais da viatura. No telemóvel, grelha de duas colunas
+ * (ícone + valor em destaque + rótulo); no computador, cartão "Características"
+ * com uma linha por item, ao lado da galeria.
  * Server Component (sem interatividade).
  */
 export function SpecGrid({ vehicle }: { vehicle: Vehicle }) {
@@ -42,31 +43,56 @@ export function SpecGrid({ vehicle }: { vehicle: Vehicle }) {
     label: "Origem",
   });
   items.push({ icon: <CarIcon />, value: vehicle.body, label: "Segmento" });
-  items.push({
-    icon: <SeatIcon />,
-    value: `${vehicle.seats} lug.`,
-    label: "Capacidade",
-  });
+  // Lugares, portas e o resto ficam na ficha técnica, mais abaixo: aqui só o
+  // essencial, para o cartão caber ao lado da foto.
 
   return (
-    <section aria-label="Especificações">
-      {/* max-w evita que as duas colunas se afastem até às margens em ecrãs
-          largos (ficava um vazio enorme entre elas). */}
-      <div className="grid max-w-2xl grid-cols-2 gap-x-8 gap-y-7">
+    <section
+      aria-labelledby="caracteristicas"
+      className="xl:rounded-3xl xl:bg-ink-soft xl:p-5"
+    >
+      <h2
+        id="caracteristicas"
+        className="sr-only xl:not-sr-only xl:mb-2 xl:block xl:text-lg xl:font-semibold xl:text-paper"
+      >
+        Características
+      </h2>
+
+      {/* Telemóvel: grelha de duas colunas, o valor em destaque. */}
+      <div className="grid grid-cols-2 gap-x-6 gap-y-6 xl:hidden">
         {items.map((it) => (
           <div key={it.label} className="flex items-center gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/5 text-paper/80">
               {it.icon}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-lg font-semibold text-paper">
+              <p className="truncate text-base font-semibold text-paper">
                 {it.value}
               </p>
-              <p className="text-sm text-paper/50">{it.label}</p>
+              <p className="text-xs text-paper/50">{it.label}</p>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Computador: lista compacta (ícone e rótulo à esquerda, valor à
+          direita), para caber ao lado da foto. */}
+      <dl className="hidden xl:block">
+        {items.map((it) => (
+          <div
+            key={it.label}
+            className="flex items-center justify-between gap-4 py-1"
+          >
+            <dt className="flex min-w-0 items-center gap-2.5 text-sm text-paper/65 [&_svg]:h-[18px] [&_svg]:w-[18px]">
+              <span className="shrink-0 text-paper/80">{it.icon}</span>
+              {it.label}
+            </dt>
+            <dd className="truncate text-right text-sm font-semibold text-paper">
+              {it.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }
@@ -153,14 +179,6 @@ function CarIcon() {
   return (
     <svg {...s}>
       <path d="M3 13l2-5a2 2 0 012-1.5h10A2 2 0 0119 8l2 5v5h-3M6 18H3v-5M6 18a1.5 1.5 0 003 0M15 18a1.5 1.5 0 003 0M6 18h9M3 13h18" />
-    </svg>
-  );
-}
-function SeatIcon() {
-  return (
-    <svg {...s}>
-      <circle cx="12" cy="6" r="2.5" />
-      <path d="M7 21v-4a3 3 0 013-3h4a3 3 0 013 3v4" />
     </svg>
   );
 }

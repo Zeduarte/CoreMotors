@@ -28,7 +28,7 @@ const MAX_USER_MESSAGES = 20;
 export const STARTERS_VEHICLE = [
   "Esta viatura tem garantia?",
   "É nacional? Quantos donos teve?",
-  "Posso marcar um test drive?",
+  "Posso marcar uma visita?",
 ];
 
 const hora = new Intl.DateTimeFormat("pt-PT", {

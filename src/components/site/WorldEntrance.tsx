@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import type { VehicleType } from "@/lib/vehicle-categories";
 import { asset } from "@/lib/asset";
 import { mediaFor } from "@/lib/media";
-import { markWorldArrival } from "@/lib/world-arrival";
+import { markWorldArrival, runWorldProgress } from "@/lib/world-arrival";
+import { WorldProgress } from "./WorldProgress";
 import styles from "./WorldEntrance.module.css";
 
 /** First visit selects the persistent public vehicle category. */
@@ -19,6 +20,8 @@ export function WorldEntrance({ name, selected }: { name: string; selected: Vehi
   const [leaving, setLeaving] = useState<string | null>(null);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exiting = useRef(false);
+  const departure = useRef<HTMLDivElement>(null);
+  const startedAt = useRef(0);
 
   useEffect(() => () => {
     if (exitTimer.current) clearTimeout(exitTimer.current);
@@ -33,6 +36,12 @@ export function WorldEntrance({ name, selected }: { name: string; selected: Vehi
     window.addEventListener("pageshow", onShow);
     return () => window.removeEventListener("pageshow", onShow);
   }, []);
+
+  // Anel de progresso no ecrã de partida, desde o clique até a página mudar.
+  useEffect(() => {
+    if (!leaving) return;
+    return runWorldProgress(departure.current, startedAt.current);
+  }, [leaving]);
 
   function move(event: PointerEvent<HTMLButtonElement>) {
     if (event.pointerType !== "mouse" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -74,12 +83,13 @@ export function WorldEntrance({ name, selected }: { name: string; selected: Vehi
   function enter(type: VehicleType, choice = "A tua próxima viagem") {
     if (exiting.current) return;
     exiting.current = true;
+    startedAt.current = Date.now();
     // O ecrã NÃO se fecha antes de sair: fechá-lo destapava a página que está
     // por baixo (a dos carros, a escolha por defeito) enquanto o servidor
     // prepara a escolhida. Fica aberto até o browser trocar de página, e a
     // página nova abre tapada pela capa do mundo escolhido (WorldArrival).
     const finish = () => {
-      markWorldArrival(type);
+      markWorldArrival(type, startedAt.current);
       window.location.assign(
         `/api/vehicle-context?type=${type}&area=public&target=${encodeURIComponent(pathname)}`,
       );
@@ -143,10 +153,11 @@ export function WorldEntrance({ name, selected }: { name: string; selected: Vehi
           </span>
         </button>
       </div>
-      {leaving && <div className={styles.departure} role="status">
+      {leaving && <div ref={departure} className={styles.departure} role="status">
         <span className={styles.departureLine} />
         <p>VAMOS A ISSO.</p><strong>{leaving}<span>.</span></strong>
         <span className={styles.departureArrow} aria-hidden>↗</span>
+        <WorldProgress className={styles.departureProgress} />
       </div>}
       <footer className={styles.footer}><span>UMA PAIXÃO. DOIS UNIVERSOS.</span><span>O próximo capítulo começa aqui <span aria-hidden>↗</span></span></footer>
     </dialog>

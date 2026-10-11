@@ -9,6 +9,7 @@
 .title > span { display: inline-block; }
 .dot { color: var(--world-accent); }
 .line { font-size: 14px; color: #ffffffb3; }
+.progress { position: absolute; right: 8%; bottom: 14%; }
 .speedLines { position: absolute; inset: 0; overflow: hidden; pointer-events: none; opacity: .55; }
 .speedLines i { position: absolute; left: -80%; top: 42%; width: 55%; height: 1px; background: linear-gradient(90deg, transparent, var(--world-accent), transparent); transform: rotate(-18deg); opacity: 0; }
 .speedLines i:nth-child(2) { top: 56%; width: 35%; }
@@ -18,7 +19,7 @@
 .depart { animation: wipeIn .6s cubic-bezier(.76,0,.24,1) both; }
 .depart .photo { animation: photoIn 1.2s cubic-bezier(.2,.65,.3,1) both; }
 .depart .title > span { animation: letterRise .8s cubic-bezier(.16,1,.3,1) both; animation-delay: calc(.25s + var(--letter, 0) * .05s); }
-.depart .kicker, .depart .line { animation: reveal .6s .38s both; }
+.depart .kicker, .depart .line, .depart .progress { animation: reveal .6s .38s both; }
 .depart .speedLines i { animation: speedPass 1.2s .25s both; }
 .depart .speedLines i:nth-child(2) { animation-delay: .38s; }
 .depart .speedLines i:nth-child(3) { animation-delay: .5s; }
@@ -28,7 +29,7 @@
 .arrival { display: none; }
 .arrival[data-show] { display: block; }
 .arrival[data-leave] { animation: wipeOut .72s cubic-bezier(.76,0,.24,1) both; }
-.arrival[data-leave] .copy { animation: liftOut .38s ease both; }
+.arrival[data-leave] .copy, .arrival[data-leave] .progress { animation: liftOut .38s ease both; }
 .arrival[data-leave] .photo { animation: photoOut .72s ease both; }
 .arrival[data-done] { display: none; }
 
@@ -46,6 +47,8 @@
   .title { font-size: 64px; }
   .kicker { font-size: 8px; letter-spacing: 2px; }
   .line { font-size: 12px; }
+  /* Em baixo, à direita, chocava com o título em ecrãs estreitos. */
+  .progress { top: 88px; right: 6%; bottom: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
   .overlay, .overlay * { animation: none !important; }
