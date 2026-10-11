@@ -5,12 +5,18 @@ import { groupExtras } from "@/lib/extras";
  * itens marcados por um "check" vermelho, em duas colunas (estilo portais).
  * Não renderiza nada se a viatura não tiver extras.
  */
-export function ExtrasGroups({ extras }: { extras?: string[] }) {
+export function ExtrasGroups({
+  extras,
+  className = "space-y-5",
+}: {
+  extras?: string[];
+  className?: string;
+}) {
   const groups = groupExtras(extras);
   if (groups.length === 0) return null;
 
   return (
-    <div className="space-y-5">
+    <div className={className}>
       {groups.map((g) => (
         <section
           key={g.title}

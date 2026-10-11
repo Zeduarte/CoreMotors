@@ -39,14 +39,15 @@ export function Specs({ vehicle }: { vehicle: Vehicle }) {
 
   return (
     <section aria-labelledby="specs-title">
-      <h2 id="specs-title" className="text-2xl font-semibold text-paper">
+      {/* O separador "Ficha técnica" já dá o título à vista. */}
+      <h2 id="specs-title" className="sr-only">
         Ficha técnica
       </h2>
       <Reveal
         stagger={0.04}
         y={16}
         childSelector="[data-spec]"
-        className="mt-6 grid grid-cols-1 gap-x-10 sm:grid-cols-2"
+        className="grid grid-cols-1 gap-x-10 sm:grid-cols-2 xl:grid-cols-3"
       >
         {rows.map((r) => (
           <div

@@ -16,14 +16,13 @@ export function InfoForm({
   vehicleName,
   vehicleId,
   initialMessage,
-  suggestions = [],
+  submitLabel = "Enviar mensagem",
 }: {
   vehicleName: string;
   vehicleId?: string;
-  /** Mensagem já escrita (ex.: vinda do botão "Pedir contacto"). */
+  /** Mensagem já escrita (ex.: a que o visitante compôs no cartão do topo). */
   initialMessage?: string;
-  /** Perguntas rápidas: um toque escreve a mensagem. */
-  suggestions?: string[];
+  submitLabel?: string;
 }) {
   const [state, formAction, pending] = useActionState<
     LeadActionState,
@@ -31,8 +30,6 @@ export function InfoForm({
   >(submitLead, { ok: false });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const formRef = useRef<HTMLFormElement>(null);
-  const messageRef = useRef<HTMLTextAreaElement>(null);
-  const [picked, setPicked] = useState<string | null>(null);
 
   useEffect(() => {
     if (state.ok) formRef.current?.reset();
@@ -114,31 +111,7 @@ export function InfoForm({
       </div>
 
       <Field id="message" label="Mensagem" error={errors.message}>
-        {suggestions.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {suggestions.map((q) => (
-              <button
-                key={q}
-                type="button"
-                aria-pressed={picked === q}
-                onClick={() => {
-                  setPicked(q);
-                  if (messageRef.current)
-                    messageRef.current.value = `Olá! Sobre o ${vehicleName}: ${q}`;
-                }}
-                className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
-                  picked === q
-                    ? "border-accent bg-accent/15 text-accent"
-                    : "border-white/15 bg-white/5 text-paper/80 hover:border-accent hover:text-accent"
-                }`}
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-        )}
         <textarea
-          ref={messageRef}
           id="message"
           name="message"
           rows={3}
@@ -159,7 +132,7 @@ export function InfoForm({
         disabled={pending}
         className="mt-1 rounded-full bg-accent px-8 py-3.5 text-sm font-semibold text-ink transition-transform hover:scale-[1.02] disabled:opacity-60"
       >
-        {pending ? "A enviar…" : "Enviar mensagem"}
+        {pending ? "A enviar…" : submitLabel}
       </button>
     </form>
   );

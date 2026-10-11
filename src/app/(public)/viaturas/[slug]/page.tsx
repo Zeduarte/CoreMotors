@@ -14,17 +14,17 @@ import { formatKm, priceLabel } from "@/lib/format";
 import { Gallery } from "@/components/vehicle/Gallery";
 import { Specs } from "@/components/vehicle/Specs";
 import { SpecGrid } from "@/components/vehicle/SpecGrid";
-import { InfoTabs, type VehiclePlace } from "@/components/vehicle/InfoTabs";
+import { VehicleTabs, type VehiclePlace } from "@/components/vehicle/VehicleTabs";
 import { ExtrasGroups } from "@/components/vehicle/ExtrasGroups";
 import { TransparencySection } from "@/components/vehicle/TransparencySection";
-import { VehicleActions } from "@/components/vehicle/VehicleActions";
 import { ViewTracker } from "@/components/vehicle/ViewTracker";
 import { ShareButton } from "@/components/vehicle/ShareButton";
 import { FavoriteButton } from "@/components/inventory/FavoriteButton";
 import { RecentlyViewed } from "@/components/vehicle/RecentlyViewed";
 import { SellCTA } from "@/components/home/SellCTA";
 import { ContactBar } from "@/components/vehicle/ContactBar";
-import { PriceCard } from "@/components/vehicle/PriceCard";
+import { InterestCard } from "@/components/vehicle/InterestCard";
+import { VehiclePrice } from "@/components/vehicle/VehiclePrice";
 import { getRecentViews } from "@/lib/vehicle-views";
 import { safely } from "@/lib/public-cache";
 import { site } from "@/lib/site";
@@ -137,7 +137,9 @@ export default async function VehiclePage({ params }: { params: Params }) {
       <ViewTracker carId={vehicle.id} slug={vehicle.slug} />
 
       <article className="md:pt-8">
-        <div className="container-px">
+        {/* A toda a largura (até 105rem): as fotos ganham o espaço que as
+            margens do resto do site lhes tiravam. */}
+        <div className="mx-auto w-full max-w-[105rem] px-6 md:px-10 xl:px-6">
           {(vehicle.status === "reserved" || vehicle.status === "sold") && (
             <div
               className={`mb-5 mt-4 rounded-xl px-4 py-3 text-sm font-medium md:mt-0 ${
@@ -154,13 +156,13 @@ export default async function VehiclePage({ params }: { params: Params }) {
 
           {/* Primeiro ecrã.
                 - Computador (xl): título por cima; fotos à esquerda (miniaturas
-                  em coluna) e, à direita, preço, características e
-                  "Descrição | Localização". A foto estica até à altura da
-                  coluna da direita e o último cartão desta estica até ao fundo
-                  da foto: as duas acabam alinhadas.
+                  em coluna) e, à direita, o preço com o "Interessado?"
+                  (WhatsApp primeiro) e as características. A foto estica até à
+                  altura da coluna da direita e o último cartão desta estica até
+                  ao fundo da foto: as duas acabam alinhadas.
                 - Telemóvel/tablet: fotos primeiro, de ponta a ponta, depois o
-                  título, o preço e o resto (ordem do `order-*`). */}
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-x-6 xl:gap-y-5">
+                  título, o preço/contacto e as características. */}
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_25rem] xl:gap-x-6 xl:gap-y-5 2xl:grid-cols-[minmax(0,1fr)_28rem]">
             <header className="order-2 flex min-w-0 flex-col gap-3 md:flex-row md:items-end md:justify-between xl:order-none xl:col-span-2">
               <div className="min-w-0">
                 <p className="eyebrow mb-1.5">
@@ -213,40 +215,47 @@ export default async function VehiclePage({ params }: { params: Params }) {
             </div>
 
             <aside className="order-3 flex min-w-0 flex-col gap-4 xl:order-none xl:gap-3 xl:[&>*:last-child]:flex-1">
-              <PriceCard
-                vehicle={vehicle}
-                company={branding.company}
-                url={`${site.url}/viaturas/${vehicle.slug}`}
-                recentViews={recentViews}
-              />
-              <SpecGrid vehicle={vehicle} />
-              <InfoTabs description={vehicle.description} place={place} />
-            </aside>
-          </div>
-
-          {/* Depois do primeiro ecrã: extras, ficha técnica e transparência à
-              esquerda; o painel "Interessado?" à direita, fixo ao descer. No
-              telemóvel o painel vem primeiro. */}
-          <div className="mt-12 flex flex-col gap-12 xl:mt-16 xl:grid xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start xl:gap-x-6">
-            <div className="order-2 flex min-w-0 flex-col gap-12 xl:order-none">
-              <div className="empty:hidden">
-                <ExtrasGroups extras={vehicle.extras} />
-              </div>
-              <Specs vehicle={vehicle} />
-              <TransparencySection vehicle={vehicle} />
-            </div>
-            <div className="order-1 min-w-0 xl:order-none xl:sticky xl:top-28">
-              <VehicleActions
-                vehicleName={`${vehicle.make} ${vehicle.model}`}
+              <InterestCard
+                vehicleName={`${vehicle.make} ${vehicle.model} ${vehicle.year}`}
+                shortName={`${vehicle.make} ${vehicle.model}`}
                 vehicleId={vehicle.id}
-                price={vehicle.priceOnRequest ? null : vehicle.price}
+                url={`${site.url}/viaturas/${vehicle.slug}`}
                 status={vehicle.status ?? "published"}
+                company={branding.company}
+                price={<VehiclePrice vehicle={vehicle} />}
+                priceValue={vehicle.priceOnRequest ? null : vehicle.price}
+                warrantyMonths={vehicle.warrantyMonths}
+                recentViews={recentViews}
                 canReserve={canReserve}
                 depositAmount={branding.depositAmount}
               />
-            </div>
+              <SpecGrid vehicle={vehicle} />
+            </aside>
           </div>
 
+          <div className="mt-10 xl:mt-12">
+            <VehicleTabs
+              description={vehicle.description}
+              equipment={
+                (vehicle.extras?.length ?? 0) > 0 ? (
+                  <ExtrasGroups
+                    extras={vehicle.extras}
+                    className="grid items-start gap-5 lg:grid-cols-2"
+                  />
+                ) : null
+              }
+              specs={
+                <div className="space-y-10">
+                  <Specs vehicle={vehicle} />
+                  <TransparencySection vehicle={vehicle} />
+                </div>
+              }
+              place={place}
+            />
+          </div>
+        </div>
+
+        <div className="container-px">
           {/* Viaturas relacionadas */}
           {related.length > 0 && (
             <section className="mt-24">
