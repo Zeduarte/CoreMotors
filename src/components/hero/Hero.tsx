@@ -56,26 +56,40 @@ export function Hero({
   // fixa simples ocupa só o ecrã (melhor no telemóvel).
   const needsScroll = isVideo || crossfade;
   // Telemóvel com pesquisa: título no topo e pesquisa no fundo, para não
-  // taparem o centro da imagem. A margem de baixo conta com o header (a
-  // imagem começa por baixo dele) e deixa a pesquisa acima do botão do
-  // WhatsApp, que flutua no canto.
+  // taparem o centro da imagem. A imagem é mais baixa do que o ecrã (menos o
+  // header e mais 5rem): corta-se por baixo, continua centrada, a pesquisa
+  // fica acima do botão do WhatsApp e o início da secção seguinte já se vê.
   const split = Boolean(search);
 
   return (
     <section
       ref={sectionRef}
       className={`relative ${
-        // No telemóvel menos "pista" de scroll no vídeo: a secção seguinte
-        // aparece mais cedo.
-        isVideo ? "h-[120vh] md:h-[140vh]" : crossfade ? "h-[200vh]" : "h-dvh"
+        isVideo
+          ? // No telemóvel menos "pista" de scroll no vídeo: a secção seguinte
+            // aparece mais cedo.
+            // Com a pesquisa, no telemóvel nem há pista: o hero tem só a
+            // altura da imagem e o vídeo avança enquanto sai do ecrã.
+            split
+            ? "h-[calc(100svh-9rem)] md:h-[140vh]"
+            : "h-[120vh] md:h-[140vh]"
+          : crossfade
+            ? "h-[200vh]"
+            : split
+              ? "h-[calc(100svh-9rem)] md:h-dvh"
+              : "h-dvh"
       }`}
       aria-label="Viatura em destaque"
     >
       <div
         className={`flex w-full items-center justify-center ${
           needsScroll
-            ? "sticky top-0 h-dvh overflow-hidden"
-            : `relative min-h-dvh md:py-0 ${split ? "max-md:py-0" : "py-28"}`
+            ? split
+              ? "relative h-full overflow-hidden md:sticky md:top-0 md:h-dvh"
+              : "sticky top-0 h-dvh overflow-hidden"
+            : split
+              ? "relative h-full md:min-h-dvh"
+              : "relative min-h-dvh py-28 md:py-0"
         } ${split ? "max-md:items-stretch" : ""}`}
       >
         {/* Fundo: vídeo controlado pelo scroll OU imagem (fixa ou cross-fade) */}
@@ -84,6 +98,7 @@ export function Hero({
             <HeroVideo
               triggerRef={sectionRef}
               sources={[{ src: asset(media.src), type: "video/mp4" }]}
+              unpinnedOnMobile={split}
               poster={asset(media.poster)}
             />
           ) : (
@@ -122,7 +137,7 @@ export function Hero({
         {/* Conteúdo */}
         <div
           className={`container-px pointer-events-none relative z-10 text-center ${
-            split ? "max-md:flex max-md:flex-col max-md:pb-[9.5rem] max-md:pt-6" : ""
+            split ? "max-md:flex max-md:flex-col max-md:pb-6 max-md:pt-6" : ""
           }`}
         >
           <motion.p
@@ -137,7 +152,9 @@ export function Hero({
           <AnimatedText
             as="h1"
             splitBy="word"
-            className="hero-text-shadow mx-auto max-w-5xl text-display font-bold text-paper"
+            className={`hero-text-shadow mx-auto max-w-5xl text-display font-bold text-paper ${
+              split ? "max-md:text-[2rem]" : ""
+            }`}
           >
             {content.title}
           </AnimatedText>

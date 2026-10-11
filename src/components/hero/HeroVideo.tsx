@@ -22,6 +22,11 @@ interface HeroVideoProps {
   sources?: VideoSource[];
   /** Imagem de cartaz mostrada antes do vídeo carregar (opcional). */
   poster?: string;
+  /**
+   * No telemóvel o hero não fica preso (não há "pista" de scroll): o vídeo
+   * avança enquanto o hero sai do ecrã, em vez de até ao fim da pista.
+   */
+  unpinnedOnMobile?: boolean;
 }
 
 // Um único ficheiro (mp4, o formato universal) para simplificar a troca do
@@ -54,6 +59,7 @@ export function HeroVideo({
   triggerRef,
   sources = DEFAULT_SOURCES,
   poster,
+  unpinnedOnMobile = false,
 }: HeroVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const prefersReduced = usePrefersReducedMotion();
@@ -90,7 +96,10 @@ export function HeroVideo({
         scrollTrigger: {
           trigger,
           start: "top top",
-          end: "bottom bottom",
+          end:
+            unpinnedOnMobile && window.matchMedia("(max-width: 767px)").matches
+              ? "bottom top"
+              : "bottom bottom",
           scrub: 0.5,
         },
       });
@@ -109,7 +118,7 @@ export function HeroVideo({
       st?.kill();
       tween?.kill();
     };
-  }, [prefersReduced]);
+  }, [prefersReduced, unpinnedOnMobile]);
 
   return (
     <video
