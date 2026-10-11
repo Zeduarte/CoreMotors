@@ -105,7 +105,7 @@ export function InventoryClient({
       ) : (
         <motion.div
           layout
-          className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 min-[1400px]:grid-cols-4"
         >
           {/* `initial={false}`: ao chegar à página os cartões já lá estão (a
               página entra a deslizar); só os que entram ao filtrar animam. */}

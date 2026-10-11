@@ -91,13 +91,7 @@ export function Header({
           : "border-transparent bg-transparent backdrop-blur-none"
       }`}
     >
-      {/* Na ficha da viatura o conteúdo usa a largura toda: o header acompanha,
-          para o logótipo ficar alinhado com o título e as fotos. */}
-      <nav
-        className={`${
-          onVehiclePage ? "mx-auto w-full max-w-[105rem] px-6 md:px-10 xl:px-6" : "container-px"
-        } flex h-16 items-center justify-between md:h-20`}
-      >
+      <nav className="container-px flex h-16 items-center justify-between md:h-20">
         <div className="flex items-center gap-3">
           {onVehiclePage && (
             <button

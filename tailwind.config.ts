@@ -39,7 +39,9 @@ const config: Config = {
         tightest: "-0.04em",
       },
       maxWidth: {
-        content: "80rem",
+        // Largura máxima do conteúdo: quase o ecrã todo, como os grandes
+        // portais — sem as faixas vazias dos lados em ecrãs largos.
+        content: "105rem",
       },
       transitionTimingFunction: {
         // Curva "Apple-like": arranque rápido, aterragem suave.

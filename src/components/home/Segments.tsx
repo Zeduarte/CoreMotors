@@ -33,7 +33,7 @@ export function Segments({
 
       <ul className="-mx-6 flex snap-x snap-mandatory scroll-px-6 gap-3 overflow-x-auto px-6 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] md:mx-0 md:flex-wrap md:justify-center md:gap-4 md:overflow-visible md:px-0 lg:flex-nowrap [&::-webkit-scrollbar]:hidden">
         {segments.map(({ body, count, image }) => (
-          <li key={body} className="w-36 shrink-0 snap-start md:w-40 lg:w-auto lg:max-w-[11rem] lg:flex-1 lg:shrink">
+          <li key={body} className="w-36 shrink-0 snap-start md:w-40 lg:w-auto lg:max-w-[15rem] lg:flex-1 lg:shrink">
             <Link
               href={`/inventario?categoria=${encodeURIComponent(body)}`}
               className="group block rounded-2xl border border-white/5 bg-ink-soft p-2 transition-[transform,border-color,background-color] duration-300 ease-premium hover:-translate-y-1 hover:border-accent/40 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
@@ -44,7 +44,7 @@ export function Segments({
                     src={image.src}
                     alt=""
                     fill
-                    sizes="176px"
+                    sizes="(max-width: 1024px) 160px, 240px"
                     className="object-cover transition-transform duration-500 ease-premium group-hover:scale-105"
                   />
                 )}

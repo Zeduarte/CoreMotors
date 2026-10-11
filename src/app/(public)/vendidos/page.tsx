@@ -29,7 +29,7 @@ export default async function SoldPage() {
       </header>
 
       {vehicles.length > 0 ? (
-        <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 min-[1400px]:grid-cols-4">
           {vehicles.map((v) => (
             <VehicleCard key={v.slug} vehicle={v} sharedTransition={false} />
           ))}

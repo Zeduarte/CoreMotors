@@ -34,7 +34,7 @@ export function SoldShowcase({ vehicles }: { vehicles: Vehicle[] }) {
 
       <Reveal
         stagger={0.08}
-        className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3"
+        className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 min-[1400px]:grid-cols-4"
       >
         {vehicles.map((v) => (
           <VehicleCard key={v.slug} vehicle={v} sharedTransition={false} />

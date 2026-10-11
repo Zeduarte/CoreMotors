@@ -130,7 +130,7 @@ export default async function VehiclePage({ params }: { params: Params }) {
   const related = [
     ...all.filter((v) => v.slug !== vehicle.slug && v.make === vehicle.make),
     ...all.filter((v) => v.slug !== vehicle.slug && v.make !== vehicle.make),
-  ].slice(0, 3);
+  ].slice(0, 4);
 
   return (
     <>
@@ -138,9 +138,7 @@ export default async function VehiclePage({ params }: { params: Params }) {
       <ViewTracker carId={vehicle.id} slug={vehicle.slug} />
 
       <article className="md:pt-8">
-        {/* A toda a largura (até 105rem): as fotos ganham o espaço que as
-            margens do resto do site lhes tiravam. */}
-        <div className="mx-auto w-full max-w-[105rem] px-6 md:px-10 xl:px-6">
+        <div className="container-px">
           {(vehicle.status === "reserved" || vehicle.status === "sold") && (
             <div
               className={`mb-5 mt-4 rounded-xl px-4 py-3 text-sm font-medium md:mt-0 ${
@@ -277,7 +275,8 @@ export default async function VehiclePage({ params }: { params: Params }) {
               <h2 className="mb-8 text-2xl font-semibold text-paper">
                 Viaturas relacionadas
               </h2>
-              <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+              {/* 4 viaturas: 2×2 ou uma linha de 4, sem buracos. */}
+              <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 min-[1400px]:grid-cols-4">
                 {related.map((v) => (
                   <VehicleCard key={v.slug} vehicle={v} sharedTransition={false} />
                 ))}
@@ -288,9 +287,10 @@ export default async function VehiclePage({ params }: { params: Params }) {
           {/* Vistas recentemente (histórico local do visitante) */}
           <RecentlyViewed vehicles={all} excludeSlug={vehicle.slug} />
 
-          {/* Retoma / encomenda no fim da ficha */}
-          <SellCTA />
         </div>
+
+        {/* Retoma / encomenda no fim da ficha (tem o seu próprio contentor). */}
+        <SellCTA />
 
         {/* Fora do fluxo: flutua sobre o anúncio de ponta a ponta e reserva
             sozinha o espaço que ocupa (ver `ContactBar`). */}

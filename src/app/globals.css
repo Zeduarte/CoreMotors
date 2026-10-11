@@ -64,7 +64,7 @@ html.lenis body {
 
 @layer utilities {
   .container-px {
-    @apply mx-auto w-full max-w-content px-6 md:px-10 lg:px-16;
+    @apply mx-auto w-full max-w-content px-6 md:px-8;
   }
 
   /* Texto com tratamento tipográfico de "olho" — usado nas eyebrows. */

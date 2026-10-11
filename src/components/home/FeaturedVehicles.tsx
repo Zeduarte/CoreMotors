@@ -82,12 +82,12 @@ export function FeaturedVehicles({
         <>
           <div
             ref={trackRef}
-            className="-mx-6 flex snap-x snap-mandatory scroll-px-6 gap-4 overflow-x-auto scroll-smooth px-6 pb-4 [-ms-overflow-style:none] [scrollbar-width:none] md:-mx-10 md:scroll-px-10 md:gap-6 md:px-10 lg:-mx-16 lg:scroll-px-16 lg:px-16 [&::-webkit-scrollbar]:hidden"
+            className="-mx-6 flex snap-x snap-mandatory scroll-px-6 gap-4 overflow-x-auto scroll-smooth px-6 pb-4 [-ms-overflow-style:none] [scrollbar-width:none] md:-mx-8 md:scroll-px-8 md:gap-6 md:px-8 [&::-webkit-scrollbar]:hidden"
           >
             {shown.map((vehicle, i) => (
               <div
                 key={vehicle.slug}
-                className="w-[85%] shrink-0 snap-start sm:w-[60%] md:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)]"
+                className="w-[85%] shrink-0 snap-start sm:w-[60%] md:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)] min-[1400px]:w-[calc((100%-4.5rem)/4)]"
               >
                 <VehicleCard vehicle={vehicle} priority={i < 3} />
               </div>
