@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import { getVehicles } from "@/lib/queries";
 import { InventoryClient } from "@/components/inventory/InventoryClient";
 import { StockAlertForm } from "@/components/inventory/StockAlertForm";
-import type { FuelType, VehicleFilters } from "@/types/vehicle";
+import type { FuelType, Transmission, VehicleFilters } from "@/types/vehicle";
 
 export const revalidate = 60;
 
@@ -32,6 +32,7 @@ export default async function InventoryPage({
     make: sp.make || null,
     model: sp.model || null,
     fuel: (sp.fuel as FuelType) || null,
+    transmission: (sp.transmission as Transmission) || null,
     query: sp.q || null,
     // ?categoria=Moto%204 — link direto para uma categoria.
     body: (sp.categoria as VehicleFilters["body"]) || null,

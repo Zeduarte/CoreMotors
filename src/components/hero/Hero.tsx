@@ -135,7 +135,11 @@ export function Hero({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5, duration: 0.8 }}
-            className="hero-text-shadow mx-auto mt-5 max-w-xl text-base font-light text-paper/80 md:mt-8 md:text-lg"
+            className={`hero-text-shadow mx-auto mt-5 max-w-xl text-base font-light text-paper/80 md:mt-8 md:text-lg ${
+              // No telemóvel, com a pesquisa, o topo fica só com o título e a
+              // pesquisa — cabe no ecrã sem cortar a barra.
+              search ? "hidden md:block" : ""
+            }`}
           >
             {content.subtitle}
           </motion.p>
@@ -144,7 +148,9 @@ export function Hero({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.6 }}
-            className="pointer-events-auto mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row md:mt-10 md:gap-4"
+            className={`pointer-events-auto mt-7 flex-col items-center justify-center gap-3 sm:flex-row md:mt-10 md:flex md:gap-4 ${
+              search ? "hidden" : "flex"
+            }`}
           >
             <Link
               href={content.primaryCta.href}
@@ -165,7 +171,7 @@ export function Hero({
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.9, duration: 0.6 }}
-              className="pointer-events-auto mx-auto mt-7 max-w-3xl text-left md:mt-10"
+              className="pointer-events-auto mx-auto mt-7 max-w-6xl text-left md:mt-12"
             >
               {search}
             </motion.div>
