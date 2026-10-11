@@ -58,18 +58,9 @@ export default async function HomePage() {
     acc[v.body] = (acc[v.body] ?? 0) + 1;
     return acc;
   }, {});
-  // A foto de cada segmento é a capa da 1.ª viatura dessa categoria (a lista
-  // vem com os destaques primeiro, depois as mais recentes).
   const segments = bodiesFor(type)
     .filter((body) => bodyCounts[body])
-    .map((body) => {
-      const cover = allVehicles.find((v) => v.body === body && v.images[0])?.images[0];
-      return {
-        body,
-        count: bodyCounts[body]!,
-        image: cover ? { src: cover.src, alt: cover.alt } : null,
-      };
-    });
+    .map((body) => ({ body, count: bodyCounts[body]! }));
 
   // Marcas em stock — cada uma na faixa leva ao stock dessa marca. Nos carros
   // a faixa é a lista do backoffice, mais as marcas em stock que lá faltem.
