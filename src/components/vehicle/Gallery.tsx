@@ -83,7 +83,7 @@ export function Gallery({
         </AnimatePresence>
 
         {/* Ícone de ampliar (afeta descoberta do lightbox). */}
-        <span className="pointer-events-none absolute left-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-ink/60 text-paper backdrop-blur transition-opacity md:opacity-0 md:group-hover:opacity-100">
+        <span className="pointer-events-none absolute left-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-ink/60 text-paper backdrop-blur transition-opacity md:can-hover:opacity-0 md:group-hover:opacity-100">
           <ZoomIcon />
         </span>
 
@@ -111,7 +111,7 @@ export function Gallery({
                 step(-1);
               }}
               aria-label="Foto anterior"
-              className="absolute left-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-ink/60 text-2xl text-paper backdrop-blur transition-colors hover:bg-ink/80 focus-visible:bg-ink/80 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-visible:opacity-100"
+              className="absolute left-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-ink/60 text-2xl text-paper backdrop-blur transition-colors hover:bg-ink/80 focus-visible:bg-ink/80 md:can-hover:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-visible:opacity-100"
             >
               ‹
             </button>
@@ -122,7 +122,7 @@ export function Gallery({
                 step(1);
               }}
               aria-label="Foto seguinte"
-              className="absolute right-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-ink/60 text-2xl text-paper backdrop-blur transition-colors hover:bg-ink/80 focus-visible:bg-ink/80 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-visible:opacity-100"
+              className="absolute right-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-ink/60 text-2xl text-paper backdrop-blur transition-colors hover:bg-ink/80 focus-visible:bg-ink/80 md:can-hover:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-visible:opacity-100"
             >
               ›
             </button>

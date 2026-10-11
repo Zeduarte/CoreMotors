@@ -333,13 +333,13 @@ export function MediaManager({
                 disabled={pending}
                 onClick={() => remove(m.id)}
                 aria-label="Apagar ficheiro"
-                className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-red-500/90 text-sm font-bold text-white opacity-0 transition-opacity hover:bg-red-500 group-hover:opacity-100"
+                className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-red-500/90 text-sm font-bold text-white transition-opacity hover:bg-red-500 can-hover:opacity-0 group-hover:opacity-100"
               >
                 ✕
               </button>
 
               {m.kind === "image" && !m.is_cover && (
-                <div className="absolute inset-x-0 bottom-0 flex bg-gradient-to-t from-ink/90 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="absolute inset-x-0 bottom-0 flex bg-gradient-to-t from-ink/90 to-transparent p-2 transition-opacity can-hover:opacity-0 group-hover:opacity-100">
                   <button
                     type="button"
                     disabled={pending}

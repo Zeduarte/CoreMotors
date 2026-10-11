@@ -1,6 +1,11 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 const config: Config = {
+  // `hover:` só em dispositivos com rato. Nos ecrãs tácteis o browser usa o
+  // 1.º toque para "passar o rato" quando isso mostra alguma coisa, e o
+  // visitante tinha de tocar duas vezes num cartão para o abrir.
+  future: { hoverOnlyWhenSupported: true },
   content: [
     "./src/**/*.{ts,tsx}",
   ],
@@ -51,7 +56,13 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // `can-hover:` — o mesmo critério para esconder controlos que só aparecem
+    // ao passar o rato (num ecrã táctil ficam visíveis ou não existem).
+    plugin(({ addVariant }) => {
+      addVariant("can-hover", "@media (hover: hover) and (pointer: fine)");
+    }),
+  ],
 };
 
 export default config;

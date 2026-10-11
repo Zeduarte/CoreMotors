@@ -118,14 +118,15 @@ export function VehicleCard({
             </div>
           )}
 
-          {/* Setas de navegação entre fotos */}
+          {/* Setas entre fotos: só com rato. Num ecrã táctil um toque no
+              cartão abre logo o anúncio (as fotos vêem-se na ficha). */}
           {hasMultiple && (
             <>
               <button
                 type="button"
                 onClick={(e) => step(e, -1)}
                 aria-label="Foto anterior"
-                className="absolute left-2 top-1/2 grid h-9 w-9 -translate-y-1/2 scale-90 place-items-center rounded-full bg-ink/60 text-paper opacity-0 backdrop-blur transition-[opacity,transform,background-color] duration-300 ease-premium hover:bg-ink/80 group-hover:scale-100 group-hover:opacity-100 focus:scale-100 focus:opacity-100"
+                className="absolute left-2 top-1/2 hidden can-hover:grid h-9 w-9 -translate-y-1/2 scale-90 place-items-center rounded-full bg-ink/60 text-paper opacity-0 backdrop-blur transition-[opacity,transform,background-color] duration-300 ease-premium hover:bg-ink/80 group-hover:scale-100 group-hover:opacity-100 focus:scale-100 focus:opacity-100"
               >
                 ‹
               </button>
@@ -133,7 +134,7 @@ export function VehicleCard({
                 type="button"
                 onClick={(e) => step(e, 1)}
                 aria-label="Foto seguinte"
-                className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 scale-90 place-items-center rounded-full bg-ink/60 text-paper opacity-0 backdrop-blur transition-[opacity,transform,background-color] duration-300 ease-premium hover:bg-ink/80 group-hover:scale-100 group-hover:opacity-100 focus:scale-100 focus:opacity-100"
+                className="absolute right-2 top-1/2 hidden can-hover:grid h-9 w-9 -translate-y-1/2 scale-90 place-items-center rounded-full bg-ink/60 text-paper opacity-0 backdrop-blur transition-[opacity,transform,background-color] duration-300 ease-premium hover:bg-ink/80 group-hover:scale-100 group-hover:opacity-100 focus:scale-100 focus:opacity-100"
               >
                 ›
               </button>
@@ -150,10 +151,10 @@ export function VehicleCard({
             </>
           )}
 
-          {/* Comparar — sempre visível no mobile (sem hover); no desktop
-              aparece ao passar o rato. Tocar aqui alterna a comparação;
+          {/* Comparar — sempre visível em ecrãs tácteis; com rato aparece
+              ao passar por cima. Tocar aqui alterna a comparação;
               tocar na foto (o Link) abre o anúncio. */}
-          <div className="absolute bottom-3 right-3 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
+          <div className="absolute bottom-3 right-3 opacity-100 transition-opacity md:can-hover:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
             <CompareButton slug={vehicle.slug} />
           </div>
         </div>
