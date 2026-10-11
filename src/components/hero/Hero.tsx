@@ -148,7 +148,9 @@ export function Hero({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.6 }}
-            className={`pointer-events-auto mt-7 flex-col items-center justify-center gap-3 sm:flex-row md:mt-10 md:flex md:gap-4 ${
+            // Com a pesquisa, os botões saem e a barra sobe para o lugar
+            // deles; ficam só quando não há stock (sem barra).
+            className={`pointer-events-auto mt-7 flex-col items-center justify-center gap-3 sm:flex-row md:mt-10 md:gap-4 ${
               search ? "hidden" : "flex"
             }`}
           >
@@ -171,7 +173,7 @@ export function Hero({
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.9, duration: 0.6 }}
-              className="pointer-events-auto mx-auto mt-7 max-w-6xl text-left md:mt-12"
+              className="pointer-events-auto mx-auto mt-7 max-w-6xl text-left md:mt-10"
             >
               {search}
             </motion.div>
