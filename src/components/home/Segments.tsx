@@ -1,13 +1,4 @@
 import Link from "next/link";
-import { Cormorant_Garamond } from "next/font/google";
-
-// Letra de título com requinte, só para os nomes dos segmentos.
-const serif = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["500", "600"],
-  style: ["italic"],
-  display: "swap",
-});
 
 export type Segment = {
   body: string;
@@ -16,7 +7,7 @@ export type Segment = {
 
 /**
  * «Que segmento procura?» — um cartão por categoria com viaturas em stock:
- * o nome, em letra de título, e quantas há. Leva ao stock já filtrado pela
+ * o nome e quantas há. Leva ao stock já filtrado pela
  * categoria.
  *
  * Telemóvel: fila que desliza na horizontal (com snap). Tablet: os cartões
@@ -69,7 +60,7 @@ export function Segments({
               <span>
                 {/* Quebra depois da barra («Chopper/Cruiser») em vez de cortar. */}
                 <span
-                  className={`${serif.className} block text-[1.6rem] font-semibold italic leading-[0.95] text-paper transition-colors duration-300 group-hover:text-accent md:text-[2rem]`}
+                  className="block text-xl font-semibold leading-tight tracking-tight text-paper transition-colors duration-300 group-hover:text-accent md:text-2xl"
                 >
                   {body.replace("/", "/​")}
                 </span>
