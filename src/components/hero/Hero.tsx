@@ -173,29 +173,32 @@ export function Hero({
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.9, duration: 0.6 }}
-              className="pointer-events-auto mx-auto mt-7 max-w-6xl text-left md:mt-10"
+              className="pointer-events-auto mx-auto mt-7 max-w-4xl text-left md:mt-10"
             >
               {search}
             </motion.div>
           )}
         </div>
 
-        {/* Indicador de scroll. */}
-        <motion.div
-          aria-hidden
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.1, duration: 0.8 }}
-          className="pointer-events-none absolute bottom-8 left-1/2 z-10 -translate-x-1/2"
-        >
-          <div className="flex h-10 w-6 items-start justify-center rounded-full border border-paper/30 p-1.5">
-            <motion.span
-              className="block h-2 w-1 rounded-full bg-paper/60"
-              animate={{ y: [0, 8, 0] }}
-              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </div>
-        </motion.div>
+        {/* Indicador de scroll ("desça para ver mais"). Com a pesquisa não
+            aparece: ficava por cima da barra. */}
+        {!search && (
+          <motion.div
+            aria-hidden
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.1, duration: 0.8 }}
+            className="pointer-events-none absolute bottom-8 left-1/2 z-10 -translate-x-1/2"
+          >
+            <div className="flex h-10 w-6 items-start justify-center rounded-full border border-paper/30 p-1.5">
+              <motion.span
+                className="block h-2 w-1 rounded-full bg-paper/60"
+                animate={{ y: [0, 8, 0] }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+              />
+            </div>
+          </motion.div>
+        )}
       </div>
     </section>
   );

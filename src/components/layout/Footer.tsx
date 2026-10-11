@@ -158,15 +158,6 @@ export function Footer({
                 )}
               </span>
             ))}
-            <span aria-hidden className="text-paper/40">
-              ·
-            </span>
-            <Link
-              href="/admin"
-              className="text-paper/55 transition-colors hover:text-accent"
-            >
-              Área reservada
-            </Link>
           </nav>
         </div>
       </div>

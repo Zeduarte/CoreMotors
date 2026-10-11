@@ -7,10 +7,11 @@ import { useRouter } from "next/navigation";
 type Item = { make: string; model: string; fuel: string; transmission: string };
 
 /**
- * Pesquisa rápida da homepage — uma barra na cor da marca com Marca, Modelo,
- * Combustível e Transmissão lado a lado e o botão «Procurar» à direita. No
- * telemóvel os campos empilham-se num cartão, um por linha, com o botão a
- * toda a largura. Leva ao stock já filtrado.
+ * Pesquisa rápida da homepage — uma barra compacta na cor da marca com Marca,
+ * Modelo, Combustível e Transmissão lado a lado e o botão «Procurar» à
+ * direita. No telemóvel não há cartão: só os campos têm fundo, numa grelha de
+ * 2×2, com o botão por baixo — vê-se mais a imagem do topo. Leva ao stock já
+ * filtrado.
  */
 export function QuickSearch({ vehicles }: { vehicles: Item[] }) {
   const router = useRouter();
@@ -67,10 +68,10 @@ export function QuickSearch({ vehicles }: { vehicles: Item[] }) {
         e.preventDefault();
         search();
       }}
-      className="rounded-2xl bg-accent p-5 text-ink shadow-[0_24px_60px_-24px_rgba(0,0,0,0.9)] md:rounded-xl md:px-6 md:py-5"
+      className="text-ink md:rounded-xl md:bg-accent md:p-2 md:shadow-[0_24px_60px_-24px_rgba(0,0,0,0.9)]"
     >
-      <div className="flex flex-col md:flex-row md:items-center md:gap-4">
-        <div className="grid flex-1 divide-y divide-ink/15 md:grid-cols-4 md:divide-x md:divide-y-0">
+      <div className="flex flex-col md:flex-row md:items-center md:gap-2">
+        <div className="grid flex-1 grid-cols-2 gap-2 md:grid-cols-4 md:gap-0 md:divide-x md:divide-ink/15">
           <Select
             label="Marca"
             value={make}
@@ -98,9 +99,9 @@ export function QuickSearch({ vehicles }: { vehicles: Item[] }) {
 
         <button
           type="submit"
-          className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-paper px-8 py-3.5 text-sm font-semibold text-ink transition-[transform,background-color] hover:scale-[1.02] hover:bg-white active:scale-[0.98] md:mt-0 md:w-44 md:shrink-0"
+          className="mt-2 flex items-center justify-center gap-2 rounded-xl bg-paper px-6 py-3 text-sm font-semibold text-ink shadow-lg transition-[transform,background-color] hover:scale-[1.02] hover:bg-white active:scale-[0.98] md:mt-0 md:w-36 md:shrink-0 md:rounded-lg md:py-2.5 md:shadow-none"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
             <circle cx="11" cy="11" r="7" />
             <path d="m21 21-4.3-4.3" />
           </svg>
@@ -114,7 +115,7 @@ export function QuickSearch({ vehicles }: { vehicles: Item[] }) {
           border: 0;
           border-radius: 0;
           background-color: transparent;
-          padding: 1rem 2rem 1rem 0.25rem;
+          padding: 0.7rem 2rem 0.7rem 0.9rem;
           font-size: 1rem; /* ≥16px evita zoom automático no iOS */
           font-weight: 600;
           color: inherit;
@@ -122,10 +123,10 @@ export function QuickSearch({ vehicles }: { vehicles: Item[] }) {
           appearance: none;
           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230A0A0A' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
           background-repeat: no-repeat;
-          background-position: right 0.4rem center;
+          background-position: right 0.7rem center;
         }
         @media (min-width: 768px) {
-          .qs-select { padding: 0.65rem 2.25rem 0.65rem 1.25rem; font-size: 0.95rem; background-position: right 1rem center; }
+          .qs-select { padding: 0.5rem 2.25rem 0.5rem 1rem; font-size: 0.9rem; background-position: right 0.85rem center; }
         }
         .qs-select:focus { outline: none; }
         .qs-select:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; border-radius: 0.375rem; }
@@ -151,7 +152,8 @@ function Select({
   disabled?: boolean;
 }) {
   return (
-    <label className="block min-w-0">
+    // Telemóvel: cada campo tem o seu fundo; no computador partilham a barra.
+    <label className="block min-w-0 rounded-xl bg-accent shadow-lg md:rounded-none md:bg-transparent md:shadow-none">
       <span className="sr-only">{label}</span>
       <select
         className="qs-select truncate"
