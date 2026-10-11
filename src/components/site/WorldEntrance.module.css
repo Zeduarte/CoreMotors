@@ -1,4 +1,4 @@
-.entrance { position: fixed; inset: 0; width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: #090b0d; color: #fff; overflow: auto; }
+.entrance { position: fixed; inset: 0; width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: #090b0d; color: #fff; overflow: auto; z-index: 1000; }
 .entrance::backdrop { background: #090b0d; }
 .header { position: absolute; inset: 0 0 auto; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 30px 4%; }
 .brand { font-size: 25px; font-weight: 700; letter-spacing: -1.5px; }

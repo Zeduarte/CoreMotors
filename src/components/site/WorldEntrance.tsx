@@ -24,6 +24,16 @@ export function WorldEntrance({ name, selected }: { name: string; selected: Vehi
     if (exitTimer.current) clearTimeout(exitTimer.current);
   }, []);
 
+  // Voltar atrás para esta página (cache do browser) depois de escolher: o
+  // ecrã de partida ficava parado. Recarrega — o cookie já tem a escolha.
+  useEffect(() => {
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted && exiting.current) window.location.reload();
+    };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, []);
+
   function move(event: PointerEvent<HTMLButtonElement>) {
     if (event.pointerType !== "mouse" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -49,6 +59,9 @@ export function WorldEntrance({ name, selected }: { name: string; selected: Vehi
   useEffect(() => {
     if (entered) return;
     const element = dialog.current;
+    // Vem aberto do servidor (ver `open` abaixo) para tapar a página desde o
+    // 1.º desenho; aqui passa a modal (foco preso, resto da página inerte).
+    if (element?.open) element.close();
     element?.showModal();
     const previous = document.documentElement.style.overflow;
     document.documentElement.style.overflow = "hidden";
@@ -61,10 +74,12 @@ export function WorldEntrance({ name, selected }: { name: string; selected: Vehi
   function enter(type: VehicleType, choice = "A tua próxima viagem") {
     if (exiting.current) return;
     exiting.current = true;
+    // O ecrã NÃO se fecha antes de sair: fechá-lo destapava a página que está
+    // por baixo (a dos carros, a escolha por defeito) enquanto o servidor
+    // prepara a escolhida. Fica aberto até o browser trocar de página, e a
+    // página nova abre tapada pela capa do mundo escolhido (WorldArrival).
     const finish = () => {
       markWorldArrival(type);
-      dialog.current?.close();
-      setEntered(true);
       window.location.assign(
         `/api/vehicle-context?type=${type}&area=public&target=${encodeURIComponent(pathname)}`,
       );
@@ -74,13 +89,16 @@ export function WorldEntrance({ name, selected }: { name: string; selected: Vehi
       return;
     }
     setLeaving(choice);
-    exitTimer.current = setTimeout(finish, 1500);
+    // O pedido começa enquanto o ecrã de partida ainda anima: a espera pelo
+    // servidor fica escondida atrás dele em vez de se somar à animação.
+    exitTimer.current = setTimeout(finish, 600);
   }
 
   if (entered) return null;
 
   return (
-    <dialog ref={dialog} className={styles.entrance} data-leaving={leaving ? "true" : undefined} aria-labelledby="world-title"
+    // `open` desde o servidor: tapa a página antes de o JavaScript carregar.
+    <dialog ref={dialog} open className={styles.entrance} data-leaving={leaving ? "true" : undefined} aria-labelledby="world-title"
       data-lenis-prevent onCancel={(event) => { event.preventDefault(); }}>
       <header className={styles.header}>
         <span className={styles.brand}>{name}<span className={styles.brandDot}>.</span></span>
