@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import { localRedirect } from "@/lib/local-redirect";
 
 const ADMIN_TARGETS = [
   "/admin", "/admin/carros", "/admin/carros/novo", "/admin/oficina",
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
     (area === "admin" && /^\/admin\/carros\/[0-9a-f-]{36}$/.test(target))
   );
   const destination = validTarget ? target : area === "admin" ? "/admin/carros" : "/";
-  const response = NextResponse.redirect(new URL(destination, request.url), 303);
+  const response = localRedirect(destination, 303);
   response.cookies.set(`engineline_${area}_type`, type, {
     httpOnly: true,
     sameSite: "lax",

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSection } from "@/lib/guard";
 import { olxBase, olxConfigured } from "@/lib/olx/client";
 import { createState } from "@/lib/olx/oauth";
+import { localRedirect } from "@/lib/local-redirect";
 import { STATE_COOKIE, olxRedirectUri } from "../redirect";
 
 export const runtime = "nodejs";
@@ -11,13 +12,9 @@ export const dynamic = "force-dynamic";
  * "Ligar conta OLX": envia o administrador para o OLX, que lhe pede para
  * autorizar a aplicação e o devolve a /api/olx/callback com um `code`.
  */
-export async function GET(request: Request) {
+export async function GET() {
   await requireSection("anuncios");
-  const back = new URL("/admin/anuncios", request.url);
-  if (!olxConfigured()) {
-    back.searchParams.set("olx", "sem-credenciais");
-    return NextResponse.redirect(back);
-  }
+  if (!olxConfigured()) return localRedirect("/admin/anuncios?olx=sem-credenciais");
 
   const state = createState(process.env.OLX_CLIENT_SECRET!);
   const url = new URL(`${olxBase()}/oauth/authorize/`);

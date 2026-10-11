@@ -212,12 +212,12 @@ await test("selection endpoint stores only the requested area and rejects unsafe
  const {GET}=load("src/app/api/vehicle-context/route.ts");
  const result=await GET(new NextRequest("https://example.test/api/vehicle-context?type=motorcycle&area=public&target=%2Finventario"));
  assert.equal(result.status,303);
- assert.equal(result.headers.get("location"),"https://example.test/inventario");
+ assert.equal(result.headers.get("location"),"/inventario");
  assert.equal(result.cookies.get("engineline_public_type").value,"motorcycle");
  assert.equal(result.cookies.get("engineline_admin_type"),undefined);
  assert.match(result.headers.get("set-cookie"),/HttpOnly/);
  const unsafe=await GET(new NextRequest("https://example.test/api/vehicle-context?type=car&area=admin&target=https://evil.test"));
- assert.equal(unsafe.headers.get("location"),"https://example.test/admin/carros");
+ assert.equal(unsafe.headers.get("location"),"/admin/carros");
  assert.equal(unsafe.cookies.get("engineline_admin_type").value,"car");
  const invalid=await GET(new NextRequest("https://example.test/api/vehicle-context?type=truck"));
  assert.equal(invalid.status,400);
@@ -278,12 +278,12 @@ await test("first visit keeps the page the visitor arrived on",async()=>{
 
  for(const alvo of ["/viaturas/bmw-116d","/contactos","/inventario","/vendidos","/servicos","/politica-de-privacidade"]){
   const r=await entrar(alvo);
-  assert.equal(r.headers.get("location"),`https://example.test${alvo}`,alvo);
+  assert.equal(r.headers.get("location"),alvo,alvo);
  }
 
  // Sem destino continua a ir para a homepage, e um destino externo é ignorado.
  const semAlvo=await GET(new NextRequest("https://example.test/api/vehicle-context?type=car&area=public"));
- assert.equal(semAlvo.headers.get("location"),"https://example.test/");
+ assert.equal(semAlvo.headers.get("location"),"/");
  const externo=await entrar("https://evil.test/phish");
- assert.equal(externo.headers.get("location"),"https://example.test/");
+ assert.equal(externo.headers.get("location"),"/");
 });

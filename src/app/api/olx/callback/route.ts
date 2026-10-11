@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
 import { getCurrentProfile } from "@/lib/admin-queries";
 import { canAccess } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exchangeCode, olxConfigured, olxFetch } from "@/lib/olx/client";
 import { verifyState } from "@/lib/olx/oauth";
 import { unwrap } from "@/lib/olx/categories";
+import { localRedirect } from "@/lib/local-redirect";
 import { STATE_COOKIE, olxRedirectUri } from "../redirect";
 
 export const runtime = "nodejs";
@@ -19,18 +19,17 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const back = new URL("/admin/anuncios", request.url);
   const done = (estado: string, detalhe?: string) => {
-    back.searchParams.set("olx", estado);
-    if (detalhe) back.searchParams.set("detalhe", detalhe.slice(0, 200));
-    const r = NextResponse.redirect(back);
+    const q = new URLSearchParams({ olx: estado });
+    if (detalhe) q.set("detalhe", detalhe.slice(0, 200));
+    const r = localRedirect(`/admin/anuncios?${q}`);
     r.cookies.delete({ name: STATE_COOKIE, path: "/api/olx" });
     return r;
   };
 
   const me = await getCurrentProfile();
   if (!me || !canAccess(me.role, me.allowed_sections, "anuncios")) {
-    return NextResponse.redirect(new URL("/admin/login", request.url));
+    return localRedirect("/admin/login");
   }
   if (!olxConfigured()) return done("sem-credenciais");
 
