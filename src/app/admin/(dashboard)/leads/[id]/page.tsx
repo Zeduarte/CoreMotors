@@ -31,7 +31,7 @@ export default async function LeadPage({params}: {params:Promise<{id:string}>}) 
   return <div className="space-y-6">
     <Link className="text-sm text-accent" href="/admin/leads">← Contactos</Link>
     <header><h1 className="text-2xl font-bold">{lead.name}</h1><p className="mt-2 text-paper/60">{lead.car_label ?? "Contacto geral"}</p>
-      <div className="mt-3 flex flex-wrap gap-4 text-accent"><a href={`mailto:${lead.email}`}>{lead.email}</a>{lead.phone && <a href={`tel:${lead.phone}`}>{lead.phone}</a>}</div>
+      <div className="mt-3 flex flex-wrap gap-4 text-accent">{lead.email && <a href={`mailto:${lead.email}`}>{lead.email}</a>}{lead.phone && <a href={`tel:${lead.phone}`}>{lead.phone}</a>}</div>
       {lead.message && <p className="mt-4 whitespace-pre-wrap text-sm">{lead.message}</p>}
     </header>
     {lead.vehicle_type === null && <p className="card p-4 text-sm">Contacto antigo sem tipo. Associe um carro ou uma mota na área correspondente.</p>}

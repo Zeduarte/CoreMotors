@@ -194,7 +194,8 @@ export const leadSchema = z.object({
   car_id: z.string().uuid().nullable().optional(),
   car_label: z.string().max(160).optional().or(z.literal("")),
   name: z.string().trim().min(2, "Indique o seu nome"),
-  email: z.string().trim().email("Email inválido"),
+  // Opcional: há quem só deixe o telefone. Um dos dois é obrigatório (abaixo).
+  email: z.string().trim().email("Email inválido").optional().or(z.literal("")),
   phone: z
     .string()
     .trim()
@@ -205,6 +206,9 @@ export const leadSchema = z.object({
   preferred_date: z.string().optional().or(z.literal("")),
   /** JSON com detalhes extra (ex.: carro de retoma). */
   details: z.string().max(4000).optional().or(z.literal("")),
+}).refine((v) => Boolean(v.email || v.phone), {
+  message: "Indique o telefone ou o email, para lhe respondermos.",
+  path: ["phone"],
 });
 
 export type LeadValues = z.infer<typeof leadSchema>;
@@ -384,7 +388,8 @@ export type IntegrationsValues = z.infer<typeof integrationsSchema>;
 // ---- Novo utilizador (admin) ----------------------------------------------
 export const newUserSchema = z.object({
   full_name: z.string().trim().min(2, "Indique o nome").max(80),
-  email: z.string().trim().email("Email inválido"),
+  // Opcional: há quem só deixe o telefone. Um dos dois é obrigatório (abaixo).
+  email: z.string().trim().email("Email inválido").optional().or(z.literal("")),
   password: z.string().min(8, "Mínimo 8 caracteres").max(72),
   role: z.enum(["admin", "chefe", "vendedor", "mecanico"]).default("vendedor"),
   /** Separadores a que o novo utilizador terá acesso (opcional). */

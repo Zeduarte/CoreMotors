@@ -230,12 +230,12 @@ function LeadCard({
             </span>
           </div>
           <p className="mt-1 text-sm text-paper/60">
-            <a href={`mailto:${l.email}`} className="hover:text-accent hover:underline">
+            {l.email ? (<a href={`mailto:${l.email}`} className="hover:text-accent hover:underline">
               {l.email}
-            </a>
+            </a>) : null}
             {l.phone && (
               <>
-                {" · "}
+                {l.email ? " · " : null}
                 <a href={`tel:${l.phone}`} className="hover:text-accent hover:underline">
                   {l.phone}
                 </a>

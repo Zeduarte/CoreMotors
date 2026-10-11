@@ -30,9 +30,12 @@ export function ChatLauncher({
   const { open, question, closeChat, clearQuestion } = useChat();
   const onVehiclePage = /^\/viaturas\/[^/]+\/?$/.test(pathname);
 
-  if (!chatEnabled || !onVehiclePage) {
+  if (!onVehiclePage) {
     return <ContactFab whatsapp={whatsapp} messenger={messenger} name={name} />;
   }
+  // Na ficha sem assistente, a barra do fundo já tem o WhatsApp e o telefone:
+  // o botão flutuante repetia-os e ficava por cima do botão de ligar.
+  if (!chatEnabled) return null;
 
   // Na ficha, os contactos humanos já estão na barra do fundo, ao lado do
   // campo de pergunta — um botão flutuante por cima seria repetição.

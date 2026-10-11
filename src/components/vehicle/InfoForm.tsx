@@ -8,13 +8,19 @@ import { submitLead, type LeadActionState } from "@/lib/actions/leads";
 /**
  * Formulário "Pedir mais informações" sobre uma viatura. Persiste como lead
  * (kind = "contact"), associado à viatura.
+ *
+ * Curto de propósito: nome e telefone (ou email) chegam, e a mensagem já vem
+ * escrita — quem só quer saber se a viatura está disponível envia em segundos.
  */
 export function InfoForm({
   vehicleName,
   vehicleId,
+  initialMessage,
 }: {
   vehicleName: string;
   vehicleId?: string;
+  /** Mensagem já escrita (ex.: uma pergunta rápida escolhida na ficha). */
+  initialMessage?: string;
 }) {
   const [state, formAction, pending] = useActionState<
     LeadActionState,
@@ -33,11 +39,12 @@ export function InfoForm({
       string
     >;
     const next: Record<string, string> = {};
+    const phone = data.phone?.trim() ?? "";
+    const email = data.email?.trim() ?? "";
     if (!data.name?.trim()) next.name = "Indique o seu nome.";
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email ?? ""))
-      next.email = "Email inválido.";
-    if (!/^[\d\s+]{9,}$/.test(data.phone ?? ""))
-      next.phone = "Telefone inválido.";
+    if (!phone && !email) next.phone = "Indique o telefone ou o email, para lhe respondermos.";
+    else if (phone && !/^[\d\s+]{9,}$/.test(phone)) next.phone = "Telefone inválido.";
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) next.email = "Email inválido.";
     if (!data.message?.trim()) next.message = "Escreva a sua questão.";
     setErrors(next);
     if (Object.keys(next).length > 0) e.preventDefault();
@@ -80,7 +87,17 @@ export function InfoForm({
       </Field>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field id="email" label="Email" error={errors.email}>
+        <Field id="phone" label="Telefone" error={errors.phone}>
+          <input
+            id="phone"
+            name="phone"
+            type="tel"
+            autoComplete="tel"
+            inputMode="tel"
+            className="field"
+          />
+        </Field>
+        <Field id="email" label="Email (opcional)" error={errors.email}>
           <input
             id="email"
             name="email"
@@ -89,24 +106,15 @@ export function InfoForm({
             className="field"
           />
         </Field>
-        <Field id="phone" label="Telefone" error={errors.phone}>
-          <input
-            id="phone"
-            name="phone"
-            type="tel"
-            autoComplete="tel"
-            className="field"
-          />
-        </Field>
       </div>
 
-      <Field id="message" label="A sua questão" error={errors.message}>
+      <Field id="message" label="Mensagem" error={errors.message}>
         <textarea
           id="message"
           name="message"
-          rows={4}
+          rows={3}
           className="field"
-          placeholder={`O que gostaria de saber sobre o ${vehicleName}?`}
+          defaultValue={initialMessage ?? `Olá! Tenho interesse no ${vehicleName}. Ainda está disponível?`}
         />
       </Field>
 
@@ -122,7 +130,7 @@ export function InfoForm({
         disabled={pending}
         className="mt-1 rounded-full bg-accent px-8 py-3.5 text-sm font-semibold text-ink transition-transform hover:scale-[1.02] disabled:opacity-60"
       >
-        {pending ? "A enviar…" : "Enviar pedido"}
+        {pending ? "A enviar…" : "Enviar mensagem"}
       </button>
     </form>
   );

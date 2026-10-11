@@ -1,18 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { OfferForm } from "./OfferForm";
 import { InfoForm } from "./InfoForm";
 import { TestDriveForm } from "./TestDriveForm";
 import { ReserveForm } from "./ReserveForm";
+import { VEHICLE_CONTACT_EVENT, type VehicleContactDetail } from "@/lib/vehicle-contact";
 
 type Mode = "offer" | "info" | "testdrive" | "reserve";
 
 /**
- * Painel de ações da ficha de viatura: o visitante escolhe o que quer fazer
- * (proposta, informações, test drive, reservar) e o formulário respetivo abre
- * por baixo. Um único ponto de contacto, sem empilhar vários formulários.
+ * Painel de ações da ficha de viatura: um único ponto de contacto, com o
+ * pedido de informações já aberto (é o que a maioria quer) e separadores para
+ * proposta, test drive e reserva. Antes era preciso escolher num menu e só
+ * depois aparecia o formulário — um clique a mais que fazia desistir.
  */
 export function VehicleActions({
   vehicleName,
@@ -27,17 +29,32 @@ export function VehicleActions({
   canReserve: boolean;
   depositAmount: number;
 }) {
-  const [mode, setMode] = useState<Mode | null>(null);
+  const [mode, setMode] = useState<Mode>("info");
+  // Mensagem vinda do contacto rápido (ex.: "Ainda está disponível?").
+  const [message, setMessage] = useState<{ text: string; n: number } | null>(null);
+  const box = useRef<HTMLElement>(null);
 
-  const actions: { id: Mode; label: string; icon: string; primary?: boolean }[] = [
-    { id: "info", label: "Pedir mais informações", icon: "?", primary: true },
-    { id: "offer", label: "Fazer uma proposta", icon: "€" },
-    { id: "testdrive", label: "Marcar test drive", icon: "▷" },
-    ...(canReserve
-      ? [{ id: "reserve" as Mode, label: "Pedir reserva", icon: "★" }]
-      : []),
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const el = box.current;
+      // Há um painel em mobile e outro no desktop: só o visível responde.
+      if (!el || el.offsetParent === null) return;
+      const { message: text } = (e as CustomEvent<VehicleContactDetail>).detail;
+      setMode("info");
+      setMessage((m) => ({ text, n: (m?.n ?? 0) + 1 }));
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => el.querySelector<HTMLInputElement>("input[name=name]")?.focus({ preventScroll: true }), 500);
+    };
+    window.addEventListener(VEHICLE_CONTACT_EVENT, onOpen);
+    return () => window.removeEventListener(VEHICLE_CONTACT_EVENT, onOpen);
+  }, []);
+
+  const actions: { id: Mode; label: string }[] = [
+    { id: "info", label: "Informações" },
+    { id: "offer", label: "Proposta" },
+    { id: "testdrive", label: "Test drive" },
+    ...(canReserve ? [{ id: "reserve" as Mode, label: "Reservar" }] : []),
   ];
-
   const titles: Record<Mode, string> = {
     offer: "Fazer uma proposta",
     info: "Pedir mais informações",
@@ -48,88 +65,69 @@ export function VehicleActions({
   return (
     // `data-chat-target` — o assistente virtual rola até aqui quando encaminha.
     <section
+      ref={box}
       data-chat-target="interessado"
-      className="rounded-3xl border border-white/10 bg-ink-soft p-6 md:p-8"
+      className="scroll-mt-28 rounded-3xl border border-white/10 bg-ink-soft p-6 md:p-8"
     >
-      <AnimatePresence mode="wait">
-        {mode === null ? (
-          <motion.div
-            key="menu"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <h2 className="text-2xl font-semibold text-paper">Interessado?</h2>
-            <p className="mt-2 text-sm text-paper/50">
-              Escolha como quer avançar com o {vehicleName}.
-            </p>
-            <div className="mt-6 grid gap-3">
-              {actions.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => setMode(a.id)}
-                  className={`flex items-center gap-3 rounded-2xl border px-5 py-4 text-left text-sm font-semibold transition-colors ${
-                    a.primary
-                      ? "border-transparent bg-accent text-ink hover:brightness-105"
-                      : "border-white/15 text-paper hover:border-accent hover:text-accent"
-                  }`}
-                >
-                  <span
-                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-base ${
-                      a.primary ? "bg-ink/15" : "bg-white/5"
-                    }`}
-                    aria-hidden
-                  >
-                    {a.icon}
-                  </span>
-                  {a.label}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key={mode}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.2 }}
-          >
-            <button
-              type="button"
-              onClick={() => setMode(null)}
-              className="mb-5 inline-flex items-center gap-2 text-sm text-paper/60 transition-colors hover:text-paper"
-            >
-              <span aria-hidden>←</span> Voltar
-            </button>
-            <h2 className="mb-5 text-2xl font-semibold text-paper">
-              {titles[mode]}
-            </h2>
+      <h2 className="text-2xl font-semibold text-paper">Interessado?</h2>
+      <p className="mt-1 text-sm text-paper/50">
+        Deixe o seu contacto e falamos consigo sobre o {vehicleName}, sem compromisso.
+      </p>
 
-            {mode === "offer" && (
-              <OfferForm
-                vehicleName={vehicleName}
-                vehicleId={vehicleId}
-                price={price}
-              />
-            )}
-            {mode === "info" && (
-              <InfoForm vehicleName={vehicleName} vehicleId={vehicleId} />
-            )}
-            {mode === "testdrive" && (
-              <TestDriveForm vehicleName={vehicleName} vehicleId={vehicleId} bare />
-            )}
-            {mode === "reserve" && (
-              <ReserveForm
-                vehicleName={vehicleName}
-                vehicleId={vehicleId}
-                depositAmount={depositAmount}
-                bare
-              />
-            )}
-          </motion.div>
-        )}
+      {/* Separadores: o que quer fazer. */}
+      <div role="tablist" aria-label="O que pretende" className="mt-5 flex flex-wrap gap-2">
+        {actions.map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            role="tab"
+            aria-selected={mode === a.id}
+            onClick={() => setMode(a.id)}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+              mode === a.id
+                ? "bg-accent text-ink"
+                : "border border-white/15 text-paper/80 hover:border-accent hover:text-accent"
+            }`}
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={mode}
+          role="tabpanel"
+          aria-label={titles[mode]}
+          className="mt-6"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.18 }}
+        >
+          {mode === "offer" && (
+            <OfferForm vehicleName={vehicleName} vehicleId={vehicleId} price={price} />
+          )}
+          {mode === "info" && (
+            <InfoForm
+              key={message?.n ?? 0}
+              vehicleName={vehicleName}
+              vehicleId={vehicleId}
+              initialMessage={message?.text}
+            />
+          )}
+          {mode === "testdrive" && (
+            <TestDriveForm vehicleName={vehicleName} vehicleId={vehicleId} bare />
+          )}
+          {mode === "reserve" && (
+            <ReserveForm
+              vehicleName={vehicleName}
+              vehicleId={vehicleId}
+              depositAmount={depositAmount}
+              bare
+            />
+          )}
+        </motion.div>
       </AnimatePresence>
     </section>
   );

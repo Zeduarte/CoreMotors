@@ -1,7 +1,7 @@
 import Link from "next/link";
 export function PrivacyNotice() {
   return (
-    <label className="my-3 flex items-start gap-3 text-xs leading-relaxed text-paper/65 sm:col-span-2">
+    <label className="col-span-full my-3 flex items-start gap-3 text-xs leading-relaxed text-paper/65">
       <input
         className="mt-1 shrink-0 accent-[color:var(--accent)]"
         type="checkbox"

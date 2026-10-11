@@ -26,6 +26,10 @@ import { FavoriteButton } from "@/components/inventory/FavoriteButton";
 import { RecentlyViewed } from "@/components/vehicle/RecentlyViewed";
 import { SellCTA } from "@/components/home/SellCTA";
 import { ContactBar } from "@/components/vehicle/ContactBar";
+import { QuickContact } from "@/components/vehicle/QuickContact";
+import { getRecentViews } from "@/lib/vehicle-views";
+import { safely } from "@/lib/public-cache";
+import { site } from "@/lib/site";
 import { VehicleJsonLd } from "@/components/seo/VehicleJsonLd";
 
 // ISR: páginas conhecidas são pré-geradas; novas viaturas publicadas depois do
@@ -79,7 +83,10 @@ export default async function VehiclePage({ params }: { params: Params }) {
   const vehicle = await getVehicleBySlug(slug);
   if (!vehicle) notFound();
 
-  const branding = await getBranding();
+  const [branding, recentViews] = await Promise.all([
+    getBranding(),
+    vehicle.id ? safely("getRecentViews", () => getRecentViews(vehicle.id!), null) : null,
+  ]);
   const canReserve =
     branding.reservationEnabled && vehicle.status === "published";
 
@@ -194,6 +201,16 @@ export default async function VehiclePage({ params }: { params: Params }) {
                   </span>
                 </div>
               </div>
+
+              {/* Contacto logo no primeiro ecrã, ao lado das fotos: quem
+                  gostou não tem de procurar como falar connosco. */}
+              <QuickContact
+                vehicleName={`${vehicle.make} ${vehicle.model} ${vehicle.year}`}
+                url={`${site.url}/viaturas/${vehicle.slug}`}
+                status={vehicle.status ?? "published"}
+                company={branding.company}
+                recentViews={recentViews}
+              />
 
               <SpecGrid vehicle={vehicle} />
             </div>

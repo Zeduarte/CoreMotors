@@ -65,7 +65,8 @@ export async function submitLead(
 
   let supabase;
   try {
-    supabase = await publicSubmissionClient("lead", v.email);
+    // Limite por pessoa: o email, ou o telefone quando só deixam o telefone.
+    supabase = await publicSubmissionClient("lead", v.email || v.phone || undefined);
   } catch (e) {
     return {
       ok: false,
@@ -104,7 +105,8 @@ export async function submitLead(
     car_id: v.car_id ?? null,
     car_label: carLabel,
     name: v.name,
-    email: v.email,
+    // A coluna não aceita nulo: sem email fica vazio (o contacto é o telefone).
+    email: v.email || "",
     phone: v.phone || null,
     message: v.message || null,
     preferred_date: v.preferred_date || null,
