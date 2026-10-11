@@ -92,6 +92,9 @@ export default async function HomePage() {
       <Hero
         content={heroContent}
         media={heroMedia}
+        // Na foto dos carros o carro está no terço de baixo: no telemóvel
+        // sobe para o espaço entre o título e a pesquisa.
+        raiseMediaOnMobile={type === "car"}
         search={
           allVehicles.length > 0 ? <QuickSearch vehicles={searchItems} /> : null
         }

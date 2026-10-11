@@ -7,10 +7,7 @@ import { HeroVideo } from "./HeroVideo";
 import { AnimatedText } from "@/components/ui/AnimatedText";
 import { asset } from "@/lib/asset";
 import type { HeroMedia } from "@/lib/hero-media";
-import {
-  DEFAULT_HOME_CONTENT,
-  type HeroContent,
-} from "@/lib/home-content";
+import { DEFAULT_HOME_CONTENT, type HeroContent } from "@/lib/home-content";
 
 /**
  * Hero de topo.
@@ -33,12 +30,20 @@ export function Hero({
     src: "/media/carros/topo.mp4",
     poster: "/media/carros/topo-poster.jpg",
   },
+  raiseMediaOnMobile = false,
 }: {
   content?: HeroContent;
   /** Cartão de pesquisa rápida, mostrado por baixo dos CTAs, sobre o vídeo. */
   search?: React.ReactNode;
   /** Vídeo (scroll) ou imagem fixa — detetado pelo ficheiro em public/media/carros|motas/. */
   media?: HeroMedia;
+  /**
+   * Telemóvel com pesquisa: sobe o fundo para o motivo (que na foto está no
+   * terço de baixo) ficar no espaço livre entre o título e a pesquisa, em vez
+   * de atrás da pesquisa. O fundo fica mais baixo do que o ecrã e desvanece
+   * para o preto por baixo.
+   */
+  raiseMediaOnMobile?: boolean;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const isVideo = media.type === "video";
@@ -94,33 +99,43 @@ export function Hero({
       >
         {/* Fundo: vídeo controlado pelo scroll OU imagem (fixa ou cross-fade) */}
         <div className="absolute inset-0 overflow-hidden bg-ink">
-          {isVideo ? (
-            <HeroVideo
-              triggerRef={sectionRef}
-              sources={[{ src: asset(media.src), type: "video/mp4" }]}
-              unpinnedOnMobile={split}
-              poster={asset(media.poster)}
-            />
-          ) : (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={asset(media.src)}
-                alt=""
-                className={`h-full w-full object-cover ${
-                  crossfade ? "" : "hero-kenburns"
-                }`}
+          <div
+            className={`absolute inset-0 ${
+              split && raiseMediaOnMobile
+                ? // Altura pela largura (o motivo cabe de lado a lado) e topo
+                  // a pôr o motivo a ~42% da altura, sem deixar faixa em cima.
+                  "max-md:bottom-auto max-md:top-[min(0px,calc(42%-76vw))] max-md:h-[120vw] max-md:[mask-image:linear-gradient(to_bottom,#000_70%,transparent)]"
+                : ""
+            }`}
+          >
+            {isVideo ? (
+              <HeroVideo
+                triggerRef={sectionRef}
+                sources={[{ src: asset(media.src), type: "video/mp4" }]}
+                unpinnedOnMobile={split}
+                poster={asset(media.poster)}
               />
-              {crossfade && media.src2 && (
-                <motion.img
-                  src={asset(media.src2)}
+            ) : (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={asset(media.src)}
                   alt=""
-                  style={{ opacity: topOpacity }}
-                  className="absolute inset-0 h-full w-full object-cover"
+                  className={`h-full w-full object-cover ${
+                    crossfade ? "" : "hero-kenburns"
+                  }`}
                 />
-              )}
-            </>
-          )}
+                {crossfade && media.src2 && (
+                  <motion.img
+                    src={asset(media.src2)}
+                    alt=""
+                    style={{ opacity: topOpacity }}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Vinheta para garantir contraste AA do texto. Sobre imagem (que pode
@@ -137,7 +152,9 @@ export function Hero({
         {/* Conteúdo */}
         <div
           className={`container-px pointer-events-none relative z-10 text-center ${
-            split ? "max-md:flex max-md:flex-col max-md:pb-[5.75rem] max-md:pt-6" : ""
+            split
+              ? "max-md:flex max-md:flex-col max-md:pb-[5.75rem] max-md:pt-6"
+              : ""
           }`}
         >
           <motion.p
@@ -222,7 +239,11 @@ export function Hero({
               <motion.span
                 className="block h-2 w-1 rounded-full bg-paper/60"
                 animate={{ y: [0, 8, 0] }}
-                transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+                transition={{
+                  duration: 1.6,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
               />
             </div>
           </motion.div>
