@@ -10,9 +10,7 @@ import {
 import { InfoForm } from "./InfoForm";
 import { OfferForm } from "./OfferForm";
 import { ReserveForm } from "./ReserveForm";
-
-/** Só se mostra a partir daqui — "2 visitas" mais afasta do que convence. */
-const MIN_VIEWS = 5;
+import { PriceSummary, visibleViews } from "./PriceSummary";
 
 type Form = "callback" | "offer" | "reserve";
 
@@ -87,11 +85,11 @@ export function InterestCard({
     if (!form && d.open) d.close();
   }, [form]);
 
-  const views = recentViews !== null && recentViews >= MIN_VIEWS && !sold ? recentViews : null;
+  const views = visibleViews(recentViews, status);
   const message = text.trim() || opening;
 
   const secondary =
-    "flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-white/15 px-2 py-2.5 text-sm font-semibold text-paper transition-colors hover:border-accent hover:text-accent";
+    "flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-white/15 px-2 py-2.5 text-[13px] font-semibold text-paper transition-colors hover:border-accent hover:text-accent sm:text-sm";
 
   return (
     // `data-chat-target` — o assistente virtual rola até aqui quando encaminha.
@@ -100,29 +98,15 @@ export function InterestCard({
       aria-labelledby="interessado"
       className="scroll-mt-28 rounded-3xl bg-ink-soft p-5"
     >
-      <div className="flex items-center justify-between gap-4">
-        <span className="text-lg font-medium text-paper/80">Preço de venda</span>
-        <span className="text-3xl font-bold text-accent">{price}</span>
+      {/* No telemóvel o preço vai com os dados da viatura, antes deste cartão
+          (ver a página); aqui só aparece no computador. */}
+      <div className="mb-4 hidden border-b border-white/10 pb-4 xl:block">
+        <PriceSummary price={price} warrantyMonths={warrantyMonths} views={views} />
       </div>
-      {(warrantyMonths || views) && (
-        <p className="mt-1.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs">
-          <span className="text-paper/55">
-            {views && (
-              <>
-                <span aria-hidden>👀 </span>
-                {views} visitas nos últimos 7 dias
-              </>
-            )}
-          </span>
-          {warrantyMonths ? (
-            <span className="font-medium text-paper/80">Garantia de {warrantyMonths} meses</span>
-          ) : null}
-        </p>
-      )}
 
-      <div className="mt-4 border-t border-white/10 pt-4">
+      <div>
         <h2 id="interessado" className="text-base font-semibold text-paper">
-          Interessado? <span className="font-normal text-paper/50">Sem compromisso.</span>
+          Interessado?
         </h2>
 
         {/* Perguntas rápidas: um toque e a mensagem fica escrita. */}
@@ -180,7 +164,7 @@ export function InterestCard({
           </button>
         )}
 
-        <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className="mt-2 grid gap-2 min-[360px]:grid-cols-2">
           <a href={company.phoneHref} aria-label={`Ligar ${company.phone}`} className={secondary}>
             <PhoneIcon size={16} />
             Ligar
@@ -191,27 +175,21 @@ export function InterestCard({
         </div>
 
         {!sold && (
-          <p className="mt-3 flex items-center justify-center gap-3 text-xs text-paper/60">
+          <div className={`mt-2 grid gap-2 ${canReserve ? "min-[360px]:grid-cols-2" : ""}`}>
             <button
               type="button"
               onClick={() => setForm("offer")}
-              className="underline-offset-4 transition-colors hover:text-accent hover:underline"
+              className="flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-accent/60 bg-accent/10 px-2 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent hover:text-ink"
             >
+              <OfferIcon />
               Fazer uma proposta
             </button>
             {canReserve && (
-              <>
-                <span aria-hidden>·</span>
-                <button
-                  type="button"
-                  onClick={() => setForm("reserve")}
-                  className="underline-offset-4 transition-colors hover:text-accent hover:underline"
-                >
-                  Reservar online
-                </button>
-              </>
+              <button type="button" onClick={() => setForm("reserve")} className={secondary}>
+                Reservar online
+              </button>
             )}
-          </p>
+          </div>
         )}
       </div>
 
@@ -249,7 +227,20 @@ export function InterestCard({
               />
             )}
             {form === "offer" && (
-              <OfferForm vehicleName={shortName} vehicleId={vehicleId} price={priceValue} />
+              <OfferForm
+                vehicleName={shortName}
+                vehicleId={vehicleId}
+                price={priceValue}
+                whatsappHref={
+                  company.whatsapp
+                    ? (amount) =>
+                        waHref(
+                          company.whatsapp,
+                          `Olá! Gostaria de fazer uma proposta de ${amount} € pelo ${vehicleName}.\n${url}`,
+                        )
+                    : undefined
+                }
+              />
             )}
             {form === "reserve" && (
               <ReserveForm
@@ -263,5 +254,14 @@ export function InterestCard({
         )}
       </dialog>
     </section>
+  );
+}
+
+function OfferIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z" />
+      <circle cx="7.5" cy="7.5" r="1.5" />
+    </svg>
   );
 }

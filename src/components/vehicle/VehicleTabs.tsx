@@ -51,7 +51,7 @@ export function VehicleTabs({
         <div
           role="tablist"
           aria-label="Mais sobre a viatura"
-          className="inline-grid min-w-full auto-cols-fr grid-flow-col gap-1 rounded-2xl border border-white/10 bg-ink-soft p-1 md:min-w-[36rem]"
+          className="inline-grid min-w-full auto-cols-max grid-flow-col gap-1 rounded-2xl border border-white/10 bg-ink-soft p-1 md:min-w-[36rem] md:auto-cols-fr"
         >
           {tabs.map((t) => (
             <button

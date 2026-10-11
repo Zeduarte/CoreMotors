@@ -24,6 +24,7 @@ import { RecentlyViewed } from "@/components/vehicle/RecentlyViewed";
 import { SellCTA } from "@/components/home/SellCTA";
 import { ContactBar } from "@/components/vehicle/ContactBar";
 import { InterestCard } from "@/components/vehicle/InterestCard";
+import { PriceSummary, visibleViews } from "@/components/vehicle/PriceSummary";
 import { VehiclePrice } from "@/components/vehicle/VehiclePrice";
 import { getRecentViews } from "@/lib/vehicle-views";
 import { safely } from "@/lib/public-cache";
@@ -214,22 +215,36 @@ export default async function VehiclePage({ params }: { params: Params }) {
               />
             </div>
 
-            <aside className="order-3 flex min-w-0 flex-col gap-4 xl:order-none xl:gap-3 xl:[&>*:last-child]:flex-1">
-              <InterestCard
-                vehicleName={`${vehicle.make} ${vehicle.model} ${vehicle.year}`}
-                shortName={`${vehicle.make} ${vehicle.model}`}
-                vehicleId={vehicle.id}
-                url={`${site.url}/viaturas/${vehicle.slug}`}
-                status={vehicle.status ?? "published"}
-                company={branding.company}
-                price={<VehiclePrice vehicle={vehicle} />}
-                priceValue={vehicle.priceOnRequest ? null : vehicle.price}
-                warrantyMonths={vehicle.warrantyMonths}
-                recentViews={recentViews}
-                canReserve={canReserve}
-                depositAmount={branding.depositAmount}
-              />
-              <SpecGrid vehicle={vehicle} />
+            {/* Telemóvel: primeiro os dados (preço e características), depois o
+                "Interessado?". Computador: o cartão do contacto em cima e as
+                características a esticar até ao fundo da foto. */}
+            <aside className="order-3 flex min-w-0 flex-col gap-4 xl:order-none xl:gap-3">
+              <div className="rounded-3xl bg-ink-soft p-5 xl:hidden">
+                <PriceSummary
+                  price={<VehiclePrice vehicle={vehicle} />}
+                  warrantyMonths={vehicle.warrantyMonths}
+                  views={visibleViews(recentViews, vehicle.status ?? "published")}
+                />
+              </div>
+              <div className="flex flex-col xl:order-last xl:flex-1">
+                <SpecGrid vehicle={vehicle} />
+              </div>
+              <div className="xl:order-first">
+                <InterestCard
+                  vehicleName={`${vehicle.make} ${vehicle.model} ${vehicle.year}`}
+                  shortName={`${vehicle.make} ${vehicle.model}`}
+                  vehicleId={vehicle.id}
+                  url={`${site.url}/viaturas/${vehicle.slug}`}
+                  status={vehicle.status ?? "published"}
+                  company={branding.company}
+                  price={<VehiclePrice vehicle={vehicle} />}
+                  priceValue={vehicle.priceOnRequest ? null : vehicle.price}
+                  warrantyMonths={vehicle.warrantyMonths}
+                  recentViews={recentViews}
+                  canReserve={canReserve}
+                  depositAmount={branding.depositAmount}
+                />
+              </div>
             </aside>
           </div>
 
