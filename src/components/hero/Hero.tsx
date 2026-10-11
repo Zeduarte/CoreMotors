@@ -55,12 +55,19 @@ export function Hero({
   // O vídeo e o cross-fade precisam de "pista" de scroll + sticky; a imagem
   // fixa simples ocupa só o ecrã (melhor no telemóvel).
   const needsScroll = isVideo || crossfade;
+  // Telemóvel com pesquisa: título no topo e pesquisa no fundo, para não
+  // taparem o centro da imagem. A margem de baixo conta com o header (a
+  // imagem começa por baixo dele) e deixa a pesquisa acima do botão do
+  // WhatsApp, que flutua no canto.
+  const split = Boolean(search);
 
   return (
     <section
       ref={sectionRef}
       className={`relative ${
-        isVideo ? "h-[140vh]" : crossfade ? "h-[200vh]" : "h-dvh"
+        // No telemóvel menos "pista" de scroll no vídeo: a secção seguinte
+        // aparece mais cedo.
+        isVideo ? "h-[120vh] md:h-[140vh]" : crossfade ? "h-[200vh]" : "h-dvh"
       }`}
       aria-label="Viatura em destaque"
     >
@@ -68,8 +75,8 @@ export function Hero({
         className={`flex w-full items-center justify-center ${
           needsScroll
             ? "sticky top-0 h-dvh overflow-hidden"
-            : "relative min-h-dvh py-28 md:py-0"
-        }`}
+            : `relative min-h-dvh md:py-0 ${split ? "max-md:py-0" : "py-28"}`
+        } ${split ? "max-md:items-stretch" : ""}`}
       >
         {/* Fundo: vídeo controlado pelo scroll OU imagem (fixa ou cross-fade) */}
         <div className="absolute inset-0 overflow-hidden bg-ink">
@@ -113,7 +120,11 @@ export function Hero({
         />
 
         {/* Conteúdo */}
-        <div className="container-px pointer-events-none relative z-10 text-center">
+        <div
+          className={`container-px pointer-events-none relative z-10 text-center ${
+            split ? "max-md:flex max-md:flex-col max-md:pb-[9.5rem] max-md:pt-6" : ""
+          }`}
+        >
           <motion.p
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -173,7 +184,7 @@ export function Hero({
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.9, duration: 0.6 }}
-              className="pointer-events-auto mx-auto mt-7 max-w-4xl text-left md:mt-10"
+              className="pointer-events-auto mx-auto mt-7 w-full max-w-4xl text-left max-md:mt-auto md:mt-10"
             >
               {search}
             </motion.div>

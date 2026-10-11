@@ -26,7 +26,7 @@ export function Segments({
   if (!segments.length) return null;
 
   return (
-    <section aria-labelledby="segmentos" className="container-px pt-16 md:pt-24">
+    <section aria-labelledby="segmentos" className="container-px pt-8 md:pt-24">
       <h2 id="segmentos" className="mb-6 text-2xl font-semibold text-paper md:mb-8 md:text-3xl">
         {title}
       </h2>
