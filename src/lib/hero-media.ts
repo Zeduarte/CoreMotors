@@ -56,7 +56,7 @@ function imageMedia(dir: string): HeroMedia | null {
 
 /**
  * Média do topo. `mode` vem da definição do backoffice (Página inicial):
- *  - "video" → força o vídeo (o poster aparece sempre que o mp4 falhe);
+ *  - "video" → força o vídeo (sem `topo.mp4`, cai para a imagem);
  *  - "image" → força a imagem (se não existir ficheiro, cai para o vídeo);
  *  - "auto"  → deteta pelo ficheiro (mp4 primeiro, senão imagem, senão vídeo).
  */
@@ -65,7 +65,8 @@ export function getHeroMedia(
   type: VehicleType = "car",
 ): HeroMedia {
   const dir = mediaDir(type);
-  if (mode === "video") return video(dir);
+  // Vídeo escolhido mas sem o ficheiro: mostra a imagem, se houver.
+  if (mode === "video") return EXISTING.has(`${dir}/topo.mp4`) ? video(dir) : (imageMedia(dir) ?? video(dir));
 
   if (mode === "image") return imageMedia(dir) ?? video(dir);
   // auto
