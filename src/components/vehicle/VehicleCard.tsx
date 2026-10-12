@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { FadeImage } from "@/components/ui/FadeImage";
 import { ViewTransition } from "@/components/ui/ViewTransition";
@@ -13,6 +14,7 @@ import { CompareButton } from "@/components/inventory/CompareButton";
 import { FavoriteButton } from "@/components/inventory/FavoriteButton";
 import { badgesFor } from "@/lib/badges";
 import { useBadges } from "@/components/site/BadgesContext";
+import { setVehiclePreview } from "@/lib/vehicle-preview";
 
 interface VehicleCardProps {
   vehicle: Vehicle;
@@ -61,10 +63,27 @@ export function VehicleCard({
     setIndex((i) => (i + dir + images.length) % images.length);
   }
 
+  const router = useRouter();
+  const href = `/viaturas/${vehicle.slug}`;
+  // Intenção de abrir (rato por cima, dedo a tocar, foco): começa já a pedir
+  // a ficha inteira ao servidor, para o clique ser quase instantâneo. Os
+  // cartões fora deste gesto não pedem nada (não carrega o servidor à toa).
+  const prefetched = useRef(false);
+  function prefetch() {
+    if (prefetched.current) return;
+    prefetched.current = true;
+    router.prefetch(href, { kind: "full" } as Parameters<typeof router.prefetch>[1]);
+  }
+
   return (
     <article className="group relative rounded-3xl border border-white/10 bg-ink-soft p-3 transition-[transform,border-color,background-color,box-shadow] duration-500 ease-premium focus-within:-translate-y-1 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.04] hover:shadow-[0_24px_48px_-24px_rgba(0,0,0,0.9)] active:scale-[0.98] active:duration-150 has-[[data-nav-pending]]:translate-y-0 has-[[data-nav-pending]]:scale-[0.97] has-[[data-nav-pending]]:border-accent/40">
       <Link
-        href={`/viaturas/${vehicle.slug}`}
+        href={href}
+        onPointerEnter={prefetch}
+        onTouchStart={prefetch}
+        onFocus={prefetch}
+        // A foto à vista vai já para o esqueleto da ficha (ver loading.tsx).
+        onClick={(e) => setVehiclePreview(vehicle.slug, e.currentTarget.querySelector("img")?.currentSrc)}
         className="block focus:outline-none"
         aria-label={`${vehicle.make} ${vehicle.model} ${vehicle.year} — ${priceLabel(vehicle.price, vehicle.priceOnRequest)}`}
       >
