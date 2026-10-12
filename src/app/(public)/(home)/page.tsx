@@ -19,8 +19,8 @@ import {
   getHomeContent,
   getTestimonials,
   getBranding,
-  getVehicles,
-  getSoldVehicles,
+  getVehicleList,
+  getSoldVehicleList,
 } from "@/lib/queries";
 import { existingMedia, getHeroMedia } from "@/lib/hero-media";
 import { OPTIONAL_MEDIA } from "@/lib/media";
@@ -41,8 +41,8 @@ export default async function HomePage() {
       getHomeContent(),
       getTestimonials(),
       getBranding(),
-      getVehicles(),
-      getSoldVehicles(10),
+      getVehicleList(),
+      getSoldVehicleList(10),
     ]);
 
   // Dados mínimos para a pesquisa rápida (marca/modelo/combustível + contagem).

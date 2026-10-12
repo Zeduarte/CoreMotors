@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { MEDIA_BUCKET, publicMediaUrl } from "@/lib/storage";
+import { MEDIA_BUCKET, MEDIA_CACHE_CONTROL, publicMediaUrl } from "@/lib/storage";
 import { saveSiteSettings } from "@/lib/actions/settings";
 
 /** Escurece uma cor hex ~18% (para a variante "accent-soft"). */
@@ -68,7 +68,7 @@ export function BrandingForm({
       const path = `branding/${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage
         .from(MEDIA_BUCKET)
-        .upload(path, file, { upsert: false, cacheControl: "3600" });
+        .upload(path, file, { upsert: false, cacheControl: MEDIA_CACHE_CONTROL });
       if (error) {
         toast.error("Falha ao carregar o logótipo.");
         return;

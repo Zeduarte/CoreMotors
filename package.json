@@ -12,7 +12,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "otimizar-fotos": "node scripts/optimize-photos.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",

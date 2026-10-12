@@ -1,6 +1,6 @@
 import { getPublicVehicleType } from "@/lib/vehicle-context";
 import type { Metadata } from "next";
-import { getVehicles } from "@/lib/queries";
+import { getVehicleList } from "@/lib/queries";
 import { CarQuiz } from "@/components/quiz/CarQuiz";
 import { AnimatedText } from "@/components/ui/AnimatedText";
 
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 export default async function QuizPage() {
   const type = await getPublicVehicleType();
-  const vehicles = await getVehicles();
+  const vehicles = await getVehicleList();
 
   return (
     <section className="pt-24 md:pt-32">

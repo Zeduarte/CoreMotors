@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { MEDIA_BUCKET, publicMediaUrl } from "@/lib/storage";
+import { MEDIA_BUCKET, MEDIA_CACHE_CONTROL, publicMediaUrl } from "@/lib/storage";
+import { optimizePhoto } from "@/lib/image-compress";
 import {
   deleteMedia,
   registerMedia,
@@ -35,7 +36,8 @@ function ext(name: string): string {
 
 /**
  * Devolve um ficheiro pronto a carregar (web-friendly), convertendo HEIC/HEIF
- * para JPG quando necessário. Devolve null (com aviso) para o que não dá.
+ * para JPG e reduzindo as fotos grandes (ver `optimizePhoto`). Devolve null
+ * (com aviso) para o que não dá.
  */
 async function normalizeFile(file: File): Promise<File | null> {
   const type = file.type.toLowerCase();
@@ -48,9 +50,9 @@ async function normalizeFile(file: File): Promise<File | null> {
     return null;
   }
 
-  // Imagem já compatível com a web
+  // Imagem já compatível com a web (reduzida, se for grande)
   if (WEB_IMAGE.includes(type) || ["jpg", "jpeg", "png", "webp", "avif", "gif"].includes(e)) {
-    return file;
+    return optimizePhoto(file);
   }
 
   // HEIC/HEIF do iPhone → converte para JPG no browser
@@ -59,9 +61,11 @@ async function normalizeFile(file: File): Promise<File | null> {
       const heic2any = (await import("heic2any")).default;
       const out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
       const blob = Array.isArray(out) ? out[0]! : out;
-      return new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), {
-        type: "image/jpeg",
-      });
+      return optimizePhoto(
+        new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), {
+          type: "image/jpeg",
+        }),
+      );
     } catch {
       toast.error(`${file.name}: não foi possível converter a imagem.`);
       return null;
@@ -69,7 +73,7 @@ async function normalizeFile(file: File): Promise<File | null> {
   }
 
   // Outra imagem qualquer — tenta na mesma (o browser pode aguentar)
-  if (type.startsWith("image/")) return file;
+  if (type.startsWith("image/")) return optimizePhoto(file);
 
   toast.error(`${file.name}: formato não suportado.`);
   return null;
@@ -138,7 +142,7 @@ export function MediaManager({
             const path = `${carId}/${crypto.randomUUID()}.${fileExt}`;
             const { error } = await supabase.storage
               .from(MEDIA_BUCKET)
-              .upload(path, file, { cacheControl: "3600", upsert: false });
+              .upload(path, file, { cacheControl: MEDIA_CACHE_CONTROL, upsert: false });
             if (error) {
               toast.error(`Falha ao carregar ${file.name}.`);
               return null;

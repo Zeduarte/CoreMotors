@@ -1,9 +1,14 @@
 "use client";
 
+import { useState } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { ContactFab } from "@/components/layout/ContactFab";
-import { ChatWidget } from "./ChatWidget";
 import { useChat } from "./ChatContext";
+
+// O painel de conversa só é descarregado quando alguém o abre (a maioria das
+// visitas nunca o usa), e fica montado depois disso para manter a conversa.
+const ChatWidget = dynamic(() => import("./ChatWidget").then((m) => m.ChatWidget), { ssr: false });
 
 /**
  * Decide o que fica no canto do ecrã.
@@ -28,6 +33,8 @@ export function ChatLauncher({
 }) {
   const pathname = usePathname();
   const { open, question, closeChat, clearQuestion } = useChat();
+  const [opened, setOpened] = useState(false);
+  if (open && !opened) setOpened(true);
   const onVehiclePage = /^\/viaturas\/[^/]+\/?$/.test(pathname);
 
   if (!onVehiclePage) {
@@ -35,7 +42,7 @@ export function ChatLauncher({
   }
   // Na ficha sem assistente, a barra do fundo já tem o WhatsApp e o telefone:
   // o botão flutuante repetia-os e ficava por cima do botão de ligar.
-  if (!chatEnabled) return null;
+  if (!chatEnabled || !opened) return null;
 
   // Na ficha, os contactos humanos já estão na barra do fundo, ao lado do
   // campo de pergunta — um botão flutuante por cima seria repetição.

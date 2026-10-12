@@ -144,8 +144,10 @@ export function Footer({
                     {l.label}
                   </a>
                 ) : (
+                  // Páginas legais: raramente abertas, não se pré-carregam.
                   <Link
                     href={l.href}
+                    prefetch={false}
                     className="font-medium text-paper/80 transition-colors hover:text-paper"
                   >
                     {l.label}

@@ -3,6 +3,13 @@
 export const MEDIA_BUCKET = "car-media";
 
 /**
+ * Cache das fotos: 1 ano. Cada ficheiro tem um nome único (UUID) e nunca é
+ * reescrito — uma foto nova é um ficheiro novo —, por isso o browser e a CDN
+ * podem guardá-las para sempre sem ficarem desatualizadas.
+ */
+export const MEDIA_CACHE_CONTROL = "31536000";
+
+/**
  * Resolve o URL público de um objeto do Storage.
  *
  * Aceita tanto um `storage_path` (relativo ao bucket) como um URL absoluto

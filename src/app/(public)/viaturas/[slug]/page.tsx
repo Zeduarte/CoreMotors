@@ -7,7 +7,7 @@ import {
   getVehicleBySlug,
   getAllSlugs,
   getBranding,
-  getVehicles,
+  getVehicleList,
 } from "@/lib/queries";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
 import { formatKm, priceLabel } from "@/lib/format";
@@ -126,7 +126,7 @@ export default async function VehiclePage({ params }: { params: Params }) {
       : null;
 
   // Viaturas relacionadas: prioriza a mesma marca, depois preenche com outras.
-  const all = await getVehicles();
+  const all = await getVehicleList();
   const related = [
     ...all.filter((v) => v.slug !== vehicle.slug && v.make === vehicle.make),
     ...all.filter((v) => v.slug !== vehicle.slug && v.make !== vehicle.make),
@@ -196,8 +196,10 @@ export default async function VehiclePage({ params }: { params: Params }) {
                   title={`${vehicle.make} ${vehicle.model} ${vehicle.year}`}
                   text={`${vehicle.make} ${vehicle.model} ${vehicle.year} · ${priceLabel(vehicle.price, vehicle.priceOnRequest)}`}
                 />
+                {/* Pouco usada: não é pré-carregada (só ao clicar). */}
                 <Link
                   href={`/viaturas/${vehicle.slug}/ficha`}
+                  prefetch={false}
                   className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs font-medium text-paper/80 transition-colors hover:border-accent hover:text-accent"
                 >
                   ⤓ Ficha PDF<span className="hidden sm:inline"> + QR</span>

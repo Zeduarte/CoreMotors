@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getSoldVehicles } from "@/lib/queries";
+import { getSoldVehicleList } from "@/lib/queries";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
 
 export const revalidate = 60;
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function SoldPage() {
-  const vehicles = await getSoldVehicles();
+  const vehicles = await getSoldVehicleList();
 
   return (
     <div className="container-px pb-24 pt-32 md:pt-40">

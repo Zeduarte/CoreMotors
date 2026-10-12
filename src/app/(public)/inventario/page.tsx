@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getPublicVehicleType, getVehicleSelection } from "@/lib/vehicle-context";
 import { inventoryVehicleType } from "@/lib/vehicle-categories";
 import type { Metadata } from "next";
-import { getVehicles } from "@/lib/queries";
+import { getVehicleList } from "@/lib/queries";
 import { InventoryClient } from "@/components/inventory/InventoryClient";
 import { StockAlertForm } from "@/components/inventory/StockAlertForm";
 import type { FuelType, Transmission, VehicleFilters } from "@/types/vehicle";
@@ -24,7 +24,7 @@ export default async function InventoryPage({
   const requested = inventoryVehicleType(sp.tipo);
   const vehicleType = await getPublicVehicleType();
   if (requested && (requested !== vehicleType || !(await getVehicleSelection()))) redirect(`/api/vehicle-context?area=public&type=${requested}&target=%2Finventario`);
-  const vehicles = await getVehicles(vehicleType);
+  const vehicles = await getVehicleList(vehicleType);
 
   // Filtros iniciais vindos do URL (ex.: da pesquisa rápida da homepage).
   const initialFilters = {

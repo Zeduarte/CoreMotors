@@ -18,6 +18,7 @@ import {
   type Branding,
 } from "@/lib/branding";
 import { publicMediaUrl } from "@/lib/storage";
+import { toListVehicle } from "@/lib/vehicle-list";
 
 /**
  * Leituras PÚBLICAS do inventário (Supabase).
@@ -116,6 +117,17 @@ const fetchSold = cachedPublic(async (vehicleType: VehicleType, limit: number | 
 export async function getSoldVehicles(limit?: number): Promise<Vehicle[]> {
   const type = await getPublicVehicleType();
   return safely("getSoldVehicles", () => fetchSold(type, limit ?? null), []);
+}
+
+/**
+ * Versões leves para as listas (cartões e filtros): sem descrição,
+ * equipamento, ficha alargada nem vídeo — ver `toListVehicle`.
+ */
+export async function getVehicleList(vehicleType?: VehicleType | null): Promise<Vehicle[]> {
+  return (await getVehicles(vehicleType)).map(toListVehicle);
+}
+export async function getSoldVehicleList(limit?: number): Promise<Vehicle[]> {
+  return (await getSoldVehicles(limit)).map(toListVehicle);
 }
 
 // `null` e não `undefined`: a cache guarda em JSON.

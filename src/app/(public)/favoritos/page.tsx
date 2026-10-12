@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getVehicles } from "@/lib/queries";
+import { getVehicleList } from "@/lib/queries";
 import { FavoritesList } from "@/components/inventory/FavoritesList";
 
 export const metadata: Metadata = {
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export const revalidate = 60;
 
 export default async function FavoritesPage() {
-  const vehicles = await getVehicles();
+  const vehicles = await getVehicleList();
 
   return (
     <div className="container-px pb-24 pt-32 md:pt-40">

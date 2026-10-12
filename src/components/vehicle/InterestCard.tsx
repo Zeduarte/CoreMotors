@@ -7,10 +7,15 @@ import {
   WHATSAPP_GREEN,
   WhatsAppIcon,
 } from "@/components/layout/ContactIcons";
-import { InfoForm } from "./InfoForm";
-import { OfferForm } from "./OfferForm";
-import { ReserveForm } from "./ReserveForm";
+import dynamic from "next/dynamic";
 import { PriceSummary, visibleViews } from "./PriceSummary";
+
+// Os formulários só são descarregados quando se abre a janela (a maior parte
+// das visitas usa o WhatsApp ou o telefone e nunca os vê).
+const formLoading = () => <div className="h-72 animate-pulse rounded-2xl bg-white/[0.04]" />;
+const InfoForm = dynamic(() => import("./InfoForm").then((m) => m.InfoForm), { ssr: false, loading: formLoading });
+const OfferForm = dynamic(() => import("./OfferForm").then((m) => m.OfferForm), { ssr: false, loading: formLoading });
+const ReserveForm = dynamic(() => import("./ReserveForm").then((m) => m.ReserveForm), { ssr: false, loading: formLoading });
 
 type Form = "callback" | "offer" | "reserve";
 
