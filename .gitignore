@@ -30,5 +30,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 
-# Cópias de segurança do scripts/optimize-photos.mjs
-copia-fotos-*/
