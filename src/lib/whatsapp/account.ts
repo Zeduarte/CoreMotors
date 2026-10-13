@@ -91,6 +91,8 @@ export interface ConnectResult {
   /** Só quando o número foi registado agora. Mostra-se uma vez ao administrador. */
   pin?: string;
   warning?: string;
+  /** Quando o acesso expira (ISO), se a Meta o disser. */
+  expiresAt?: string;
 }
 
 interface PhoneRow {
@@ -139,6 +141,17 @@ export async function connectAccount(
     };
   }
   const token = exchange.data.access_token;
+
+  // 1b. Até quando vale. A configuração de Embedded Signup da Meta só dá tokens
+  //     de 60 dias e não há forma de os renovar sem a pessoa: o painel avisa a
+  //     tempo de se voltar a ligar. Se a Meta não responder, liga-se na mesma.
+  const debug = await graphRequest<{ data?: { expires_at?: number } }>("debug_token", {
+    query: { input_token: token, access_token: `${appId}|${secret}` },
+  });
+  const expiresAt =
+    debug.ok && debug.data.data?.expires_at
+      ? new Date(debug.data.data.expires_at * 1000).toISOString()
+      : undefined;
 
   // 2. O número pertence à conta, e o token vê os dois. Sem isto, um browser
   //    adulterado podia apontar o site para um número que não é da empresa.
@@ -195,6 +208,7 @@ export async function connectAccount(
     waba_id: input.wabaId,
     phone_number_id: input.phoneNumberId,
     access_token: token,
+    token_expires_at: expiresAt ?? null,
     display_phone_number: phone.display_phone_number ?? null,
     verified_name: phone.verified_name ?? null,
     registration_pin: pin ?? null,
@@ -213,6 +227,7 @@ export async function connectAccount(
     name: phone.verified_name,
     pin,
     warning,
+    expiresAt,
   };
 }
 

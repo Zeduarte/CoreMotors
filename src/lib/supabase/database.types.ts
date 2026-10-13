@@ -586,6 +586,7 @@ export type WhatsAppConnectionRow = {
   waba_id: string;
   phone_number_id: string;
   access_token: string;
+  token_expires_at: string | null;
   display_phone_number: string | null;
   verified_name: string | null;
   registration_pin: string | null;

@@ -53,7 +53,7 @@ export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
         // Nunca o token: só o que é seguro mostrar.
         admin
           .from("whatsapp_connection")
-          .select("display_phone_number,verified_name,phone_number_id,register_warning,connected_at,connected_by")
+          .select("display_phone_number,verified_name,phone_number_id,register_warning,connected_at,connected_by,token_expires_at")
           .eq("id", 1)
           .maybeSingle(),
       ])
@@ -61,6 +61,9 @@ export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
   const ligadoPor = ligacao?.connected_by
     ? perfis?.find((p) => p.id === ligacao.connected_by)?.full_name?.trim()
     : null;
+  // O acesso dado pela Meta dura 60 dias: avisa-se nas duas últimas semanas.
+  const expira = ligacao?.token_expires_at ? new Date(ligacao.token_expires_at) : null;
+  const diasAteExpirar = expira ? Math.ceil((expira.getTime() - Date.now()) / 86_400_000) : null;
 
   const faltam = [
     ...(ligacao || numeroNasVariaveis ? [] : ["número da empresa"]),
@@ -105,6 +108,25 @@ export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
                 Ligado no backoffice a {new Date(ligacao.connected_at).toLocaleString("pt-PT")}
                 {ligadoPor ? ` por ${ligadoPor}` : ""}.
               </p>
+              {expira && diasAteExpirar !== null && (
+                <p
+                  className={`text-xs ${
+                    diasAteExpirar <= 0
+                      ? "text-red-300"
+                      : diasAteExpirar <= 14
+                        ? "text-amber-300"
+                        : "text-paper/50"
+                  }`}
+                >
+                  {diasAteExpirar <= 0
+                    ? "O acesso dado pela Meta expirou: as respostas deixaram de sair. Carregue em «Trocar de número» e escolha o mesmo número."
+                    : `O acesso dado pela Meta vale até ${expira.toLocaleDateString("pt-PT")}${
+                        diasAteExpirar <= 14
+                          ? ` (${diasAteExpirar} ${diasAteExpirar === 1 ? "dia" : "dias"}). Volte a ligar o número antes disso, em «Trocar de número».`
+                          : "."
+                      }`}
+                </p>
+              )}
               {ligacao.register_warning && (
                 <p className="text-xs text-amber-300">{ligacao.register_warning}</p>
               )}

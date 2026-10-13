@@ -222,7 +222,7 @@ O engineLine instala-se um site por cliente, e **todos usam a mesma app da Meta 
 Configuração da app da Meta, uma vez para todos os clientes:
 
 1. **Casos de utilização → Adicionar → WhatsApp** (conectar com clientes através do WhatsApp).
-2. **Facebook Login for Business → Configurações → Criar configuração**, com o tipo *WhatsApp Embedded Signup*. O ID dessa configuração vai para `WHATSAPP_CONFIG_ID`; o ID da app, para `WHATSAPP_APP_ID`.
+2. **Facebook Login for Business → Modelos → «WhatsApp Embedded Signup Configuration With 60 Expiration Token»** (a criação manual não oferece a variante do Embedded Signup), com o produto *WhatsApp Cloud API*. O ID dessa configuração vai para `WHATSAPP_CONFIG_ID`; o ID da app, para `WHATSAPP_APP_ID`. O acesso que este modelo dá expira ao fim de 60 dias: o site lê a validade à Meta ao ligar, e o painel avisa nas duas últimas semanas para se voltar a ligar o número (o mesmo botão).
 3. **Facebook Login for Business → Definições**: ativar *Login with the JavaScript SDK* e acrescentar o domínio de **cada** site cliente a *Allowed domains for the JavaScript SDK*.
 4. **WhatsApp → Configuração → Webhook**: um endereço geral (pode ser o de um dos sites), o `WHATSAPP_VERIFY_TOKEN` e o campo *messages* subscrito. É a subscrição do campo que conta; o endereço de cada cliente vem da ligação.
 

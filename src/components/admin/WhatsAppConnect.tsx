@@ -214,6 +214,13 @@ export function WhatsAppConnect({
               aparecer.
             </p>
           )}
+          {result.expiresAt && (
+            <p className="mt-1">
+              O acesso dado pela Meta vale até{" "}
+              {new Date(result.expiresAt).toLocaleDateString("pt-PT")}. O painel avisa quando for
+              altura de voltar a ligar.
+            </p>
+          )}
           {result.warning && <p className="mt-1 text-amber-200">{result.warning}</p>}
         </div>
       )}

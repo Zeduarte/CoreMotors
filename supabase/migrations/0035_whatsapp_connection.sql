@@ -20,6 +20,10 @@ create table if not exists public.whatsapp_connection (
   waba_id              text not null check (waba_id ~ '^[0-9]+$'),
   phone_number_id      text not null check (phone_number_id ~ '^[0-9]+$'),
   access_token         text not null,
+  -- A configuração de Embedded Signup da Meta dá tokens de 60 dias. Guarda-se
+  -- a validade (lida da Meta ao ligar) para o painel avisar a tempo de se
+  -- voltar a ligar o número. Nulo = a Meta não disse, ou não expira.
+  token_expires_at     timestamptz,
   display_phone_number text,
   verified_name        text,
   -- PIN da verificação em dois passos, definido ao registar o número na Cloud

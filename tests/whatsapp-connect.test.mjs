@@ -14,7 +14,8 @@ const require=createRequire(import.meta.url);
 
 // ---- Meta simulada ----------------------------------------------------------
 const TOKEN='EAAG-token-da-empresa';
-const meta={calls:[],sent:[],registered:[],subscribed:[],registerFails:false,
+const EXPIRA=Math.floor(Date.UTC(2026,11,12)/1000);
+const meta={calls:[],sent:[],registered:[],subscribed:[],registerFails:false,debugFails:false,
  numbers:{'111':[{id:'222',display_phone_number:'+351 912 345 678',verified_name:'engineLine',platform_type:'NOT_APPLICABLE'}]}};
 const server=http.createServer(async(req,res)=>{
  let raw='';for await(const c of req)raw+=c;
@@ -27,6 +28,11 @@ const server=http.createServer(async(req,res)=>{
   if(q.get('client_id')!=='app-1'||q.get('client_secret')!=='segredo-1')return send(400,{error:{message:'Error validating client secret.'}});
   if(q.get('code')!=='code-bom')return send(400,{error:{message:'This authorization code has been used.'}});
   return send(200,{access_token:TOKEN,token_type:'bearer'});
+ }
+ if(url.pathname==='/v25.0/debug_token'){
+  // Pedido com o token da app (id|segredo), não com o da empresa.
+  if(url.searchParams.get('access_token')!=='app-1|segredo-1'||meta.debugFails)return send(400,{error:{message:'Invalid OAuth access token.'}});
+  return send(200,{data:{app_id:'app-1',is_valid:true,expires_at:EXPIRA}});
  }
  if(req.headers.authorization!==`Bearer ${TOKEN}`)return send(401,{error:{message:'Invalid OAuth access token.'}});
  let m=url.pathname.match(/^\/v25\.0\/(\d+)\/phone_numbers$/);
@@ -93,7 +99,7 @@ const {sendWhatsAppText}=load('src/lib/whatsapp/send.ts');
 const ADMIN='00000000-0000-4000-8000-000000000001';
 const SITE='https://stand-a.example.pt';
 const escolha={code:'code-bom',wabaId:'111',phoneNumberId:'222'};
-const reset=()=>{meta.calls.length=0;meta.sent.length=0;meta.registered.length=0;meta.subscribed.length=0;meta.registerFails=false;
+const reset=()=>{meta.calls.length=0;meta.sent.length=0;meta.registered.length=0;meta.subscribed.length=0;meta.registerFails=false;meta.debugFails=false;
  meta.numbers['111'][0].platform_type='NOT_APPLICABLE';};
 
 await test('connecting stores the chosen number and never hands the token back',async()=>{
@@ -111,6 +117,16 @@ await test('connecting stores the chosen number and never hands the token back',
  // número registado com o PIN que foi mostrado.
  assert.deepEqual(meta.subscribed,[{waba:'111',override_callback_uri:'https://stand-a.example.pt/api/whatsapp',verify_token:'verifica-1'}]);
  assert.deepEqual(meta.registered,[{id:'222',messaging_product:'whatsapp',pin:r.pin}]);
+ // A validade vem da Meta, para o painel avisar antes dos 60 dias.
+ const fim=new Date(EXPIRA*1000).toISOString();
+ assert.equal(row.token_expires_at,fim);assert.equal(r.expiresAt,fim);
+});
+
+await test('if Meta does not say when access ends, the number still connects',async()=>{
+ reset();meta.debugFails=true;const db=makeDb();
+ const r=await connectAccount(db,escolha,ADMIN,SITE);
+ assert.equal(r.ok,true,r.error);assert.equal(r.expiresAt,undefined);
+ assert.equal(db._t.whatsapp_connection[0].token_expires_at,null);
 });
 
 await test('a number from another account is refused and nothing is written',async()=>{
