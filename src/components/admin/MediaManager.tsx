@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { MEDIA_BUCKET, MEDIA_CACHE_CONTROL, publicMediaUrl } from "@/lib/storage";
@@ -389,14 +390,16 @@ function Thumb({ item }: { item: MediaItem }) {
   return failed ? (
     <Fallback label="Pré-visualização indisponível" />
   ) : (
-    // Plain <img> (não next/image): evita config de domínios e mostra o
-    // onError de forma fiável para podermos cair no fallback.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    // Miniatura pela CDN de imagens (como no site), nunca o original: cada
+    // foto original tem MBs e abrir uma viatura descarregava-as todas do
+    // Supabase de cada vez — era a maior parte do tráfego ("egress").
+    <Image
       src={url}
       alt={item.alt || "Media da viatura"}
+      fill
+      sizes="240px"
       onError={() => setFailed(true)}
-      className="h-full w-full object-cover"
+      className="object-cover"
     />
   );
 }

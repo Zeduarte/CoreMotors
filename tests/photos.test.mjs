@@ -9,6 +9,7 @@ const require = createRequire(import.meta.url);
 
 // Bucket e tabela car_media em memória.
 const files = new Map();
+const cacheHeaders = new Map();
 const rows = [];
 const removed = [];
 
@@ -25,7 +26,8 @@ const storage = {
         return { error: null };
       },
       async upload(path, buf, opts) {
-        files.set(path, Buffer.from(buf));
+        files.set(path, Buffer.isBuffer(buf) ? buf : Buffer.from(await buf.arrayBuffer()));
+        cacheHeaders.set(path, `max-age=${opts.cacheControl}`);
         assert.equal(opts.cacheControl, "31536000");
         return { error: null };
       },
@@ -40,7 +42,7 @@ const storage = {
           if (!k.startsWith(prefix)) continue;
           const rest = k.slice(prefix.length);
           const [head, ...tail] = rest.split("/");
-          out.set(head, tail.length ? { name: head, id: null, metadata: null } : { name: head, id: k, metadata: { size: v.length } });
+          out.set(head, tail.length ? { name: head, id: null, metadata: null } : { name: head, id: k, metadata: { size: v.length, cacheControl: cacheHeaders.get(k) ?? "max-age=3600" } });
         }
         return { data: [...out.values()], error: null };
       },
@@ -103,12 +105,13 @@ test("otimizar fotos: reduz as pesadas com cópia do original, salta as leves e 
     { id: "c", kind: "image", storage_path: "car2/leve.jpg", width: 800, height: 600 },
     { id: "d", kind: "image", storage_path: "https://images.unsplash.com/x", width: null, height: null },
   );
-  const { scanPhotos, optimizePhotos, deletePhotoBackups } = load("src/lib/actions/photos.ts");
+  const { scanPhotos, optimizePhotos, refreshPhotoCache, deletePhotoBackups } = load("src/lib/actions/photos.ts");
 
   const scan = await scanPhotos();
   assert.equal(scan.ok, true);
   assert.equal(scan.total, 3, "a foto externa não conta");
   assert.deepEqual(scan.todo.map((t) => t.id).sort(), ["a", "b"]);
+  assert.deepEqual(scan.stale.map((t) => t.id), ["c"], "a leve só precisa da cache longa");
 
   // Como o botão: um pedido por foto (cada pedido tem de ser curto).
   const results = [];
@@ -132,8 +135,13 @@ test("otimizar fotos: reduz as pesadas com cópia do original, salta as leves e 
   assert.ok(files.has("_originais/car1/grande.jpg") && files.has("_originais/car1/ecra.png"));
   assert.ok(files.get("_originais/car1/grande.jpg").length > files.get("car1/grande.jpg").length);
 
+  const before = files.get("car2/leve.jpg");
+  assert.equal((await refreshPhotoCache(["c"])).done, 1);
+  assert.ok(files.get("car2/leve.jpg").equals(before), "regravada igual");
+
   const again = await scanPhotos();
   assert.deepEqual(again.todo, [], "nada mais para reduzir");
+  assert.deepEqual(again.stale, [], "todas com cache longa");
   assert.equal(again.backups.count, 2);
 
   const del = await deletePhotoBackups();

@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { PHOTOS_PER_BATCH } from "@/lib/storage";
-import { deletePhotoBackups, optimizePhotos, scanPhotos, type PhotoScan } from "@/lib/actions/photos";
+import {
+  deletePhotoBackups,
+  optimizePhotos,
+  refreshPhotoCache,
+  scanPhotos,
+  type PhotoScan,
+} from "@/lib/actions/photos";
 
 const mb = (n: number) => `${(n / 1024 / 1024).toFixed(n > 100 * 1024 * 1024 ? 0 : 1)} MB`;
 
@@ -30,10 +36,10 @@ export function PhotoOptimizer() {
   }
 
   async function run() {
-    if (!scan?.todo.length) return;
+    if (!scan || !(scan.todo.length + scan.stale.length)) return;
     setBusy("run");
     const ids = scan.todo.map((t) => t.id);
-    const p = { done: 0, total: ids.length, before: 0, after: 0, errors: 0 };
+    const p = { done: 0, total: ids.length + scan.stale.length, before: 0, after: 0, errors: 0 };
     setProgress({ ...p });
     try {
       for (let i = 0; i < ids.length; i += PHOTOS_PER_BATCH) {
@@ -60,7 +66,18 @@ export function PhotoOptimizer() {
         p.done = Math.min(ids.length, i + batch.length);
         setProgress({ ...p });
       }
-      toast.success(`Fotos reduzidas: ${mb(p.before)} → ${mb(p.after)}.`);
+      // Depois, as leves com cache curta: regravam-se iguais, com cache de 1 ano.
+      for (const { id } of scan.stale) {
+        try {
+          const r = await refreshPhotoCache([id]);
+          if (!r.ok || !r.done) p.errors++;
+        } catch {
+          p.errors++;
+        }
+        p.done++;
+        setProgress({ ...p });
+      }
+      toast.success(ids.length ? `Fotos reduzidas: ${mb(p.before)} → ${mb(p.after)}.` : "Fotos atualizadas.");
     } finally {
       setBusy(null);
       await analyse();
@@ -99,14 +116,23 @@ export function PhotoOptimizer() {
 
       {scan?.ok && busy !== "run" && (
         <div className="space-y-3 text-sm text-paper/80">
-          {scan.todo.length ? (
+          {scan.todo.length + scan.stale.length ? (
             <>
-              <p>
-                <strong className="text-paper">{scan.todo.length}</strong> de {scan.total} fotos estão pesadas (
-                {mb(heavy)} no total).
-              </p>
+              {scan.todo.length > 0 && (
+                <p>
+                  <strong className="text-paper">{scan.todo.length}</strong> de {scan.total} fotos estão pesadas (
+                  {mb(heavy)} no total).
+                </p>
+              )}
+              {scan.stale.length > 0 && (
+                <p>
+                  <strong className="text-paper">{scan.stale.length}</strong> fotos leves ainda estão guardadas com
+                  cache de 1 hora (o site volta a pedi-las ao Supabase a cada hora) — passam a 1 ano.
+                </p>
+              )}
               <button type="button" className="btn-primary" onClick={run} disabled={busy !== null}>
-                Reduzir {scan.todo.length} fotos
+                {scan.todo.length ? `Reduzir ${scan.todo.length} fotos` : "Atualizar fotos"}
+                {scan.todo.length > 0 && scan.stale.length > 0 && ` e atualizar ${scan.stale.length}`}
               </button>
               <p className="text-xs text-paper/50">
                 Antes de reduzir, cada original é copiado para uma pasta de segurança. Pode fechar a página a meio:
@@ -114,7 +140,7 @@ export function PhotoOptimizer() {
               </p>
             </>
           ) : (
-            <p>✓ Todas as {scan.total} fotos já estão leves.</p>
+            <p>✓ Todas as {scan.total} fotos já estão leves e com cache longa.</p>
           )}
         </div>
       )}
