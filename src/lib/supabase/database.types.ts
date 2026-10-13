@@ -580,6 +580,21 @@ export type OlxConnectionRow = {
   updated_at: string;
 };
 
+/** Número de WhatsApp da empresa ligado no backoffice. Só o servidor lê (tem o token). */
+export type WhatsAppConnectionRow = {
+  id: number;
+  waba_id: string;
+  phone_number_id: string;
+  access_token: string;
+  display_phone_number: string | null;
+  verified_name: string | null;
+  registration_pin: string | null;
+  register_warning: string | null;
+  connected_by: string | null;
+  connected_at: string;
+  updated_at: string;
+};
+
 export type OlxCategoryCacheRow = {
   vehicle_type: string;
   category_id: number;
@@ -617,6 +632,12 @@ export type Database = {
         Row: OlxCategoryDetailsRow;
         Insert: Partial<OlxCategoryDetailsRow> & { category_id: number };
         Update: Partial<OlxCategoryDetailsRow>;
+        Relationships: [];
+      };
+      whatsapp_connection: {
+        Row: WhatsAppConnectionRow;
+        Insert: Partial<WhatsAppConnectionRow> & { waba_id: string; phone_number_id: string; access_token: string };
+        Update: Partial<WhatsAppConnectionRow>;
         Relationships: [];
       };
       wa_messages: {

@@ -46,6 +46,8 @@ from (values
             where t.typname = 'body_type' and e.enumlabel = 'Moto 4')),
   ('0034_vehicle_badges',
     exists (select 1 from information_schema.columns
-            where table_schema = 'public' and table_name = 'cars' and column_name = 'badges'))
+            where table_schema = 'public' and table_name = 'cars' and column_name = 'badges')),
+  ('0035_whatsapp_connection',
+    to_regclass('public.whatsapp_connection') is not null)
 ) as m(migracao, aplicada)
 order by migracao;

@@ -1,23 +1,25 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { effectiveSections } from "@/lib/permissions";
+import { embeddedSignup } from "@/lib/whatsapp/account";
+import { WhatsAppConnect } from "./WhatsAppConnect";
 import { WhatsAppSimulator } from "./WhatsAppSimulator";
 
 /**
- * Estado do canal de ordens por WhatsApp, e o simulador.
+ * Estado do canal de ordens por WhatsApp, a ligação do número, e o simulador.
  *
  * O simulador não é um extra: é a forma de ver isto a funcionar sem depender do
  * número da Meta, que leva dias a aprovar. Corre o mesmo código do webhook.
  */
 export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
+  // Da app da Meta, não do número: são precisas qualquer que seja o número.
   const variaveis = [
     ["WHATSAPP_VERIFY_TOKEN", !!process.env.WHATSAPP_VERIFY_TOKEN],
     ["WHATSAPP_APP_SECRET", !!process.env.WHATSAPP_APP_SECRET],
-    ["WHATSAPP_PHONE_NUMBER_ID", !!process.env.WHATSAPP_PHONE_NUMBER_ID],
-    ["WHATSAPP_ACCESS_TOKEN", !!process.env.WHATSAPP_ACCESS_TOKEN],
     ["ANTHROPIC_API_KEY", !!process.env.ANTHROPIC_API_KEY],
   ] as const;
-  const faltam = variaveis.filter(([, presente]) => !presente).map(([nome]) => nome);
+  const signup = embeddedSignup();
+  const numeroNasVariaveis = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
 
   // Quem pode dar ordens: tem telefone no perfil e uma das duas secções.
   const db = await createClient();
@@ -41,13 +43,33 @@ export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
   // As últimas ordens, para diagnóstico. A tabela é de servidor, por isso é o
   // cliente de serviço que a lê.
   const admin = createAdminClient();
-  const { data: ultimas } = admin
-    ? await admin
-        .from("wa_messages")
-        .select("wam_id,from_phone,received_at,processed_at,reply_sent_at,last_error")
-        .order("received_at", { ascending: false })
-        .limit(10)
-    : { data: null };
+  const [{ data: ultimas }, { data: ligacao }] = admin
+    ? await Promise.all([
+        admin
+          .from("wa_messages")
+          .select("wam_id,from_phone,received_at,processed_at,reply_sent_at,last_error")
+          .order("received_at", { ascending: false })
+          .limit(10),
+        // Nunca o token: só o que é seguro mostrar.
+        admin
+          .from("whatsapp_connection")
+          .select("display_phone_number,verified_name,phone_number_id,register_warning,connected_at,connected_by")
+          .eq("id", 1)
+          .maybeSingle(),
+      ])
+    : [{ data: null }, { data: null }];
+  const ligadoPor = ligacao?.connected_by
+    ? perfis?.find((p) => p.id === ligacao.connected_by)?.full_name?.trim()
+    : null;
+
+  const faltam = [
+    ...(ligacao || numeroNasVariaveis ? [] : ["número da empresa"]),
+    // O número das variáveis sem o token recebe mensagens mas não responde.
+    ...(!ligacao && numeroNasVariaveis && !process.env.WHATSAPP_ACCESS_TOKEN?.trim()
+      ? ["WHATSAPP_ACCESS_TOKEN"]
+      : []),
+    ...variaveis.filter(([, presente]) => !presente).map(([nome]) => nome),
+  ];
 
   return (
     <section className="card space-y-5 p-5">
@@ -61,29 +83,74 @@ export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
       </div>
 
       {/* Estado da ligação */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <p className="text-sm font-medium text-paper">
-          {faltam.length === 0
-            ? "Ligação configurada."
-            : `Faltam ${faltam.length} ${faltam.length === 1 ? "variável" : "variáveis"} de ambiente.`}
+          {faltam.length === 0 ? "Ligação configurada." : `Falta: ${faltam.join(", ")}.`}
         </p>
-        <ul className="mt-2 space-y-1 text-sm">
-          {variaveis.map(([nome, presente]) => (
-            <li key={nome} className={presente ? "text-paper/70" : "text-amber-300"}>
-              {presente ? "✓" : "—"} {nome}
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 text-xs text-paper/50">
-          Endereço a colar no painel da Meta (campo <em>messages</em>):
-        </p>
-        <code className="mt-1 block break-all rounded-lg bg-black/40 px-3 py-2 text-xs text-accent">
-          {baseUrl}/api/whatsapp
-        </code>
-        <p className="mt-2 text-xs text-paper/50">
-          O simulador abaixo funciona sem nada disto — só precisa da
-          ANTHROPIC_API_KEY.
-        </p>
+
+        {/* O número da empresa */}
+        <div className="text-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-paper/50">
+            Número da empresa
+          </p>
+          {ligacao ? (
+            <div className="mt-1 space-y-1 text-paper/80">
+              <p>
+                <strong className="text-paper">
+                  {ligacao.display_phone_number ?? `ID ${ligacao.phone_number_id}`}
+                </strong>
+                {ligacao.verified_name ? ` · ${ligacao.verified_name}` : ""}
+              </p>
+              <p className="text-xs text-paper/50">
+                Ligado no backoffice a {new Date(ligacao.connected_at).toLocaleString("pt-PT")}
+                {ligadoPor ? ` por ${ligadoPor}` : ""}.
+              </p>
+              {ligacao.register_warning && (
+                <p className="text-xs text-amber-300">{ligacao.register_warning}</p>
+              )}
+            </div>
+          ) : numeroNasVariaveis ? (
+            <p className="mt-1 text-paper/70">
+              Definido nas variáveis do Netlify (ID {numeroNasVariaveis}).
+              {signup ? " Pode passar a ligá-lo aqui: o número ligado aqui passa à frente das variáveis." : ""}
+            </p>
+          ) : (
+            <p className="mt-1 text-amber-300">Nenhum número ligado.</p>
+          )}
+          <div className="mt-3">
+            <WhatsAppConnect signup={signup} connected={!!ligacao} />
+          </div>
+          {!signup && (
+            <p className="mt-2 text-xs text-paper/50">
+              Para ligar o número aqui, sem copiar tokens para o Netlify, crie as variáveis{" "}
+              <code>WHATSAPP_APP_ID</code> e <code>WHATSAPP_CONFIG_ID</code> (o ID da app da Meta e
+              o da configuração do Embedded Signup) e faça um novo deploy.
+            </p>
+          )}
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-paper/50">
+            Variáveis da app da Meta
+          </p>
+          <ul className="mt-2 space-y-1 text-sm">
+            {variaveis.map(([nome, presente]) => (
+              <li key={nome} className={presente ? "text-paper/70" : "text-amber-300"}>
+                {presente ? "✓" : "—"} {nome}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-paper/50">
+            Endereço a colar no painel da Meta (campo <em>messages</em>):
+          </p>
+          <code className="mt-1 block break-all rounded-lg bg-black/40 px-3 py-2 text-xs text-accent">
+            {baseUrl}/api/whatsapp
+          </code>
+          <p className="mt-2 text-xs text-paper/50">
+            O simulador abaixo funciona sem nada disto — só precisa da
+            ANTHROPIC_API_KEY.
+          </p>
+        </div>
       </div>
 
       {/* Quem pode dar ordens */}

@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { publicSubmissionClient } from "@/lib/public-submissions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { whatsAppNumber, type WhatsAppNumber } from "@/lib/whatsapp/account";
 import { handleInbound, toActor } from "@/lib/whatsapp/handle";
 import { extractMessages, type InboundMessage } from "@/lib/whatsapp/payload";
 import { REPLIES } from "@/lib/whatsapp/replies";
@@ -91,9 +92,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  // O número ligado em Integrações; sem ele, o das variáveis do Netlify.
+  const number = await whatsAppNumber(db);
+
   for (const msg of messages) {
     try {
-      await processOne(db, msg);
+      await processOne(db, msg, number);
     } catch (error) {
       // Uma mensagem que falha não pode impedir as outras nem mudar o 200.
       console.error("api/whatsapp:", error);
@@ -104,7 +108,11 @@ export async function POST(request: Request) {
 
 type Db = NonNullable<ReturnType<typeof createAdminClient>>;
 
-async function processOne(db: Db, msg: InboundMessage): Promise<void> {
+async function processOne(
+  db: Db,
+  msg: InboundMessage,
+  number: WhatsAppNumber | null,
+): Promise<void> {
   // Reclamação. Falha (chave duplicada) = já vista = reentrega: pára aqui. Vem
   // ANTES da quota, senão as reentregas da Meta gastavam a quota da pessoa.
   const { error: claimError } = await db
@@ -129,13 +137,13 @@ async function processOne(db: Db, msg: InboundMessage): Promise<void> {
   // que o botão «Test» da Meta produz, porque usa um número fictício — por isso
   // uma linha destas no painel prova que a Meta chega cá e que o App Secret
   // está certo.
-  const esperado = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const esperado = number?.phoneNumberId;
   if (!esperado || (msg.phoneNumberId && msg.phoneNumberId !== esperado)) {
     await finish({
       actor_id: null,
       last_error: !esperado
-        ? "WHATSAPP_PHONE_NUMBER_ID não está definido"
-        : `mensagem para o número com ID ${msg.phoneNumberId}, mas o configurado é ${esperado}`,
+        ? "nenhum número ligado — ligue-o em Integrações (ou defina WHATSAPP_PHONE_NUMBER_ID)"
+        : `mensagem para o número com ID ${msg.phoneNumberId}, mas o ligado é ${esperado}`,
     });
     return;
   }
@@ -190,7 +198,7 @@ async function processOne(db: Db, msg: InboundMessage): Promise<void> {
     await finish({ actor_id: actorId });
     return;
   }
-  const sent = await sendWhatsAppText(msg.from, reply);
+  const sent = await sendWhatsAppText(msg.from, reply, number);
   await finish({
     actor_id: actorId,
     reply_sent_at: sent.ok ? new Date().toISOString() : null,

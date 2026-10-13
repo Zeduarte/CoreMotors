@@ -1,4 +1,6 @@
 import "server-only";
+import { graphBase, graphVersion } from "./graph";
+import type { WhatsAppNumber } from "./account";
 
 /**
  * Envio de mensagens pelo WhatsApp Cloud API da Meta.
@@ -8,13 +10,10 @@ import "server-only";
  * devolver erro à Meta, senão ela reentrega a mensagem e a pessoa recebe tudo
  * em duplicado.
  *
- * A versão do Graph API vem de `WHATSAPP_GRAPH_VERSION` porque a Meta a
- * descontinua periodicamente. O valor por defeito é o que o painel da app
- * mostrava em setembro de 2026 (no exemplo de envio do "Step 1. Try it out");
- * quando a Meta o descontinuar, basta mudar a variável no Netlify.
+ * O número e o token vêm de `whatsAppNumber()`: o ligado no backoffice, ou as
+ * variáveis do Netlify quando não há nenhum.
  */
 
-const DEFAULT_GRAPH_VERSION = "v25.0";
 /** O WhatsApp aceita mais, mas uma ordem nunca precisa de tanto. */
 const MAX_BODY = 4000;
 
@@ -23,22 +22,20 @@ export interface SendResult {
   error?: string;
 }
 
-export async function sendWhatsAppText(to: string, body: string): Promise<SendResult> {
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  if (!token || !phoneNumberId) return { ok: false, error: "WhatsApp não configurado" };
+export async function sendWhatsAppText(
+  to: string,
+  body: string,
+  number: WhatsAppNumber | null,
+): Promise<SendResult> {
+  if (!number?.accessToken) return { ok: false, error: "WhatsApp não configurado" };
 
-  const version = process.env.WHATSAPP_GRAPH_VERSION || DEFAULT_GRAPH_VERSION;
-  // Destino configurável como o ANTHROPIC_BASE_URL, para os testes poderem
-  // apontar a um servidor local. Vazio = a Meta.
-  const base = (process.env.WHATSAPP_GRAPH_BASE_URL || "https://graph.facebook.com").replace(/\/$/, "");
   try {
     const response = await fetch(
-      `${base}/${version}/${encodeURIComponent(phoneNumberId)}/messages`,
+      `${graphBase()}/${graphVersion()}/${encodeURIComponent(number.phoneNumberId)}/messages`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${number.accessToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

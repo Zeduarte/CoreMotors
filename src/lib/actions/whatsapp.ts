@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireSection } from "@/lib/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { connectAccount, disconnectAccount, type ConnectResult } from "@/lib/whatsapp/account";
 import { handleInbound, toActor } from "@/lib/whatsapp/handle";
 
 /**
@@ -75,4 +76,47 @@ export async function simulateInbound(data: FormData): Promise<SimulationResult>
     console.error("simulateInbound:", error);
     return { ok: false, error: "Não foi possível simular. Veja os registos do servidor." };
   }
+}
+
+/**
+ * «Ligar número do WhatsApp»: recebe o que a janela da Meta devolveu ao
+ * browser e faz a ligação no servidor (ver `connectAccount`).
+ *
+ * Não há `state` como no OLX porque não há retorno por URL: o `code` chega por
+ * esta Server Action, que o Next só aceita da mesma origem e que exige a sessão
+ * de um administrador. Um link forjado não a consegue chamar.
+ */
+export async function connectWhatsApp(input: {
+  code: string;
+  wabaId: string;
+  phoneNumberId: string;
+}): Promise<ConnectResult> {
+  const me = await requireSection("integracoes");
+
+  const parsed = z
+    .object({
+      code: z.string().trim().min(1).max(2000),
+      wabaId: z.string().trim().regex(/^[0-9]{1,30}$/),
+      phoneNumberId: z.string().trim().regex(/^[0-9]{1,30}$/),
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "A Meta não devolveu a conta e o número escolhidos. Tente outra vez." };
+  }
+
+  const db = createAdminClient();
+  if (!db) return { ok: false, error: "A chave de serviço do Supabase não está configurada." };
+
+  const result = await connectAccount(db, parsed.data, me.id);
+  if (result.ok) revalidatePath("/admin/integracoes");
+  return result;
+}
+
+export async function disconnectWhatsApp(): Promise<{ ok: boolean; error?: string }> {
+  await requireSection("integracoes");
+  const db = createAdminClient();
+  if (!db) return { ok: false, error: "A chave de serviço do Supabase não está configurada." };
+  const result = await disconnectAccount(db);
+  if (result.ok) revalidatePath("/admin/integracoes");
+  return result;
 }

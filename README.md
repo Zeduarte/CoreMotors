@@ -210,3 +210,15 @@ Aplicar `supabase/migrations/0019_vehicle_worlds.sql` depois da 0018 antes de pu
 A escolha Carros/Motas fica guardada em cookies independentes para o site público e o backoffice. Stock, destaques, vendidos, pesquisa, favoritos, comparação e sugestões respeitam a escolha pública. No backoffice, os separadores abrangem stock, oficina, finanças e contactos. Marca, equipa, integrações e definições da empresa continuam partilhadas. Os pontos de venda mantêm-se na base de dados e na edição dos anúncios; apenas o respetivo filtro visual foi removido.
 
 Verificação local: `npm test`, `npm run typecheck`, `npm run lint` e `npm run build`. A aplicação da migração numa base de dados remota e a publicação do site são passos separados.
+
+## Ligar o número do WhatsApp no backoffice — migração 0035
+
+Aplicar `supabase/migrations/0035_whatsapp_connection.sql`. Em **Integrações → Ordens por WhatsApp**, o botão «Ligar número do WhatsApp» abre a janela da Meta (Embedded Signup): entra-se com o Facebook da empresa, escolhe-se a conta do WhatsApp Business e o número, e o site faz o resto — troca a autorização por um token, confirma que o número pertence à conta, subscreve as mensagens e regista o número na Cloud API (o PIN de verificação em dois passos é mostrado uma vez). O token fica numa tabela só de servidor, como os do OLX.
+
+Configuração da app da Meta, uma vez:
+
+1. **Facebook Login for Business → Configurações → Criar configuração**, com o tipo *WhatsApp Embedded Signup*. O ID dessa configuração vai para `WHATSAPP_CONFIG_ID`; o ID da app, para `WHATSAPP_APP_ID`.
+2. **Facebook Login for Business → Definições**: ativar *Login with the JavaScript SDK* e acrescentar o domínio do site a *Allowed domains for the JavaScript SDK*. O botão só funciona em HTTPS.
+3. O webhook continua a ser configurado na app (WhatsApp → Configuração), com o endereço mostrado no painel, o `WHATSAPP_VERIFY_TOKEN` e o campo *messages* subscrito. O `WHATSAPP_APP_SECRET` continua obrigatório: valida os pedidos da Meta e é com ele que se troca a autorização.
+
+`WHATSAPP_PHONE_NUMBER_ID` e `WHATSAPP_ACCESS_TOKEN` passam a ser opcionais: só são usados quando não há nenhum número ligado no backoffice, por isso um site que já funcionava com eles não pára no deploy.

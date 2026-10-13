@@ -398,6 +398,18 @@ await test('the WhatsApp state tables are unreachable from a logged-in session',
  });
 });
 
+await test('the WhatsApp number token is unreachable from any logged-in session',async()=>{
+ // O token envia mensagens em nome da empresa: nem um administrador o lê pela API.
+ await asUser(admin,async()=>assert.rejects(db.query('select * from public.whatsapp_connection'),/permission denied/));
+ await asServer(async()=>{
+  await db.query("insert into whatsapp_connection(waba_id,phone_number_id,access_token) values('111','222','t')");
+  // Uma ligação só, e os IDs são algarismos: entram em caminhos do Graph API.
+  await assert.rejects(db.query("insert into whatsapp_connection(id,waba_id,phone_number_id,access_token) values(2,'1','2','t')"),/check/i);
+  await assert.rejects(db.query("update whatsapp_connection set phone_number_id='../me' where id=1"),/check/i);
+  await db.query('delete from whatsapp_connection');
+ });
+});
+
 await test('OLX tokens and cache are unreachable from any logged-in session',async()=>{
  // Os tokens dão acesso total à conta do OLX do stand: nem um administrador
  // os pode ler pela API.
