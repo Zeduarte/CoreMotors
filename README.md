@@ -215,10 +215,17 @@ Verificação local: `npm test`, `npm run typecheck`, `npm run lint` e `npm run 
 
 Aplicar `supabase/migrations/0035_whatsapp_connection.sql`. Em **Integrações → Ordens por WhatsApp**, o botão «Ligar número do WhatsApp» abre a janela da Meta (Embedded Signup): entra-se com o Facebook da empresa, escolhe-se a conta do WhatsApp Business e o número, e o site faz o resto — troca a autorização por um token, confirma que o número pertence à conta, subscreve as mensagens e regista o número na Cloud API (o PIN de verificação em dois passos é mostrado uma vez). O token fica numa tabela só de servidor, como os do OLX.
 
-Configuração da app da Meta, uma vez:
+### Vários clientes, uma app da Meta
 
-1. **Facebook Login for Business → Configurações → Criar configuração**, com o tipo *WhatsApp Embedded Signup*. O ID dessa configuração vai para `WHATSAPP_CONFIG_ID`; o ID da app, para `WHATSAPP_APP_ID`.
-2. **Facebook Login for Business → Definições**: ativar *Login with the JavaScript SDK* e acrescentar o domínio do site a *Allowed domains for the JavaScript SDK*. O botão só funciona em HTTPS.
-3. O webhook continua a ser configurado na app (WhatsApp → Configuração), com o endereço mostrado no painel, o `WHATSAPP_VERIFY_TOKEN` e o campo *messages* subscrito. O `WHATSAPP_APP_SECRET` continua obrigatório: valida os pedidos da Meta e é com ele que se troca a autorização.
+O engineLine instala-se um site por cliente, e **todos usam a mesma app da Meta — a do fornecedor**. As quatro variáveis da app (`WHATSAPP_APP_ID`, `WHATSAPP_CONFIG_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`) são iguais em todos os sites; o que muda é o número, que cada cliente liga no seu backoffice. Como uma app só tem um endereço de webhook, ao ligar o número o site pede à Meta que as mensagens dessa conta sejam entregues no seu próprio `/api/whatsapp` (`override_callback_uri`). A Meta valida esse endereço na hora, por isso o site tem de estar publicado em HTTPS e com o `WHATSAPP_VERIFY_TOKEN` certo antes de se carregar no botão.
+
+Configuração da app da Meta, uma vez para todos os clientes:
+
+1. **Casos de utilização → Adicionar → WhatsApp** (conectar com clientes através do WhatsApp).
+2. **Facebook Login for Business → Configurações → Criar configuração**, com o tipo *WhatsApp Embedded Signup*. O ID dessa configuração vai para `WHATSAPP_CONFIG_ID`; o ID da app, para `WHATSAPP_APP_ID`.
+3. **Facebook Login for Business → Definições**: ativar *Login with the JavaScript SDK* e acrescentar o domínio de **cada** site cliente a *Allowed domains for the JavaScript SDK*.
+4. **WhatsApp → Configuração → Webhook**: um endereço geral (pode ser o de um dos sites), o `WHATSAPP_VERIFY_TOKEN` e o campo *messages* subscrito. É a subscrição do campo que conta; o endereço de cada cliente vem da ligação.
+
+Para ligar números de **outras empresas** (e não só os da empresa dona da app), a Meta exige ainda: a verificação da empresa no Business Manager, o registo como *Tech Provider* e o acesso avançado às permissões `whatsapp_business_management` e `whatsapp_business_messaging` (revisão da app). Até lá, o botão só funciona com números da própria empresa dona da app — chega para testar.
 
 `WHATSAPP_PHONE_NUMBER_ID` e `WHATSAPP_ACCESS_TOKEN` passam a ser opcionais: só são usados quando não há nenhum número ligado no backoffice, por isso um site que já funcionava com eles não pára no deploy.

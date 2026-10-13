@@ -14,7 +14,7 @@ const require=createRequire(import.meta.url);
 
 // ---- Meta simulada ----------------------------------------------------------
 const TOKEN='EAAG-token-da-empresa';
-const meta={calls:[],sent:[],registered:[],registerFails:false,
+const meta={calls:[],sent:[],registered:[],subscribed:[],registerFails:false,
  numbers:{'111':[{id:'222',display_phone_number:'+351 912 345 678',verified_name:'engineLine',platform_type:'NOT_APPLICABLE'}]}};
 const server=http.createServer(async(req,res)=>{
  let raw='';for await(const c of req)raw+=c;
@@ -35,7 +35,7 @@ const server=http.createServer(async(req,res)=>{
   return send(200,{data:meta.numbers[m[1]]});
  }
  m=url.pathname.match(/^\/v25\.0\/(\d+)\/subscribed_apps$/);
- if(m&&req.method==='POST')return send(200,{success:true});
+ if(m&&req.method==='POST'){meta.subscribed.push({waba:m[1],...body});return send(200,{success:true});}
  m=url.pathname.match(/^\/v25\.0\/(\d+)\/register$/);
  if(m&&req.method==='POST'){
   if(meta.registerFails)return send(400,{error:{message:'(#133005) Two step verification PIN Mismatch'}});
@@ -50,6 +50,7 @@ process.env.WHATSAPP_GRAPH_BASE_URL=`http://127.0.0.1:${server.address().port}`;
 delete process.env.WHATSAPP_GRAPH_VERSION;
 process.env.WHATSAPP_APP_ID='app-1';
 process.env.WHATSAPP_APP_SECRET='segredo-1';
+process.env.WHATSAPP_VERIFY_TOKEN='verifica-1';
 process.env.WHATSAPP_CONFIG_ID='config-1';
 delete process.env.WHATSAPP_PHONE_NUMBER_ID;
 delete process.env.WHATSAPP_ACCESS_TOKEN;
@@ -90,13 +91,14 @@ const {connectAccount,disconnectAccount,whatsAppNumber,embeddedSignup}=load('src
 const {sendWhatsAppText}=load('src/lib/whatsapp/send.ts');
 
 const ADMIN='00000000-0000-4000-8000-000000000001';
+const SITE='https://stand-a.example.pt';
 const escolha={code:'code-bom',wabaId:'111',phoneNumberId:'222'};
-const reset=()=>{meta.calls.length=0;meta.sent.length=0;meta.registered.length=0;meta.registerFails=false;
+const reset=()=>{meta.calls.length=0;meta.sent.length=0;meta.registered.length=0;meta.subscribed.length=0;meta.registerFails=false;
  meta.numbers['111'][0].platform_type='NOT_APPLICABLE';};
 
 await test('connecting stores the chosen number and never hands the token back',async()=>{
  reset();const db=makeDb();
- const r=await connectAccount(db,escolha,ADMIN);
+ const r=await connectAccount(db,escolha,ADMIN,SITE);
  assert.equal(r.ok,true,r.error);
  assert.equal(r.number,'+351 912 345 678');assert.equal(r.name,'engineLine');
  assert.match(r.pin,/^\d{6}$/,'PIN de seis algarismos');
@@ -105,14 +107,15 @@ await test('connecting stores the chosen number and never hands the token back',
  assert.equal(row.id,1);assert.equal(row.waba_id,'111');assert.equal(row.phone_number_id,'222');
  assert.equal(row.access_token,TOKEN);assert.equal(row.registration_pin,r.pin);
  assert.equal(row.register_warning,null);assert.equal(row.connected_by,ADMIN);
- // A conta fica subscrita e o número registado com o PIN que foi mostrado.
- assert.ok(meta.calls.includes('POST /v25.0/111/subscribed_apps'));
+ // A conta fica subscrita, com as mensagens encaminhadas para ESTE site, e o
+ // número registado com o PIN que foi mostrado.
+ assert.deepEqual(meta.subscribed,[{waba:'111',override_callback_uri:'https://stand-a.example.pt/api/whatsapp',verify_token:'verifica-1'}]);
  assert.deepEqual(meta.registered,[{id:'222',messaging_product:'whatsapp',pin:r.pin}]);
 });
 
 await test('a number from another account is refused and nothing is written',async()=>{
  reset();const db=makeDb();
- const r=await connectAccount(db,{...escolha,phoneNumberId:'999'},ADMIN);
+ const r=await connectAccount(db,{...escolha,phoneNumberId:'999'},ADMIN,SITE);
  assert.equal(r.ok,false);assert.match(r.error,/não pertence/);
  assert.equal(db._t.whatsapp_connection.length,0);
  assert.ok(!meta.calls.some(c=>/subscribed_apps|register/.test(c)),'nada mudou na Meta');
@@ -120,7 +123,7 @@ await test('a number from another account is refused and nothing is written',asy
 
 await test('a used or expired code stops before touching the account',async()=>{
  reset();const db=makeDb();
- const r=await connectAccount(db,{...escolha,code:'code-velho'},ADMIN);
+ const r=await connectAccount(db,{...escolha,code:'code-velho'},ADMIN,SITE);
  assert.equal(r.ok,false);assert.match(r.error,/não aceitou a autorização/);
  assert.match(r.error,/authorization code has been used/,'o motivo da Meta chega ao administrador');
  assert.deepEqual(meta.calls,['GET /v25.0/oauth/access_token']);
@@ -129,7 +132,7 @@ await test('a used or expired code stops before touching the account',async()=>{
 
 await test('a number already on the Cloud API is not registered again',async()=>{
  reset();meta.numbers['111'][0].platform_type='CLOUD_API';const db=makeDb();
- const r=await connectAccount(db,escolha,ADMIN);
+ const r=await connectAccount(db,escolha,ADMIN,SITE);
  assert.equal(r.ok,true,r.error);assert.equal(r.pin,undefined);
  assert.ok(!meta.calls.some(c=>c.endsWith('/register')));
  assert.equal(db._t.whatsapp_connection[0].registration_pin,null);
@@ -137,31 +140,53 @@ await test('a number already on the Cloud API is not registered again',async()=>
 
 await test('a failed registration still connects, with the reason written down',async()=>{
  reset();meta.registerFails=true;const db=makeDb();
- const r=await connectAccount(db,escolha,ADMIN);
+ const r=await connectAccount(db,escolha,ADMIN,SITE);
  assert.equal(r.ok,true,r.error);assert.equal(r.pin,undefined,'um PIN que não ficou definido não se mostra');
  assert.match(r.warning,/registo na Cloud API falhou.*PIN Mismatch/);
  const row=db._t.whatsapp_connection[0];
  assert.equal(row.registration_pin,null);assert.match(row.register_warning,/PIN Mismatch/);
 });
 
+await test('two stands on the same Meta app each get their own messages',async()=>{
+ // O fornecedor tem uma app; cada cliente tem o seu site e o seu número.
+ reset();meta.numbers['444']=[{id:'555',display_phone_number:'+351 221 000 000',verified_name:'Stand B',platform_type:'CLOUD_API'}];
+ try{
+  assert.equal((await connectAccount(makeDb(),escolha,ADMIN,'https://stand-a.example.pt/')).ok,true);
+  assert.equal((await connectAccount(makeDb(),{code:'code-bom',wabaId:'444',phoneNumberId:'555'},ADMIN,'https://stand-b.example.pt')).ok,true);
+  assert.deepEqual(meta.subscribed.map(s=>[s.waba,s.override_callback_uri]),[
+   ['111','https://stand-a.example.pt/api/whatsapp'],
+   ['444','https://stand-b.example.pt/api/whatsapp'],
+  ]);
+ }finally{delete meta.numbers['444'];}
+});
+
+await test('a site without HTTPS is refused before anything changes at Meta',async()=>{
+ reset();const db=makeDb();
+ for(const url of ['http://stand-a.example.pt','','https://stand-a.example.pt/caminho']){
+  const r=await connectAccount(db,escolha,ADMIN,url);
+  assert.equal(r.ok,false,url);assert.match(r.error,/HTTPS/);
+ }
+ assert.deepEqual(meta.calls,[]);assert.equal(db._t.whatsapp_connection.length,0);
+});
+
 await test('ids that are not digits never reach a Graph URL',async()=>{
  reset();const db=makeDb();
  for(const ids of [{wabaId:'../me'},{phoneNumberId:'222/messages'},{wabaId:''}]){
-  const r=await connectAccount(db,{...escolha,...ids},ADMIN);
+  const r=await connectAccount(db,{...escolha,...ids},ADMIN,SITE);
   assert.equal(r.ok,false);
  }
  assert.deepEqual(meta.calls,[]);
 });
 
-await test('without the app id or secret the connection is not offered',async()=>{
+await test('without the app id, secret or verify token the connection is not offered',async()=>{
  reset();
  assert.deepEqual(embeddedSignup(),{appId:'app-1',configId:'config-1',graphVersion:'v25.0'});
- for(const nome of ['WHATSAPP_APP_ID','WHATSAPP_APP_SECRET']){
+ for(const nome of ['WHATSAPP_APP_ID','WHATSAPP_APP_SECRET','WHATSAPP_VERIFY_TOKEN']){
   const antes=process.env[nome];delete process.env[nome];
   try{
    assert.equal(embeddedSignup(),null,nome);
-   const r=await connectAccount(makeDb(),escolha,ADMIN);
-   assert.equal(r.ok,false);assert.match(r.error,/WHATSAPP_APP_ID e WHATSAPP_APP_SECRET/);
+   const r=await connectAccount(makeDb(),escolha,ADMIN,SITE);
+   assert.equal(r.ok,false);assert.match(r.error,/WHATSAPP_APP_ID, WHATSAPP_APP_SECRET e WHATSAPP_VERIFY_TOKEN/);
   }finally{process.env[nome]=antes;}
  }
  assert.deepEqual(meta.calls,[]);

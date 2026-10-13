@@ -17,6 +17,12 @@ import { graphRequest, graphVersion } from "./graph";
  * e os IDs escolhidos. Aqui troca-se o `code` por um token, confirma-se que o
  * número pertence mesmo à conta (os IDs vêm do browser, o token não mente),
  * subscrevem-se as mensagens da conta e regista-se o número na Cloud API.
+ *
+ * O engineLine é instalado um site por cliente, e todos usam a MESMA app da
+ * Meta (a do fornecedor). Uma app só tem um endereço de webhook, por isso a
+ * subscrição de cada conta leva o endereço do site do cliente
+ * (`override_callback_uri`): as mensagens do número de cada stand chegam ao
+ * site desse stand, e a nenhum outro.
  */
 
 type Db = SupabaseClient<Database>;
@@ -52,8 +58,9 @@ export async function whatsAppNumber(db: Db | null): Promise<WhatsAppNumber | nu
 /**
  * O que o browser precisa para abrir a janela da Meta. Os dois IDs são
  * públicos (aparecem no código da página de qualquer site que use o Embedded
- * Signup); o App Secret não sai do servidor, mas sem ele não se troca o `code`,
- * por isso o botão só aparece quando os três existem.
+ * Signup); o App Secret e o Verify Token não saem do servidor, mas sem eles não
+ * se troca o `code` nem se encaminha o webhook, por isso o botão só aparece
+ * quando os quatro existem.
  */
 export interface EmbeddedSignup {
   appId: string;
@@ -64,7 +71,9 @@ export interface EmbeddedSignup {
 export function embeddedSignup(): EmbeddedSignup | null {
   const appId = process.env.WHATSAPP_APP_ID?.trim();
   const configId = process.env.WHATSAPP_CONFIG_ID?.trim();
-  if (!appId || !configId || !process.env.WHATSAPP_APP_SECRET) return null;
+  if (!appId || !configId || !process.env.WHATSAPP_APP_SECRET || !process.env.WHATSAPP_VERIFY_TOKEN) {
+    return null;
+  }
   return { appId, configId, graphVersion: graphVersion() };
 }
 
@@ -98,11 +107,21 @@ export async function connectAccount(
   db: Db,
   input: ConnectInput,
   actorId: string,
+  siteUrl: string,
 ): Promise<ConnectResult> {
   const appId = process.env.WHATSAPP_APP_ID?.trim();
   const secret = process.env.WHATSAPP_APP_SECRET?.trim();
-  if (!appId || !secret) {
-    return { ok: false, error: "Faltam WHATSAPP_APP_ID e WHATSAPP_APP_SECRET nas variáveis do Netlify." };
+  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN?.trim();
+  if (!appId || !secret || !verifyToken) {
+    return {
+      ok: false,
+      error: "Faltam WHATSAPP_APP_ID, WHATSAPP_APP_SECRET e WHATSAPP_VERIFY_TOKEN nas variáveis do Netlify.",
+    };
+  }
+  // A Meta só entrega webhooks em HTTPS, e chama este endereço para o validar.
+  const callback = `${siteUrl.replace(/\/$/, "")}/api/whatsapp`;
+  if (!/^https:\/\/[^/]+\/api\/whatsapp$/.test(callback)) {
+    return { ok: false, error: `O endereço do site tem de ser HTTPS (NEXT_PUBLIC_SITE_URL), não ${siteUrl}.` };
   }
   // Os IDs entram em caminhos do Graph API: só algarismos, nunca `../`.
   if (!DIGITS.test(input.wabaId) || !DIGITS.test(input.phoneNumberId)) {
@@ -135,10 +154,20 @@ export async function connectAccount(
     return { ok: false, error: "O número escolhido não pertence a essa conta do WhatsApp Business." };
   }
 
-  // 3. Sem a subscrição, a Meta não entrega as mensagens desta conta à app.
-  const subscribe = await graphRequest(`${input.wabaId}/subscribed_apps`, { method: "POST", token });
+  // 3. Sem a subscrição, a Meta não entrega as mensagens desta conta à app; e
+  //    sem o endereço próprio, entregava-as ao webhook geral da app, que é o
+  //    de outro site. A Meta valida o endereço na hora (GET com o Verify
+  //    Token), por isso um site mal configurado falha aqui e não em silêncio.
+  const subscribe = await graphRequest(`${input.wabaId}/subscribed_apps`, {
+    method: "POST",
+    token,
+    body: { override_callback_uri: callback, verify_token: verifyToken },
+  });
   if (!subscribe.ok) {
-    return { ok: false, error: `A Meta não deixou subscrever as mensagens (${subscribe.error}).` };
+    return {
+      ok: false,
+      error: `A Meta não deixou encaminhar as mensagens para ${callback} (${subscribe.error}).`,
+    };
   }
 
   // 4. Um número acabado de ligar ainda não envia: é preciso registá-lo na

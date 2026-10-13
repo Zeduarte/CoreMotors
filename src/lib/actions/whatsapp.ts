@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireSection } from "@/lib/guard";
+import { site } from "@/lib/site";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { connectAccount, disconnectAccount, type ConnectResult } from "@/lib/whatsapp/account";
 import { handleInbound, toActor } from "@/lib/whatsapp/handle";
@@ -107,7 +108,9 @@ export async function connectWhatsApp(input: {
   const db = createAdminClient();
   if (!db) return { ok: false, error: "A chave de serviço do Supabase não está configurada." };
 
-  const result = await connectAccount(db, parsed.data, me.id);
+  // O mesmo endereço que o painel mostra: é para lá que a Meta vai entregar.
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || site.url;
+  const result = await connectAccount(db, parsed.data, me.id, siteUrl);
   if (result.ok) revalidatePath("/admin/integracoes");
   return result;
 }

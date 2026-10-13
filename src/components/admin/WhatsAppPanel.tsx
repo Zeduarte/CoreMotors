@@ -124,7 +124,7 @@ export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
             <p className="mt-2 text-xs text-paper/50">
               Para ligar o número aqui, sem copiar tokens para o Netlify, crie as variáveis{" "}
               <code>WHATSAPP_APP_ID</code> e <code>WHATSAPP_CONFIG_ID</code> (o ID da app da Meta e
-              o da configuração do Embedded Signup) e faça um novo deploy.
+              o da configuração do Embedded Signup), além das duas abaixo, e faça um novo deploy.
             </p>
           )}
         </div>
