@@ -14,19 +14,26 @@ import { WorldCoverArt, worldCoverStyles } from "./WorldCover";
 const DEPART_MS = 800;
 
 /**
- * Seletor "Motas | Carros" do cabeçalho: os dois mundos lado a lado, discreto
- * — o atual em branco sobre um fundo suave, o outro em cinzento e clicável.
- * No telemóvel o outro mundo fica só com o ícone (cabe ao lado do logótipo e
- * do menu). Não aparece nas páginas comuns aos dois mundos (Sobre, Serviços,
- * Contactos e legais), onde escolher um tipo não muda nada.
+ * Passagem para o outro mundo (carros ↔ motas).
  *
- * A troca é uma navegação completa (`<a>`, não `<Link>`): a rota grava o
- * cookie do mundo e volta, o que refaz todas as queries do servidor. Antes de
- * sair, a foto do outro mundo entra por cima da página (o visual do ecrã de
- * entrada) e a página nova abre tapada por ela e revela-se (`WorldArrival`).
- * Um anel com a percentagem mostra que está a carregar.
+ * Mostra apenas o destino — quem está nos carros vê "Ver stock de motas". Não
+ * aparece nas páginas comuns aos dois mundos (Sobre, Serviços, Contactos e
+ * legais), onde escolher um tipo não muda nada.
+ *
+ * É uma navegação completa (`<a>`, não `<Link>`): a rota grava o cookie do
+ * mundo e volta, o que refaz todas as queries do servidor. Antes de sair, a
+ * foto do outro mundo entra por cima da página (o visual do ecrã de entrada)
+ * e a página nova abre tapada por ela e revela-se (`WorldArrival`). Um anel com
+ * a percentagem mostra que está a carregar enquanto o servidor responde.
  */
-export function WorldSwitch({ world }: { world: VehicleType }) {
+export function WorldSwitch({
+  world,
+  compact = false,
+}: {
+  world: VehicleType;
+  /** Versão curta ("Motas"), para o header em ecrãs pequenos. */
+  compact?: boolean;
+}) {
   const pathname = usePathname();
   const [leaving, setLeaving] = useState(false);
   const overlay = useRef<HTMLDivElement>(null);
@@ -48,6 +55,7 @@ export function WorldSwitch({ world }: { world: VehicleType }) {
   if (!pathHasWorld(pathname)) return null;
 
   const target = otherWorld(world);
+  const label = WORLD_LABEL[target];
   // Numa ficha de viatura o slug é do mundo atual — volta ao stock.
   const destination = pathname.startsWith("/viaturas/") ? "/inventario" : pathname;
 
@@ -68,50 +76,27 @@ export function WorldSwitch({ world }: { world: VehicleType }) {
     window.setTimeout(() => window.location.assign(href), DEPART_MS);
   }
 
-  const segment =
-    "inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-medium transition-colors md:px-3";
-
   return (
     <>
-      <div
-        role="group"
-        aria-label="Escolher entre motas e carros"
-        className="inline-flex shrink-0 items-center rounded-full border border-white/15 p-0.5"
-      >
-        {(["motorcycle", "car"] as const).map((type) => {
-          const label = capitalize(WORLD_LABEL[type]);
-          const icon = type === "motorcycle" ? <MotoIcon /> : <CarIcon />;
-          // No telemóvel, o mundo de destino fica só com o ícone.
-          const text = <span className={type !== world ? "sr-only md:not-sr-only" : ""}>{label}</span>;
-          return type === world ? (
-            <span key={type} aria-current="true" className={`${segment} bg-white/10 text-paper`}>
-              {icon}
-              {text}
-            </span>
-          ) : (
-            <a
-              key={type}
-              href={`/api/vehicle-context?area=public&type=${type}&target=${encodeURIComponent(destination)}`}
-              onClick={go}
-              onPointerEnter={preload}
-              onFocus={preload}
-              title={`Mudar para o stock de ${WORLD_LABEL[type]}`}
-              className={`${segment} text-paper/50 hover:text-paper`}
-            >
-              {icon}
-              {text}
-            </a>
-          );
-        })}
-      </div>
-      {leaving &&
-        createPortal(
-          <div ref={overlay} className={`${worldCoverStyles.overlay} ${worldCoverStyles.depart}`} role="status">
-            <span className="sr-only">A mudar para {WORLD_LABEL[target]}…</span>
-            <WorldCoverArt type={target} />
-          </div>,
-          document.body,
-        )}
+    <a
+      href={`/api/vehicle-context?area=public&type=${target}&target=${encodeURIComponent(destination)}`}
+      onClick={go}
+      onPointerEnter={preload}
+      onFocus={preload}
+      className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-medium text-paper/60 transition-colors hover:border-accent hover:text-accent"
+      title={`Mudar para o stock de ${label}`}
+    >
+      {target === "motorcycle" ? <MotoIcon /> : <CarIcon />}
+      {compact ? capitalize(label) : `Ver stock de ${label}`}
+    </a>
+    {leaving &&
+      createPortal(
+        <div ref={overlay} className={`${worldCoverStyles.overlay} ${worldCoverStyles.depart}`} role="status">
+          <span className="sr-only">A mudar para {label}…</span>
+          <WorldCoverArt type={target} />
+        </div>,
+        document.body,
+      )}
     </>
   );
 }
@@ -121,11 +106,11 @@ const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const stroke = {
   fill: "none",
   stroke: "currentColor",
-  strokeWidth: 1.7,
+  strokeWidth: 1.6,
   strokeLinecap: "round" as const,
   strokeLinejoin: "round" as const,
   viewBox: "0 0 24 24",
-  className: "h-4 w-4",
+  className: "h-3.5 w-3.5",
   "aria-hidden": true,
 };
 
