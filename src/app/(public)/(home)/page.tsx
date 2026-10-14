@@ -9,7 +9,6 @@ import { BrandMarquee } from "@/components/home/BrandMarquee";
 import { QuickSearch } from "@/components/home/QuickSearch";
 import { FeaturedVehicles } from "@/components/home/FeaturedVehicles";
 import { Segments } from "@/components/home/Segments";
-import { WorldSwitch } from "@/components/site/WorldSwitch";
 import { HomeStock } from "@/components/home/HomeStock";
 import { PinnedTrust } from "@/components/home/PinnedTrust";
 import { SoldShowcase } from "@/components/home/SoldShowcase";
@@ -87,7 +86,6 @@ export default async function HomePage() {
         // Na foto dos carros o carro está no terço de baixo: no telemóvel
         // sobe para o espaço entre o título e a pesquisa.
         raiseMediaOnMobile={type === "car"}
-        worldSwitch={<WorldSwitch world={type} variant="hero" />}
         search={
           allVehicles.length > 0 ? <QuickSearch vehicles={searchItems} /> : null
         }

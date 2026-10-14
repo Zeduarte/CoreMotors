@@ -304,20 +304,3 @@ a[data-nav-pending] {
     scroll-behavior: auto;
   }
 }
-
-/* Seletor Motas | Carros na primeira visita (WorldSwitch): um anel na cor
-   do site que pulsa algumas vezes, para se dar por ele. */
-@keyframes world-hint {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-    border-color: rgb(255 255 255 / 0.15);
-  }
-  50% {
-    box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 25%, transparent), 0 0 24px 2px color-mix(in srgb, var(--accent) 45%, transparent);
-    border-color: var(--accent);
-  }
-}
-.world-hint {
-  animation: world-hint 1.4s ease-in-out 3;
-}

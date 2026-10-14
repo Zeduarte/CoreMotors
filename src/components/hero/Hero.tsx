@@ -31,7 +31,6 @@ export function Hero({
     poster: "/media/carros/topo-poster.jpg",
   },
   raiseMediaOnMobile = false,
-  worldSwitch,
 }: {
   content?: HeroContent;
   /** Cartão de pesquisa rápida, mostrado por baixo dos CTAs, sobre o vídeo. */
@@ -45,8 +44,6 @@ export function Hero({
    * para o preto por baixo.
    */
   raiseMediaOnMobile?: boolean;
-  /** Seletor "Motas | Carros", por cima do título. */
-  worldSwitch?: React.ReactNode;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const isVideo = media.type === "video";
@@ -160,19 +157,6 @@ export function Hero({
               : ""
           }`}
         >
-          {worldSwitch && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-              // Em telemóveis baixos (iPhone SE) não cabe com o título e a
-              // pesquisa — fica o do cabeçalho.
-              className="pointer-events-auto mb-5 flex justify-center md:mb-8 [@media(max-height:620px)_and_(max-width:767px)]:hidden"
-            >
-              {worldSwitch}
-            </motion.div>
-          )}
-
           <motion.p
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
