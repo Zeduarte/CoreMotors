@@ -124,37 +124,46 @@ html.lenis body {
 }
 
 /* ---- Transições entre páginas (View Transitions, ver template.tsx) ----
-   As páginas estão em fila pela ordem do menu. A página antiga desliza para
-   fora e a nova entra pelo lado oposto, ao mesmo tempo — como um carrossel.
+   A página antiga recua um pouco e desvanece depressa; a nova entra pelo lado
+   oposto com um deslize curto que desacelera no fim (como nas apps do
+   telemóvel). Deslizes curtos movem muito menos píxeis do que empurrar a
+   página inteira — ficam fluidos mesmo num telemóvel modesto.
    `data-nav-dir` no <html> (NavigationEvents) diz o sentido: "forward" (para
    uma página mais à direita / a abrir uma ficha) ou "back". */
 @keyframes vt-out-to-left {
   to {
-    transform: translateX(-100%);
-    opacity: 0.5;
+    transform: translateX(-4%);
+    opacity: 0;
   }
 }
 @keyframes vt-in-from-right {
   from {
-    transform: translateX(100%);
+    transform: translateX(6%);
+    opacity: 0;
   }
 }
 @keyframes vt-out-to-right {
   to {
-    transform: translateX(100%);
-    opacity: 0.5;
+    transform: translateX(4%);
+    opacity: 0;
   }
 }
 @keyframes vt-in-from-left {
   from {
-    transform: translateX(-100%);
+    transform: translateX(-6%);
+    opacity: 0;
   }
 }
+:root {
+  /* Saída rápida a acelerar; entrada mais longa a desacelerar. */
+  --vt-out: 0.28s cubic-bezier(0.4, 0, 1, 1) both;
+  --vt-in: 0.52s cubic-bezier(0.22, 1, 0.36, 1) 0.06s both;
+}
 ::view-transition-old(.page-out) {
-  animation: vt-out-to-left 0.6s cubic-bezier(0.65, 0, 0.35, 1) both;
+  animation: vt-out-to-left var(--vt-out);
 }
 ::view-transition-new(.page-in) {
-  animation: vt-in-from-right 0.6s cubic-bezier(0.65, 0, 0.35, 1) both;
+  animation: vt-in-from-right var(--vt-in);
 }
 :root[data-nav-dir="back"]::view-transition-old(.page-out) {
   animation-name: vt-out-to-right;
@@ -166,16 +175,29 @@ html.lenis body {
 /* "Voltar"/"avançar" do browser: a transição é feita à mão
    (NavigationEvents) e desliza a página inteira (grupo root). */
 :root[data-manual-vt]::view-transition-old(root) {
-  animation: vt-out-to-left 0.6s cubic-bezier(0.65, 0, 0.35, 1) both;
+  animation: vt-out-to-left var(--vt-out);
 }
 :root[data-manual-vt]::view-transition-new(root) {
-  animation: vt-in-from-right 0.6s cubic-bezier(0.65, 0, 0.35, 1) both;
+  animation: vt-in-from-right var(--vt-in);
 }
 :root[data-manual-vt][data-nav-dir="back"]::view-transition-old(root) {
   animation-name: vt-out-to-right;
 }
 :root[data-manual-vt][data-nav-dir="back"]::view-transition-new(root) {
   animation-name: vt-in-from-left;
+}
+
+/* Esqueleto → página: quando o conteúdo chega (depois de uma navegação no
+   site), entra com um fade curto em vez de aparecer de golpe. Na primeira
+   visita não se anima (não atrasa a primeira imagem). */
+@keyframes content-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+:root[data-nav-dir] #conteudo > div > :not([role="status"]) {
+  animation: content-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* O header, a barra de scroll e a de comparar ficam no sítio — só o
@@ -196,8 +218,9 @@ html.lenis body {
 /* Foto do cartão ↔ galeria da ficha: voa por cima do deslize e cresce até ao
    destino, sem deformar. */
 ::view-transition-group(.vehicle-morph) {
-  animation-duration: 0.6s;
-  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-duration: 0.55s;
+  /* Arranque firme e chegada muito suave (curva das folhas do iOS). */
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
   z-index: 1;
 }
 ::view-transition-old(.vehicle-morph),
@@ -210,7 +233,8 @@ html.lenis body {
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),
-  ::view-transition-new(*) {
+  ::view-transition-new(*),
+  :root[data-nav-dir] #conteudo > div > :not([role="status"]) {
     animation: none !important;
   }
 }
