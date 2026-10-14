@@ -22,6 +22,29 @@ export interface SendResult {
   error?: string;
 }
 
+/**
+ * O motivo que a Meta dá, para o painel de Integrações. Só "HTTP 403" não diz
+ * se é o token, a permissão ou o destinatário; o código e a mensagem da Meta
+ * dizem. O corpo de erro da Graph API nunca traz o token, por isso pode ser
+ * mostrado.
+ */
+async function graphError(response: Response): Promise<string> {
+  const status = `HTTP ${response.status}`;
+  try {
+    const data = (await response.json()) as {
+      error?: { code?: number; message?: string; error_data?: { details?: string } };
+    };
+    const e = data.error;
+    if (!e) return status;
+    const motivo = [e.code ? `(#${e.code})` : "", e.message ?? "", e.error_data?.details ?? ""]
+      .filter(Boolean)
+      .join(" ");
+    return `${status} — ${motivo}`.slice(0, 300);
+  } catch {
+    return status;
+  }
+}
+
 export async function sendWhatsAppText(
   to: string,
   body: string,
@@ -51,7 +74,7 @@ export async function sendWhatsAppText(
         redirect: "error",
       },
     );
-    if (!response.ok) return { ok: false, error: `HTTP ${response.status}` };
+    if (!response.ok) return { ok: false, error: await graphError(response) };
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message.slice(0, 200) : "Falha no envio" };

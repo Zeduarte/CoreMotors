@@ -48,7 +48,11 @@ const server=http.createServer(async(req,res)=>{
   meta.registered.push({id:m[1],...body});return send(200,{success:true});
  }
  m=url.pathname.match(/^\/v25\.0\/(\d+)\/messages$/);
- if(m&&req.method==='POST'){meta.sent.push({id:m[1],...body});return send(200,{messages:[{id:'wamid.1'}]});}
+ if(m&&req.method==='POST'){
+  // Um destinatário para o qual a Meta recusa, como faz com um token sem permissão.
+  if(body.to==='351000000403')return send(403,{error:{message:'Application does not have permission for this action',code:10}});
+  meta.sent.push({id:m[1],...body});return send(200,{messages:[{id:'wamid.1'}]});
+ }
  send(404,{error:{message:'not simulated'}});
 });
 await new Promise(r=>server.listen(0,r));
@@ -234,6 +238,14 @@ await test('replies go out from the connected number, with its token',async()=>{
  assert.equal((await sendWhatsAppText('351916193337','x',null)).ok,false);
  assert.equal((await sendWhatsAppText('351916193337','x',{phoneNumberId:'222',accessToken:null,source:'variaveis'})).ok,false);
  assert.equal(meta.sent.length,1);
+});
+
+await test('a refused reply says why, in Meta\'s words, without the token',async()=>{
+ const numero={phoneNumberId:'222',accessToken:TOKEN,source:'variaveis'};
+ const r=await sendWhatsAppText('351000000403','x',numero);
+ assert.equal(r.ok,false);
+ assert.equal(r.error,'HTTP 403 — (#10) Application does not have permission for this action');
+ assert.doesNotMatch(r.error,new RegExp(TOKEN));
 });
 
 await test('disconnecting forgets the number here',async()=>{
