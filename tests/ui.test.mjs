@@ -83,17 +83,19 @@ await test('editing a motorcycle restores its type and hides car-specific doors'
  assert.ok(html.includes('type="hidden" name="doors"'));
  assert.ok(!html.includes('<option value="Berlina"'));
 });
-await test('world switch offers only the other world, and not on shared pages',()=>{
+await test('world switch shows both worlds, links only to the other, and not on shared pages',()=>{
  const Switch=load('src/components/site/WorldSwitch.tsx').WorldSwitch;
  pathname='/inventario';
  const fromCars=renderToStaticMarkup(React.createElement(Switch,{world:'car'}));
  assert.ok(fromCars.includes('type=motorcycle&amp;target=%2Finventario'),'aponta para as motas');
- assert.ok(!fromCars.includes('type=car&amp;'),'não repete o mundo atual');
- assert.ok(fromCars.includes('Ver stock de motas'));
+ assert.ok(!fromCars.includes('type=car&amp;'),'o mundo atual não é link');
+ assert.ok(fromCars.includes('Motas')&&fromCars.includes('Carros'),'mostra os dois mundos');
+ assert.match(fromCars,/aria-current="true"[^>]*>(?:<svg[\s\S]*?<\/svg>)?<span[^>]*>Carros/,'o atual fica marcado');
+ assert.ok(fromCars.includes('Mudar para o stock de motas'));
 
  const fromMotos=renderToStaticMarkup(React.createElement(Switch,{world:'motorcycle'}));
  assert.ok(fromMotos.includes('type=car&amp;target=%2Finventario'));
- assert.ok(fromMotos.includes('Ver stock de carros'));
+ assert.ok(fromMotos.includes('Mudar para o stock de carros'));
 
  // Numa ficha, trocar de mundo leva ao stock — o slug é do mundo antigo.
  pathname='/viaturas/bmw-116d';

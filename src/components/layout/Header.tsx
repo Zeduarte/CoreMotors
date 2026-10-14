@@ -114,7 +114,7 @@ export function Header({
                 alt={branding.companyName}
                 width={280}
                 height={70}
-                className="h-11 w-auto max-w-[55vw] object-contain md:h-14"
+                className="h-11 w-auto max-w-[40vw] object-contain md:h-14 md:max-w-[55vw]"
                 priority
               />
             ) : (
@@ -153,7 +153,7 @@ export function Header({
         </ul>
 
         <div className="hidden items-center gap-3 md:flex">
-          {/* Passagem discreta para o outro mundo — só onde o tipo importa. */}
+          {/* Motas | Carros — só onde o tipo importa. */}
           <WorldSwitch world={world} />
           <Link
             href="/favoritos"
@@ -188,9 +188,10 @@ export function Header({
           </a>
         </div>
 
-        {/* Em mobile só há espaço para a versão curta, ao lado do menu. */}
+        {/* No telemóvel o seletor fica ao lado do menu (o outro mundo só com
+            o ícone, para caber). */}
         <div className="flex items-center gap-2 md:hidden">
-          <WorldSwitch world={world} compact />
+          <WorldSwitch world={world} />
 
         {/* Botão mobile */}
         <button

@@ -11,8 +11,8 @@ import { AnimatedText } from "@/components/ui/AnimatedText";
  * pontos por baixo (um ponto por "página") e o botão «Mostrar todas as N
  * viaturas», para o visitante perceber que há mais stock além destas.
  *
- * Telemóvel: um cartão a ~85% da largura, com o seguinte a espreitar.
- * Desktop: 2 (md) ou 3 (lg) cartões por página.
+ * Telemóvel: um cartão largo de cada vez, à largura do ecrã (passa-se com
+ * o dedo, as setas ou os pontos). Desktop: 2 (md), 3 (lg) ou 4 por página.
  */
 export function FeaturedVehicles({
   vehicles,
@@ -87,7 +87,7 @@ export function FeaturedVehicles({
             {shown.map((vehicle, i) => (
               <div
                 key={vehicle.slug}
-                className="w-[85%] shrink-0 snap-start sm:w-[60%] md:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)] min-[1400px]:w-[calc((100%-4.5rem)/4)]"
+                className="w-full shrink-0 snap-start md:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)] min-[1400px]:w-[calc((100%-4.5rem)/4)]"
               >
                 <VehicleCard vehicle={vehicle} priority={i < 3} />
               </div>
