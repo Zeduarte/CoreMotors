@@ -90,7 +90,7 @@ await test('world switch shows both worlds, links only to the other, and not on 
  assert.ok(fromCars.includes('type=motorcycle&amp;target=%2Finventario'),'aponta para as motas');
  assert.ok(!fromCars.includes('type=car&amp;'),'o mundo atual não é link');
  assert.ok(fromCars.includes('Motas')&&fromCars.includes('Carros'),'mostra os dois mundos');
- assert.match(fromCars,/aria-current="true"[^>]*>(?:<svg[\s\S]*?<\/svg>)?<span[^>]*>Carros/,'o atual fica marcado');
+ assert.match(fromCars,/aria-current="true"[^>]*>Carros</,'o atual fica marcado');
  assert.ok(fromCars.includes('Mudar para o stock de motas'));
 
  const fromMotos=renderToStaticMarkup(React.createElement(Switch,{world:'motorcycle'}));

@@ -14,11 +14,12 @@ import { WorldCoverArt, worldCoverStyles } from "./WorldCover";
 const DEPART_MS = 800;
 
 /**
- * Seletor "Motas | Carros" do cabeçalho: os dois mundos lado a lado, discreto
- * — o atual em branco sobre um fundo suave, o outro em cinzento e clicável.
- * No telemóvel o outro mundo fica só com o ícone (cabe ao lado do logótipo e
- * do menu). Não aparece nas páginas comuns aos dois mundos (Sobre, Serviços,
- * Contactos e legais), onde escolher um tipo não muda nada.
+ * Seletor do cabeçalho: "Motas" e "Carros" um por cima do outro, sempre os
+ * dois à vista — percebe-se logo que é uma escolha e que dá para trocar. O
+ * atual em branco sobre um fundo suave, o outro em cinzento e clicável.
+ * Empilhados cabem ao lado do logótipo e do menu, mesmo no telemóvel. Não
+ * aparece nas páginas comuns aos dois mundos (Sobre, Serviços, Contactos e
+ * legais), onde escolher um tipo não muda nada.
  *
  * A troca é uma navegação completa (`<a>`, não `<Link>`): a rota grava o
  * cookie do mundo e volta, o que refaz todas as queries do servidor. Antes de
@@ -69,24 +70,20 @@ export function WorldSwitch({ world }: { world: VehicleType }) {
   }
 
   const segment =
-    "inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-medium transition-colors md:px-3";
+    "flex h-[21px] items-center justify-center rounded-md px-2.5 text-[12px] font-medium leading-none transition-colors md:h-6 md:px-3 md:text-[13px]";
 
   return (
     <>
       <div
         role="group"
         aria-label="Escolher entre motas e carros"
-        className="inline-flex shrink-0 items-center rounded-full border border-white/15 p-0.5"
+        className="inline-flex shrink-0 flex-col rounded-lg border border-white/15 p-0.5"
       >
         {(["motorcycle", "car"] as const).map((type) => {
           const label = capitalize(WORLD_LABEL[type]);
-          const icon = type === "motorcycle" ? <MotoIcon /> : <CarIcon />;
-          // No telemóvel, o mundo de destino fica só com o ícone.
-          const text = <span className={type !== world ? "sr-only md:not-sr-only" : ""}>{label}</span>;
           return type === world ? (
-            <span key={type} aria-current="true" className={`${segment} bg-white/10 text-paper`}>
-              {icon}
-              {text}
+            <span key={type} aria-current="true" className={`${segment} bg-white/[0.12] text-paper`}>
+              {label}
             </span>
           ) : (
             <a
@@ -96,10 +93,9 @@ export function WorldSwitch({ world }: { world: VehicleType }) {
               onPointerEnter={preload}
               onFocus={preload}
               title={`Mudar para o stock de ${WORLD_LABEL[type]}`}
-              className={`${segment} text-paper/50 hover:text-paper`}
+              className={`${segment} text-paper/50 hover:bg-white/5 hover:text-paper`}
             >
-              {icon}
-              {text}
+              {label}
             </a>
           );
         })}
@@ -117,32 +113,3 @@ export function WorldSwitch({ world }: { world: VehicleType }) {
 }
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-const stroke = {
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.7,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-  viewBox: "0 0 24 24",
-  className: "h-4 w-4",
-  "aria-hidden": true,
-};
-
-function CarIcon() {
-  return (
-    <svg {...stroke}>
-      <path d="M3 13l2-5a2 2 0 012-1.5h10A2 2 0 0119 8l2 5v5h-3M6 18H3v-5M6 18a1.5 1.5 0 003 0M15 18a1.5 1.5 0 003 0M6 18h9M3 13h18" />
-    </svg>
-  );
-}
-
-function MotoIcon() {
-  return (
-    <svg {...stroke}>
-      <circle cx="5" cy="17" r="3" />
-      <circle cx="19" cy="17" r="3" />
-      <path d="M8 17h6l3-6h-4l-2-3H8M14 8h3" />
-    </svg>
-  );
-}
