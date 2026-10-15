@@ -600,3 +600,153 @@ await test('nothing can be deleted through this channel',async()=>{
  }
  assert.doesNotMatch(readFileSync('src/app/api/whatsapp/route.ts','utf8'),/\.delete\(/);
 });
+
+// ---------------------------------------------------------------------------
+// Página inicial e Definições (0040): ver_site → propor_alterar_site → imagem
+// com «antes → depois» de cada campo que muda → «sim» → RPC com o formulário
+// validado pelo mesmo esquema do backoffice.
+// ---------------------------------------------------------------------------
+
+const {SITE_REPLIES}=load('src/lib/whatsapp/site.ts');
+const SHOWROOM={
+ locations:[{id:'sede',name:'Sede',address:'Rua 1',city:'Lisboa',postalCode:'1000-001',phone:'21 000 0000',
+  email:'geral@example.test',hours:'Seg a Sex 9h-19h; Sáb 9h-13h',latitude:null,longitude:null}],
+ faqs:[{question:'Posso visitar?',answer:'Sim.',category:'geral'}],
+ services:['financiamento','garantia','oficina','encomendas'].map(id=>({id,title:id,summary:'Resumo',body:'Texto',enabled:true})),
+ google:{enabled:false,placeId:'',mapsUrl:''},
+};
+const DEFINICOES={id:1,company_name:'Stand Teste',tagline:null,accent:'#112233',accent_soft:'#0E1C2A',
+ whatsapp:'351910000000',messenger:null,workshop_hourly_rate:35};
+const siteDb=()=>fakeDb({now:AGORA,tabelas:{
+ site_settings:[DEFINICOES],
+ site_content:[{key:'showroom',content:structuredClone(SHOWROOM)},{key:'home',content:{hero:{title:'Carros com história'}}}],
+}});
+const chefeSite=toActor({id:'eeeeeeee-0000-4000-8000-000000000005',full_name:'Rita',role:'chefe'});
+/** Um chefe a quem deram o separador Definições: continua a não ser administrador. */
+const chefeDefinicoes=toActor({id:'eeeeeeee-0000-4000-8000-000000000006',full_name:'Rui',role:'chefe',
+ allowed_sections:['pagina-inicial','definicoes']});
+
+await test('a phone and opening hours change shows before → after, and is written only after yes',async()=>{
+ const db=siteDb();
+ let visto='';
+ const fila=[
+  usaFerramenta('ver_site',{area:'stand',procura:'ponto de venda 1'}),
+  usaFerramenta('propor_alterar_site',{area:'stand',alteracoes:[
+   {campo:'locations.0.phone',valor:'21 999 9999'},
+   {campo:'locations.0.hours',valor:'Seg a Sex 9h-19h; Sáb 10h-13h'},
+  ]},'t2'),
+ ];
+ const ia={chamadas:0,messages:{create:async(p)=>{ia.chamadas++;visto=JSON.stringify(p.messages);return fila.shift();}}};
+ const deps={db,anthropic:ia,now:AGORA,origin:ORIGEM};
+ const p=await handleInbound({from:TELEFONE,text:'muda o horário de sábado para 10h–13h e põe o telefone 21 999 9999 no site',type:'text'},chefeSite,deps);
+ assert.match(visto,/locations\.0\.phone · Telefone · ponto de venda 1 \(principal\) «Sede»: «21 000 0000»/,'o modelo leu o campo e o valor atual');
+ assert.equal(db.escritas().length,0,'nada gravado antes do «sim»');
+ assert.match(p.reply,/Vai ser alterado em Página inicial · serviços e pontos de venda:/);
+ assert.match(p.reply,/Telefone · .*: «21 000 0000» → «21 999 9999»/);
+ assert.match(p.reply,/Horários · .*Sáb 9h-13h» → «Seg a Sex 9h-19h; Sáb 10h-13h»/);
+ assert.match(p.reply,/Confirmar\? Responda sim ou não\./);
+ // A imagem: o formulário com SÓ os campos que mudam, atual e novo.
+ const {id,exp,sig}=ligacao(p.image.url);
+ const img=await loadPreview(db,id,exp,sig,AGORA,SEGREDO);
+ assert.equal(img.card.title,'Página inicial · serviços e pontos de venda');
+ assert.deepEqual(img.card.fields.map(f=>[f.before,f.value]),[
+  ['21 000 0000','21 999 9999'],['Seg a Sex 9h-19h; Sáb 9h-13h','Seg a Sex 9h-19h; Sáb 10h-13h']]);
+ assert.ok(img.card.fields.every(f=>f.label.startsWith('Telefone')||f.label.startsWith('Horários')));
+
+ const antes=ia.chamadas;
+ const r=await handleInbound({from:TELEFONE,text:'sim',type:'text'},chefeSite,deps);
+ assert.equal(ia.chamadas,antes,'a confirmação não volta ao modelo');
+ assert.equal(r.wrote,true,r.reply);
+ assert.match(r.reply,/^Alterado em Página inicial/);
+ const [w,...resto]=db.escritas();
+ assert.equal(resto.length,0);
+ assert.equal(w.name,'wa_update_showroom');
+ assert.equal(w.args.actor,chefeSite.id);
+ const esperado=structuredClone(SHOWROOM);
+ esperado.locations[0].phone='21 999 9999';esperado.locations[0].hours='Seg a Sex 9h-19h; Sáb 10h-13h';
+ assert.deepEqual(w.args.new_content,esperado,'o formulário inteiro, só com os dois campos mudados');
+ assert.deepEqual(r.changed,{kind:'update_showroom'});
+});
+
+await test('a homepage title change can be declined, and nothing is written',async()=>{
+ const db=siteDb();
+ const ia=fakeAnthropic([
+  usaFerramenta('ver_site',{area:'pagina_inicial',procura:'título'}),
+  usaFerramenta('propor_alterar_site',{area:'pagina_inicial',alteracoes:[{campo:'hero.title',valor:'Os melhores usados de Lisboa'}]},'t2'),
+ ]);
+ const deps={db,anthropic:ia,now:AGORA,origin:ORIGEM};
+ const p=await handleInbound({from:TELEFONE,text:'altera o título da página inicial para Os melhores usados de Lisboa',type:'text'},chefeSite,deps);
+ assert.match(p.reply,/Título · topo \(carros\): «Carros com história» → «Os melhores usados de Lisboa»/);
+ const {id,exp,sig}=ligacao(p.image.url);
+ assert.equal((await loadPreview(db,id,exp,sig,AGORA,SEGREDO)).card.title,'Página inicial · textos');
+ const nao=await handleInbound({from:TELEFONE,text:'não',type:'text'},chefeSite,deps);
+ assert.equal(nao.reply,REPLIES.cancelado);
+ assert.equal(db.escritas().length,0);
+ assert.equal(db._pendentes[0].status,'cancelled');
+ assert.equal(await loadPreview(db,id,exp,sig,AGORA,SEGREDO),null);
+});
+
+await test('settings: an administrator changes the site WhatsApp with the backoffice rule',async()=>{
+ const db=siteDb();
+ const ia=fakeAnthropic([
+  usaFerramenta('propor_alterar_site',{area:'definicoes',alteracoes:[{campo:'whatsapp',valor:'912345678'},{campo:'messenger',valor:''}]}),
+ ]);
+ const deps={db,anthropic:ia,now:AGORA,origin:ORIGEM};
+ const p=await handleInbound({from:TELEFONE,text:'o whatsapp do site passa a ser 912345678',type:'text'},chefe,deps);
+ // O 351 vem do companySchema, como no formulário; o Messenger já estava vazio.
+ assert.match(p.reply,/WhatsApp \(com indicativo\) · contactos: «351910000000» → «351912345678»/);
+ assert.doesNotMatch(p.reply,/Messenger/);
+ await handleInbound({from:TELEFONE,text:'sim',type:'text'},chefe,deps);
+ assert.deepEqual(db.escritas().map(c=>[c.name,c.args]),[['wa_update_site_settings',{actor:chefe.id,changes:{whatsapp:'351912345678'}}]]);
+});
+
+await test('forbidden fields are refused in our words, before anything is proposed',async()=>{
+ for(const [quem,area,campo,valor,frase] of [
+  [chefe,'definicoes','stripe_secret','sk_live_x',SITE_REPLIES.integracoes],
+  [chefe,'definicoes','olx.token','x',SITE_REPLIES.integracoes],
+  [chefe,'definicoes','ga4_id','G-ABC',SITE_REPLIES.integracoes],
+  [chefe,'definicoes','logo_url','branding/x.png',SITE_REPLIES.imagens],
+  [chefe,'definicoes','allowed_sections','x',SITE_REPLIES.utilizadores],
+  // Admin-only no backoffice → admin-only aqui, mesmo com o separador.
+  [chefeDefinicoes,'definicoes','company_name','Outro Stand',SITE_REPLIES.soAdmin],
+  [chefeDefinicoes,'etiquetas','items.0.label','Outra',SITE_REPLIES.soAdmin],
+  [chefeSite,'definicoes','company_name','Outro Stand','Não tem acesso a Definições. Fale com o responsável.'],
+  [vendedor,'pagina_inicial','hero.title','x','Não tem acesso a Página inicial. Fale com o responsável.'],
+  // Uma entrada nova numa lista é no backoffice.
+  [chefeSite,'stand','locations.1.phone','21 000 0001',SITE_REPLIES.listas],
+  // A validação é a do formulário.
+  [chefeSite,'pagina_inicial','hero.title','  ','Não dá para alterar assim: Título obrigatório.'],
+ ]){
+  const db=siteDb();
+  const ia=fakeAnthropic([usaFerramenta('propor_alterar_site',{area,alteracoes:[{campo,valor}]})]);
+  const r=await handleInbound({from:TELEFONE,text:'x',type:'text'},quem,{db,anthropic:ia,now:AGORA,origin:ORIGEM});
+  assert.equal(r.reply,frase,campo);
+  assert.equal(r.image,undefined);
+  assert.equal(db._pendentes.length,0,campo);
+  assert.equal(db.escritas().length,0,campo);
+ }
+ // Nem a leitura se abre a quem não pode alterar.
+ const db=siteDb();
+ const ia=fakeAnthropic([usaFerramenta('ver_site',{area:'definicoes'})]);
+ const r=await handleInbound({from:TELEFONE,text:'que cor tem o site?',type:'text'},chefeDefinicoes,{db,anthropic:ia,now:AGORA});
+ assert.equal(r.reply,SITE_REPLIES.soAdmin);
+ assert.equal(ia.chamadas,1);
+});
+
+await test('a site change that no longer fits at confirmation is explained, not forced',async()=>{
+ const db=siteDb();
+ const ia=fakeAnthropic([
+  usaFerramenta('propor_alterar_site',{area:'stand',alteracoes:[{campo:'locations.0.phone',valor:'21 999 9999'}]}),
+ ]);
+ const deps={db,anthropic:ia,now:AGORA};
+ await handleInbound({from:TELEFONE,text:'telefone 21 999 9999',type:'text'},chefeSite,deps);
+ // Entretanto alguém retirou o ponto de venda no backoffice.
+ const conteudo=structuredClone(SHOWROOM);conteudo.locations=[];
+ const linhas=db._pendentes;assert.equal(linhas.length,1);
+ const outra=fakeDb({now:AGORA,tabelas:{site_settings:[DEFINICOES],site_content:[{key:'showroom',content:conteudo}]}});
+ outra._pendentes.push(...linhas);
+ const r=await handleInbound({from:TELEFONE,text:'sim',type:'text'},chefeSite,{db:outra,anthropic:ia,now:AGORA});
+ assert.equal(r.reply,SITE_REPLIES.mudou);
+ assert.equal(r.wrote,false);
+ assert.equal(outra.escritas().length,0);
+});

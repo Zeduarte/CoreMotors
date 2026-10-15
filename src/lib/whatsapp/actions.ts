@@ -4,6 +4,13 @@ import { formatPlate, isPlausiblePlate, plateKey } from "@/lib/plate";
 import { BODY_TYPES, FUEL_TYPES, TRANSMISSIONS, carFormSchema } from "@/lib/schemas";
 import { CAR_STATUS_LABEL, LEAD_STATUS_LABEL, excerpt } from "@/lib/whatsapp/describe";
 import { REPLIES, SECTION_LABEL } from "@/lib/whatsapp/replies";
+import {
+  BadgesActionSchema,
+  HomepageActionSchema,
+  ShowroomActionSchema,
+  SiteSettingsActionSchema,
+  type SiteChangeAction,
+} from "@/lib/whatsapp/site";
 
 /**
  * As acções que podem ser propostas, e a sua validação.
@@ -163,7 +170,9 @@ export type PendingAction =
         /** Sem capa nem imagens: a primeira destas passa a ser a capa. */
         semCapa: boolean;
       };
-    };
+    }
+  // Página inicial e Definições (site.ts): cada campo com o antes e o depois.
+  | SiteChangeAction;
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DIA = /^\d{4}-\d{2}-\d{2}$/;
@@ -799,4 +808,8 @@ export const PendingActionSchema = z.discriminatedUnion("kind", [
       semCapa: z.boolean(),
     }),
   }),
+  HomepageActionSchema,
+  ShowroomActionSchema,
+  SiteSettingsActionSchema,
+  BadgesActionSchema,
 ]);

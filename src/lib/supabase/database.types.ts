@@ -975,6 +975,11 @@ export type Database = {
         Returns: string;
       };
       prune_wa_media: { Args: { ids: string[] }; Returns: number };
+      // 0040 — Página inicial e Definições por WhatsApp.
+      wa_update_home: { Args: { actor: string; new_content: Json }; Returns: undefined };
+      wa_update_showroom: { Args: { actor: string; new_content: Json }; Returns: undefined };
+      wa_update_badges: { Args: { actor: string; new_content: Json }; Returns: undefined };
+      wa_update_site_settings: { Args: { actor: string; changes: Json }; Returns: undefined };
       can_approve_leave: { Args: Record<string, never>; Returns: boolean };
       leave_directory: {
         Args: Record<string, never>;

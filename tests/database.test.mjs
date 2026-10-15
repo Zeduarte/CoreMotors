@@ -927,4 +927,124 @@ await test('old WhatsApp notices are pruned and the webhook queue is left alone'
  await db.query('update notification_settings set whatsapp_enabled=false');
 });
 
+// ---------------------------------------------------------------------------
+// 0040 — Página inicial e Definições por WhatsApp. O que se vigia: a mesma
+// permissão do backoffice (separador; e administrador nas Definições), a
+// lista branca de chaves (um segredo ou o logótipo nunca passam), nada se
+// retira, e as funções só são chamáveis pelo servidor.
+// ---------------------------------------------------------------------------
+
+const botao={label:'Ver stock',href:'/carros'};
+const homeContent=()=>({
+ hero:{eyebrow:'Stand',title:'Carros com história',subtitle:'Usados escolhidos',primaryCta:botao,secondaryCta:botao,media:'auto'},
+ motoHero:{eyebrow:'Motas',title:'Motas escolhidas',subtitle:'',primaryCta:botao},
+ brands:['BMW','Audi'],
+ trust:{eyebrow:'',title:'Confiança',pillars:[{kpi:'150+',title:'Viaturas',body:'Vendidas'}]},
+ cta:{eyebrow:'',title:'Fale connosco',whatsappLabel:'WhatsApp',secondary:botao},
+});
+const servico=(id)=>({id,title:id,summary:'Resumo',body:'Texto',enabled:true});
+const showroomContent=()=>({
+ locations:[{id:'sede',name:'Sede',address:'Rua 1',city:'Lisboa',postalCode:'1000-001',phone:'21 000 0000',
+  email:'geral@example.test',hours:'Seg–Sex 9h–19h; Sáb 10h–13h',latitude:null,longitude:null}],
+ faqs:[{question:'Posso visitar?',answer:'Sim.',category:'geral'}],
+ services:['financiamento','garantia','oficina','encomendas'].map(servico),
+ google:{enabled:false,placeId:'',mapsUrl:''},
+});
+const siteCall=(fn,actor,value)=>db.query(`select public.${fn}($1,$2)`,[actor,JSON.stringify(value)]);
+
+await test('the WhatsApp site RPCs are closed to logged-in users',async()=>{
+ for(const call of [
+  `public.wa_update_home('${admin}','{}')`,
+  `public.wa_update_showroom('${admin}','{}')`,
+  `public.wa_update_badges('${admin}','{}')`,
+  `public.wa_update_site_settings('${admin}','{"company_name":"X"}')`,
+  `public.wa_require_admin('${admin}')`,
+  `public.wa_json_fits('{}','{}')`,
+ ]) await asUser(admin,async()=>assert.rejects(db.query(`select ${call}`),/permission denied/,call));
+});
+
+await test('settings from WhatsApp: only an administrator, only the whitelisted columns',async()=>{
+ await asServer(async()=>{
+  await siteCall('wa_update_site_settings',admin,{company_name:'Stand Novo',tagline:'',whatsapp:'351910000000',workshop_hourly_rate:42.5});
+  assert.deepEqual((await db.query('select company_name,tagline,whatsapp,workshop_hourly_rate::float r from site_settings where id=1')).rows[0],
+   {company_name:'Stand Novo',tagline:null,whatsapp:'351910000000',r:42.5});
+  // Sem o separador: recusado pelo wa_begin_as.
+  await assert.rejects(siteCall('wa_update_site_settings',seller,{company_name:'X'}),/Sem permissão/);
+  // Com o separador mas sem ser administrador: recusado, como o requireAdmin.
+  await db.query("update profiles set allowed_sections=array['dashboard','pagina-inicial','definicoes'] where id=$1",[chefe]);
+  try{
+   await assert.rejects(siteCall('wa_update_site_settings',chefe,{company_name:'X'}),/Apenas administradores/);
+   await assert.rejects(siteCall('wa_update_badges',chefe,{items:[]}),/Apenas administradores/);
+  }finally{await db.query('update profiles set allowed_sections=null where id=$1',[chefe]);}
+  // Lista branca: segredos, integrações, logótipo e contactos antigos nunca.
+  for(const k of ['stripe_secret','feed_token','ga4_id','pixel_id','reservation_enabled','logo_url','phone','id'])
+   await assert.rejects(siteCall('wa_update_site_settings',admin,{[k]:'x'}),/Campo não permitido/,k);
+  for(const [changes,erro] of [
+   [{accent:'red'},/Cor inválida/],[{company_name:'   '},/Nome inválido/],[{whatsapp:'910000000'},/WhatsApp inválido/],
+   [{workshop_hourly_rate:1001},/Valor inválido/],[{workshop_hourly_rate:'40'},/Valor inválido/],[{},/Nada para alterar/],
+  ]) await assert.rejects(siteCall('wa_update_site_settings',admin,changes),erro,JSON.stringify(changes));
+  assert.equal((await db.query('select company_name from site_settings where id=1')).rows[0].company_name,'Stand Novo');
+ });
+});
+
+await test('homepage texts from WhatsApp: the section, and exactly the form keys',async()=>{
+ await asServer(async()=>{
+  await siteCall('wa_update_home',chefe,homeContent());
+  assert.equal((await db.query("select content->'hero'->>'title' t from site_content where key='home'")).rows[0].t,'Carros com história');
+  await assert.rejects(siteCall('wa_update_home',seller,homeContent()),/Sem permissão/);
+  await assert.rejects(siteCall('wa_update_home',mechanic,homeContent()),/Sem permissão/);
+  const extra=homeContent();extra.stripe_secret='sk_live_x';
+  const escondida=homeContent();escondida.hero.logo_url='branding/x.png';
+  const semTitulo=homeContent();semTitulo.hero.title=' ';
+  const falta=homeContent();delete falta.cta;
+  const media=homeContent();media.hero.media='gif';
+  for(const c of [extra,escondida,semTitulo,falta,media])
+   await assert.rejects(siteCall('wa_update_home',chefe,c),/Conteúdo inválido/);
+  assert.equal((await db.query("select content->'hero'->>'title' t from site_content where key='home'")).rows[0].t,'Carros com história');
+ });
+});
+
+await test('showroom from WhatsApp: fields of what exists, never a point of sale more or less',async()=>{
+ await db.query("update site_content set content=$1 where key='showroom'",[JSON.stringify(showroomContent())]);
+ await asServer(async()=>{
+  const novo=showroomContent();novo.locations[0].phone='21 111 1111';novo.locations[0].hours='Sáb 10h–13h';
+  await siteCall('wa_update_showroom',chefe,novo);
+  assert.equal((await db.query("select content->'locations'->0->>'phone' p from site_content where key='showroom'")).rows[0].p,'21 111 1111');
+  await assert.rejects(siteCall('wa_update_showroom',seller,novo),/Sem permissão/);
+  const mais=showroomContent();mais.locations.push({...mais.locations[0],id:'filial',name:'Filial'});
+  await assert.rejects(siteCall('wa_update_showroom',chefe,mais),/Pontos de venda diferentes/);
+  const menos=showroomContent();menos.locations=[];
+  await assert.rejects(siteCall('wa_update_showroom',chefe,menos),/Pontos de venda diferentes/);
+  const semPergunta=showroomContent();semPergunta.faqs=[];
+  await assert.rejects(siteCall('wa_update_showroom',chefe,semPergunta),/Conteúdo mudou/);
+  const chave=showroomContent();chave.google.apiKey='AIza-x';
+  const telefone=showroomContent();telefone.locations[0].phone='ligue já!';
+  const servicos=showroomContent();servicos.services[3]=servico('financiamento');
+  for(const c of [chave,telefone,servicos])await assert.rejects(siteCall('wa_update_showroom',chefe,c),/Conteúdo inválido/);
+ });
+});
+
+await test('card badges from WhatsApp: an administrator edits the existing ones, none goes away',async()=>{
+ await db.query("insert into site_content(key,content) values('badges',$1) on conflict(key) do update set content=excluded.content",
+  [JSON.stringify({items:[{id:'iva',label:'IVA dedutível',color:'#111111',enabled:true}]})]);
+ await asServer(async()=>{
+  const items=[{id:'new',label:'Acabado de chegar',color:'#E67E22',enabled:true},{id:'iva',label:'IVA',color:'#111111',enabled:false}];
+  await siteCall('wa_update_badges',admin,{items});
+  assert.deepEqual((await db.query("select content from site_content where key='badges'")).rows[0].content,{items});
+  await assert.rejects(siteCall('wa_update_badges',admin,{items:[items[0]]}),/Conteúdo mudou/,'a do stand não sai');
+  await assert.rejects(siteCall('wa_update_badges',admin,{items:[...items,{id:'nova',label:'Nova',color:'#000000',enabled:true}]}),/Conteúdo mudou/);
+  await assert.rejects(siteCall('wa_update_badges',admin,{items:[{...items[1],token:'x'}]}),/Conteúdo inválido/);
+  await assert.rejects(siteCall('wa_update_badges',seller,{items}),/Sem permissão/);
+ });
+});
+
+await test('pending proposals accept the site kinds and keep every earlier one',async()=>{
+ await asServer(async()=>{
+  for(const [i,kind] of ['update_homepage','update_showroom','update_site_settings','update_badges','update_car','register_vehicle','set_testimonial'].entries())
+   await db.query(`insert into wa_pending_actions(actor_id,from_phone,kind,payload,summary) values($1,$2,$3,'{}','x')`,[admin,`35190000400${i}`,kind]);
+  await assert.rejects(db.query(`insert into wa_pending_actions(actor_id,from_phone,kind,payload,summary)
+   values($1,'351900004099','update_integrations','{}','x')`,[admin]),/check/i);
+ });
+});
+
 await db.close();

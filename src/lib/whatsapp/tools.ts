@@ -17,6 +17,7 @@ import {
   UpdateCarInput,
 } from "@/lib/whatsapp/actions";
 import { BODY_TYPES, FUEL_TYPES, TRANSMISSIONS } from "@/lib/schemas";
+import { SITE_AREAS, SiteChangeInput } from "@/lib/whatsapp/site";
 
 /**
  * As ferramentas do assistente interno, em duas classes — e a classe vê-se no
@@ -56,6 +57,8 @@ export const TOOL = {
   leadNote: "propor_nota_contacto",
   testimonial: "propor_testemunho",
   photos: "propor_fotos_viatura",
+  siteRead: "ver_site",
+  siteChange: "propor_alterar_site",
 } as const;
 
 /** Uma ferramenta de proposta foi chamada → o ciclo pára aqui. */
@@ -70,6 +73,7 @@ export const PROPOSAL_TOOLS: readonly string[] = [
   TOOL.assignLead,
   TOOL.leadNote,
   TOOL.testimonial,
+  TOOL.siteChange,
 ];
 
 const viaturaProp = {
@@ -408,6 +412,54 @@ export const WA_TOOLS: Anthropic.Tool[] = [
       required: ["viatura"],
     },
   },
+  {
+    name: TOOL.siteRead,
+    description:
+      "Mostra os campos que se podem alterar num formulário do site e o valor " +
+      "atual de cada um, com o caminho (campo) a usar em propor_alterar_site. " +
+      "Áreas: pagina_inicial (títulos, textos e botões da página inicial, " +
+      "marcas, confiança, chamada final); stand (pontos de venda — telefone, " +
+      "email, morada, horários do site —, serviços, perguntas frequentes, " +
+      "avaliações Google); definicoes (nome, slogan e cores da marca, WhatsApp " +
+      "e Messenger do site, valor/hora da oficina); etiquetas (texto, cor e " +
+      "visibilidade das etiquetas dos cards). Usa-a SEMPRE antes de propor.",
+    input_schema: {
+      type: "object",
+      properties: {
+        area: { type: "string", enum: [...SITE_AREAS] },
+        procura: {
+          type: "string",
+          description: "Opcional: filtra os campos, ex.: telefone, horário, título.",
+        },
+      },
+      required: ["area"],
+    },
+  },
+  {
+    name: TOOL.siteChange,
+    description:
+      "Propõe alterar campos de um formulário do site (os que ver_site " +
+      "devolveu), só os que mudam. Num texto em que só muda uma parte, envia o " +
+      "texto inteiro já com a parte mudada. Não altera: a pessoa confirma.",
+    input_schema: {
+      type: "object",
+      properties: {
+        area: { type: "string", enum: [...SITE_AREAS] },
+        alteracoes: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              campo: { type: "string", description: "O caminho devolvido por ver_site, ex.: hero.title." },
+              valor: { description: "O valor novo: texto, número, true/false ou lista de textos." },
+            },
+            required: ["campo", "valor"],
+          },
+        },
+      },
+      required: ["area", "alteracoes"],
+    },
+  },
 ];
 
 /** Validação do input de cada proposta, pelo nome da ferramenta. */
@@ -422,4 +474,5 @@ export const PROPOSAL_SCHEMA = {
   [TOOL.assignLead]: AssignLeadInput,
   [TOOL.leadNote]: LeadNoteInput,
   [TOOL.testimonial]: TestimonialInput,
+  [TOOL.siteChange]: SiteChangeInput,
 } as const;

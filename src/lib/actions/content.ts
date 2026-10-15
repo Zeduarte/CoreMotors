@@ -2,7 +2,7 @@
 
 import { requireSection } from "@/lib/guard";
 
-import { revalidatePublic } from "@/lib/public-cache";
+import { afterHomeSaved } from "@/lib/site-revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { homeContentSchema } from "@/lib/schemas";
 
@@ -33,7 +33,6 @@ export async function saveHomeContent(input: unknown): Promise<ContentResult> {
   }
 
   // A homepage é ISR — revalida para refletir de imediato.
-  revalidatePublic("/");
-  revalidatePublic("/admin/pagina-inicial");
+  afterHomeSaved();
   return { ok: true };
 }

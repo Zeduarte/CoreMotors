@@ -56,6 +56,8 @@ from (values
   ('0038_wa_more_actions',
     exists (select 1 from pg_proc where proname = 'wa_update_car')),
   ('0039_wa_media',
-    to_regclass('public.wa_media') is not null)
+    to_regclass('public.wa_media') is not null),
+  ('0040_wa_site_settings',
+    exists (select 1 from pg_proc where proname = 'wa_update_site_settings'))
 ) as m(migracao, aplicada)
 order by migracao;

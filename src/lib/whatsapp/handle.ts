@@ -58,6 +58,13 @@ import {
   receivePhoto,
   runPhotoProposal,
 } from "@/lib/whatsapp/photos";
+import {
+  isSiteKind,
+  proposeSiteChange,
+  readSite,
+  siteFailureReply,
+  writeSiteChange,
+} from "@/lib/whatsapp/site";
 
 /**
  * O percurso completo de uma mensagem, com as dependências injectadas.
@@ -186,7 +193,7 @@ export function toActor(profile: {
  * verificar a sua em actions.ts e no SQL.
  */
 export function actorCanOrder(actor: Actor): boolean {
-  return ["oficina", "financeiro", "carros", "leads", "testemunhos"].some((s) =>
+  return ["oficina", "financeiro", "carros", "leads", "testemunhos", "pagina-inicial", "definicoes"].some((s) =>
     actor.secoes.includes(s),
   );
 }
@@ -304,6 +311,7 @@ const ON_EXISTING_VEHICLE = new Set<PendingAction["kind"]>([
  * A pessoa lê uma frase nossa, nunca o erro do SQL.
  */
 function failureReply(action: PendingAction, message: string): string {
+  if (isSiteKind(action.kind)) return siteFailureReply(message);
   if (/Termine a reserva/i.test(message)) return REPLIES.reservaAtiva;
   if (/Já está nesse estado/i.test(message)) return REPLIES.jaEstava;
   if (/Fotografia indisponível/i.test(message)) return PHOTO_REPLIES.indisponiveis;
@@ -447,6 +455,12 @@ function callWrite(db: HandleDeps["db"], actor: string, action: PendingAction) {
     case "add_car_media":
       // Os ficheiros são copiados primeiro; a RPC wa_add_car_media autoriza e regista.
       return attachPhotos(db, actor, action);
+    case "update_homepage":
+    case "update_showroom":
+    case "update_site_settings":
+    case "update_badges":
+      // Volta a ler e a validar o formulário antes de gravar (site.ts).
+      return writeSiteChange(db, actor, action);
   }
 }
 
@@ -564,6 +578,14 @@ async function interpret(
           if ("action" in outcome) proposal = outcome.action;
           else if ("refusal" in outcome) refusal = outcome.refusal;
           else results.push({ type: "tool_result", tool_use_id: use.id, ...outcome.result });
+          continue;
+        }
+        if (use.name === TOOL.siteRead) {
+          // A permissão depende da área pedida: verifica-a o site.ts, que
+          // recusa com as nossas palavras (como o TOOL_SECTION).
+          const lido = await readSite(deps.db, actor, use.input);
+          if ("refusal" in lido) refusal = lido.refusal;
+          else results.push({ type: "tool_result", tool_use_id: use.id, ...lido });
           continue;
         }
         if (PROPOSAL_TOOLS.includes(use.name)) {
@@ -862,6 +884,8 @@ async function runProposal(
         };
       return fromBuild(buildAssignLead(lead, staff, actor.secoes));
     }
+    case TOOL.siteChange:
+      return proposeSiteChange(deps.db, actor, data);
     case TOOL.testimonial: {
       const t = refs.testimonials.get(input.testemunho ?? "");
       if (!t)
