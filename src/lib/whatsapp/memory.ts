@@ -54,6 +54,9 @@ export async function loadMemory(
       .eq("from_phone", from)
       .gte("created_at", new Date(now.getTime() - MEMORY_WINDOW_MS).toISOString())
       .order("created_at", { ascending: false })
+      // A pergunta e a resposta entram no mesmo insert, com a mesma hora: o id
+      // (sequência) é que diz qual veio primeiro.
+      .order("id", { ascending: false })
       .limit(MEMORY_MESSAGES);
     if (error || !data) return [];
     return toConversation((data as MemoryRow[]).slice().reverse());

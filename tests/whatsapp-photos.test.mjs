@@ -82,7 +82,7 @@ function fakeDb({frota,cars,media=[]}={}){
  const rpcs=[];let seq=0;
  const buckets={'wa-media':new Map(),'car-media':new Map()};
  const from=(table)=>{
-  const f=[];let op='select',patch=null,rows=null,order=null,limit=null,returning=false;
+  const f=[];let op='select',patch=null,rows=null,order=[],limit=null,returning=false;
   const hit=(r)=>f.every(fn=>fn(r));
   const run=()=>{
    const all=t[table]??=[];
@@ -99,14 +99,14 @@ function fakeDb({frota,cars,media=[]}={}){
      }
      if(table==='wa_messages'&&all.some(r=>r.wam_id===row.wam_id))return {data:null,error:{message:'duplicate key'}};
      // Por ordem estrita, como o id da tabela (bigserial).
-     if(table==='wa_conversation')row.created_at=new Date(Date.now()-60000+(++seq)).toISOString();
+     if(table==='wa_conversation'){row.created_at=new Date(Date.now()-60000+(++seq)).toISOString();row.id=seq;}
      all.push(row);
     }
     return {data:null,error:null};
    }
    let out=all.filter(hit);
    if(op==='update'){for(const r of out)Object.assign(r,patch);return {data:returning?out.map(r=>({...r})):null,error:null};}
-   if(order)out=[...out].sort((a,b)=>(a[order.col]>b[order.col]?1:a[order.col]<b[order.col]?-1:0)*(order.asc?1:-1));
+   if(order.length)out=[...out].sort((a,b)=>{for(const o of order){const d=(a[o.col]>b[o.col]?1:a[o.col]<b[o.col]?-1:0)*(o.asc?1:-1);if(d)return d;}return 0;});
    if(limit!==null)out=out.slice(0,limit);
    return {data:out.map(r=>({...r})),error:null};
   };
@@ -116,7 +116,7 @@ function fakeDb({frota,cars,media=[]}={}){
    in(c,v){f.push(r=>v.includes(r[c]));return api;},
    gte(c,v){f.push(r=>r[c]!=null&&r[c]>=v);return api;},
    lt(c,v){f.push(r=>r[c]!=null&&r[c]<v);return api;},
-   order(c,o={}){order={col:c,asc:o.ascending!==false};return api;},
+   order(c,o={}){order.push({col:c,asc:o.ascending!==false});return api;},
    limit(n){limit=n;return api;},
    insert(r){op='insert';rows=Array.isArray(r)?r:[r];return api;},
    update(p){op='update';patch=p;return api;},
