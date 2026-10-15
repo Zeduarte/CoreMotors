@@ -4,6 +4,7 @@ import { getPublicVehicleType } from "@/lib/vehicle-context";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { publicSubmissionClient } from "@/lib/public-submissions";
+import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 import { requireSection } from "@/lib/guard";
 import { z } from "zod";
 import { leadSchema } from "@/lib/schemas";
@@ -122,6 +123,10 @@ export async function submitLead(
     return { ok: false, error: "Não foi possível enviar. Tente novamente." };
   }
 
+  // Os avisos por WhatsApp à equipa já foram agendados pela base de dados, na
+  // mesma gravação; saem depois de o cliente ter a resposta, sem o fazer
+  // esperar — e se o WhatsApp falhar, o contacto já está gravado.
+  deliverNotificationsSoon();
   return { ok: true };
 }
 

@@ -4,6 +4,7 @@ import { revalidatePublic } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireSection } from "@/lib/guard";
 import { worklogHours } from "@/lib/operations";
+import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 
 const uuid = z.string().uuid();
 const optionalId = z.union([uuid, z.literal("")]).transform(v => v || null);
@@ -127,6 +128,8 @@ export async function reserveVehicle(data: FormData) {
   if (!parsed.success || !Number.isFinite(Date.parse(parsed.data.expiry))) return {ok:false,error:"Verifique o prazo e o sinal."};
   const db = await createClient();
   const {error} = await db.rpc("reserve_vehicle", {...parsed.data,expiry:new Date(parsed.data.expiry).toISOString()});
+  // Os outros vendedores deixam de oferecer a viatura (aviso agendado pela base de dados).
+  if (!error) deliverNotificationsSoon();
   refresh(); return result(error);
 }
 export async function releaseReservation(data: FormData) {

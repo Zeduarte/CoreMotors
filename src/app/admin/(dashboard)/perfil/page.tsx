@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/admin-queries";
 import { ActionForm, Field } from "@/components/admin/ActionForm";
 import { saveMyProfile } from "@/lib/actions/profile";
+import { NotificationPreferences } from "@/components/admin/NotificationPreferences";
 
 export const dynamic = "force-dynamic";
 
@@ -48,8 +49,8 @@ export default async function ProfileDataPage() {
             {/* O campo existia sem se perceber para que servia: é este número
                 que identifica a pessoa quando ela dá ordens por WhatsApp. */}
             <span className="mt-1 block text-xs text-paper/50">
-              É por este número que as suas ordens por WhatsApp são reconhecidas.
-              Escreva só o número, sem notas.
+              É por este número que as suas ordens por WhatsApp são reconhecidas,
+              e é para ele que vão os avisos. Escreva só o número, sem notas.
             </span>
           </Field>
           <Field label="Data de nascimento">
@@ -65,6 +66,8 @@ export default async function ProfileDataPage() {
           A data de nascimento serve para o dia de aniversário das férias.
         </p>
       </ActionForm>
+
+      <NotificationPreferences me={me} />
 
       <section className="card space-y-2 p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-paper/50">

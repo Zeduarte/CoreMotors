@@ -18,4 +18,7 @@ export default async () => {
 };
 // De 15 em 15 minutos: chega para expirar reservas, avisar de contactos novos
 // e sincronizar o OLX. De minuto a minuto gastava os créditos do Netlify.
+// Os avisos por WhatsApp à equipa normalmente saem logo a seguir à ação que os
+// cria; aqui saem os que falharam e os das viaturas criadas pelo assistente do
+// WhatsApp.
 export const config = { schedule: "*/15 * * * *" };

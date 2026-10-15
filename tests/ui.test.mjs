@@ -132,3 +132,50 @@ await test('the personal area is common to both vehicle worlds',()=>{
  assert.equal(adminPathHasWorld('/admin/perfil/ferias'),false);
  assert.equal(adminPathHasWorld('/admin/utilizadores'),false);
 });
+
+// ---- Avisos por WhatsApp (0036) ---------------------------------------------
+async function renderComponent(file,name,props={}){const C=load(file)[name];return renderToStaticMarkup(await expand(await C(props)));}
+/** A caixa deste aviso vem marcada? (a ordem dos atributos não interessa) */
+const checked=(html,name)=>/\schecked=/.test(html.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0]??'');
+
+await test('the profile lists only the notices of the sections the person has, all on by default',async()=>{
+ fixtures.notification_settings=[{whatsapp_enabled:true}];
+ fixtures.notification_preferences=[{event:'lead_offer',enabled:false}];
+ try{
+  const vendedor={id:'me',role:'vendedor',allowed_sections:null,allowed_vehicle_types:['motorcycle'],phone:'912 345 678'};
+  const html=await renderComponent('src/components/admin/NotificationPreferences.tsx','NotificationPreferences',{me:vendedor});
+  for(const text of ['Avisos por WhatsApp','Pedidos de test drive','Viaturas publicadas no site','Só recebe avisos de motas'])assert.ok(html.includes(text),text);
+  // Separadores que o vendedor não tem: esses avisos nunca lhe chegariam.
+  for(const text of ['Testemunhos à espera','Viaturas novas na oficina','Acesso ao WhatsApp'])assert.ok(!html.includes(text),text);
+  assert.ok(checked(html,'lead_test_drive'),'ligado por defeito');
+  assert.ok(!checked(html,'lead_offer'),'o que a pessoa desligou');
+  assert.ok(!html.includes('ainda não ligou'));assert.ok(!html.includes('Sem telefone'));
+  // Sem telefone e com o canal desligado, diz-se porquê.
+  fixtures.notification_settings=[{whatsapp_enabled:false}];
+  const semNada=await renderComponent('src/components/admin/NotificationPreferences.tsx','NotificationPreferences',{me:{...vendedor,phone:null}});
+  assert.ok(semNada.includes('ainda não ligou os avisos'));assert.ok(semNada.includes('Sem telefone no perfil'));
+  // O mecânico só tem a Oficina.
+  const mecanico=await renderComponent('src/components/admin/NotificationPreferences.tsx','NotificationPreferences',{me:{...vendedor,role:'mecanico',allowed_vehicle_types:null}});
+  assert.ok(mecanico.includes('Viaturas novas na oficina'));assert.ok(!mecanico.includes('Pedidos de test drive'));
+ }finally{delete fixtures.notification_settings;delete fixtures.notification_preferences;}
+});
+
+await test('Integrations shows the templates to submit and the latest notices with Meta\'s reason',async()=>{
+ fixtures.notification_settings=[{whatsapp_enabled:true}];
+ fixtures.profiles=[{id:'p1',full_name:'Vendedor Um'}];
+ fixtures.notification_jobs=[
+  {id:'j1',event:'lead_offer',recipient_id:'p1',attempts:1,last_error:null,created_at:'2026-10-01T10:00:00Z',delivered_at:'2026-10-01T10:00:02Z',cancelled_at:null,claimed_at:null},
+  {id:'j2',event:'testimonial_pending',recipient_id:'p1',attempts:8,last_error:'HTTP 404 — (#132001) Template name does not exist in the translation',created_at:'2026-10-01T11:00:00Z',delivered_at:null,cancelled_at:null,claimed_at:null},
+  {id:'j3',event:'vehicle_published',recipient_id:'p1',attempts:1,last_error:'Sem acesso a este separador',created_at:'2026-10-01T12:00:00Z',delivered_at:null,cancelled_at:'2026-10-01T12:01:00Z',claimed_at:null},
+ ];
+ try{
+  const html=await renderComponent('src/components/admin/NotificationStatus.tsx','NotificationStatus');
+  for(const name of ['engineline_lead','engineline_viatura','engineline_testemunho','engineline_aviso'])assert.ok(html.includes(name),name);
+  assert.ok(html.includes('pt_PT'));assert.ok(html.includes('Enviar teste para o meu telefone'));
+  assert.ok(html.includes('Vendedor Um'));assert.ok(html.includes('Propostas de preço'));
+  assert.ok(html.includes('Enviado'));
+  assert.ok(html.includes('Falhou — HTTP 404 — (#132001) Template name does not exist in the translation'));
+  assert.ok(html.includes('Não enviado — Sem acesso a este separador'));
+  assert.ok(html.includes('Voltar a tentar'));
+ }finally{delete fixtures.notification_settings;delete fixtures.notification_jobs;fixtures.profiles=[];}
+});

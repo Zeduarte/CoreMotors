@@ -18,8 +18,13 @@ export async function POST(request: Request) {
   if (error) return NextResponse.json({error:"Maintenance failed"},{status:503});
   // Reservas expiradas voltam a "publicada": o site tem de o mostrar já.
   revalidateTag(PUBLIC_DATA_TAG);
+  // Webhook dos contactos e avisos por WhatsApp à equipa (os que não saíram
+  // logo a seguir à ação, os que falharam e os do assistente do WhatsApp).
   const result = await processNotificationJobs();
   await db.rpc("prune_submission_limits");
+  // Avisos por WhatsApp com mais de 30 dias (0036). Sem a migração, falha
+  // em silêncio, como as outras limpezas.
+  await db.rpc("prune_notification_jobs");
   // Mensagens do WhatsApp já vistas (7 dias) e propostas resolvidas (1 dia).
   // A expiração das propostas é decidida no código; isto só recupera espaço.
   await db.rpc("prune_whatsapp");

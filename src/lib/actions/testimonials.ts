@@ -1,6 +1,7 @@
 "use server";
 
 import { publicSubmissionClient } from "@/lib/public-submissions";
+import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 import { requireSection } from "@/lib/guard";
 import { revalidatePublic } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
@@ -41,6 +42,8 @@ export async function submitPublicTestimonial(input: unknown): Promise<TResult> 
     return { ok: false, error: "Não foi possível enviar. Tente novamente." };
   }
   revalidatePublic("/admin/testemunhos");
+  // Aviso a quem aprova testemunhos (agendado pela base de dados).
+  deliverNotificationsSoon();
   return { ok: true };
 }
 

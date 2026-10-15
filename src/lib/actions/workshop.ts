@@ -8,6 +8,7 @@ import { requireSection } from "@/lib/guard";
 import { worklogHours } from "@/lib/operations";
 import { getCurrentProfile } from "@/lib/admin-queries";
 import { canAccess } from "@/lib/permissions";
+import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 
 export interface ActionResult {
   ok: boolean;
@@ -177,6 +178,8 @@ export async function createWorkshopVehicle(
   });
   if (error || !data) return { ok: false, error: "Não foi possível criar a viatura." };
   revalidatePublic("/admin/oficina");
+  // «Viatura nova na oficina» para os colegas (agendado pela base de dados).
+  deliverNotificationsSoon();
   return { ok: true, id: data };
 }
 
@@ -191,6 +194,8 @@ export async function markVehiclePrepared(id: string): Promise<ActionResult> {
   const { error } = await supabase.rpc("mark_vehicle_prepared", { vehicle: id });
   if (error) return { ok: false, error: rpcMessage(error.message, "Não foi possível dar a viatura como preparada.") };
   revalidateVehicle(id);
+  // Quem tem Viaturas fica a saber que há uma ficha para completar e publicar.
+  deliverNotificationsSoon();
   return { ok: true };
 }
 
