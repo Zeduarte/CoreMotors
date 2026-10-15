@@ -21,8 +21,9 @@ import { PROPOSAL_SCHEMA, PROPOSAL_TOOLS, TOOL, WA_TOOLS } from "@/lib/whatsapp/
  * se demonstra e o que se testa não é o que vai para produção.
  */
 
-const MODEL = "claude-haiku-4-5-20251001";
-const MAX_TOKENS = 512;
+const MODEL = "claude-haiku-5-5";
+// O Haiku 5.5 pensa por defeito e o pensamento conta para o limite.
+const MAX_TOKENS = 1024;
 /** Uma resposta precisa de uma procura; 3 dá folga sem permitir um ciclo caro. */
 const MAX_TOOL_ROUNDS = 3;
 /** O WhatsApp não é sítio para parágrafos. */
@@ -284,7 +285,7 @@ async function interpret(
   try {
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
       const message = await deps.anthropic.messages.create(
-        { model: MODEL, max_tokens: MAX_TOKENS, system, tools: WA_TOOLS, messages: conversation },
+        { model: MODEL, max_tokens: MAX_TOKENS, system, tools: WA_TOOLS, messages: conversation, output_config: { effort: "low" } },
         { signal: AbortSignal.timeout(TIMEOUT_MS) },
       );
 
