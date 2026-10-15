@@ -2,9 +2,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-export function ActionForm({ action, children, label = "Guardar", confirm, className = "card space-y-4 p-5" }: {
+export function ActionForm({ action, children, label = "Guardar", confirm, className = "card space-y-4 p-5", success = "Guardado." }: {
   action: (data: FormData) => Promise<{ok: boolean; error?: string}>;
   children?: React.ReactNode; label?: string; confirm?: string; className?: string;
+  /** O aviso quando corre bem — nem todas as ações guardam alguma coisa. */
+  success?: string;
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
@@ -16,7 +18,7 @@ export function ActionForm({ action, children, label = "Guardar", confirm, class
       try {
         const result = await action(data);
         if (!result.ok) setError(result.error ?? "Não foi possível guardar.");
-        else { toast.success("Guardado."); router.refresh(); }
+        else { toast.success(success); router.refresh(); }
       } catch { setError("Não foi possível guardar. Verifique a ligação e tente novamente."); }
     });
   }}>

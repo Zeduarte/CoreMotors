@@ -617,4 +617,219 @@ await test('pending proposals accept the new kinds, and nothing in the WhatsApp 
  for(const r of rows)assert.doesNotMatch(r.prosrc,/\bdelete\b/i,r.proname);
 });
 
+// ---------------------------------------------------------------------------
+// 0036 — avisos por WhatsApp. Quem recebe decide-se na base de dados, com as
+// permissões do backoffice: estes testes vigiam que ninguém recebe o que não
+// podia abrir, que nada chega duas vezes à mesma pessoa e que agendar um aviso
+// nunca impede a gravação.
+// ---------------------------------------------------------------------------
+
+const chefe='00000000-0000-4000-8000-000000000007';
+const soMotas='00000000-0000-4000-8000-000000000005';
+const semTelefone='00000000-0000-4000-8000-000000000006';
+for(const [id,role]of[[chefe,'chefe'],[soMotas,'vendedor'],[semTelefone,'vendedor']]){
+ await db.query('insert into auth.users(id,email) values($1,$2)',[id,`${role}-${id}@example.test`]);
+ await db.query('insert into public.profiles(id,role) values($1,$2)',[id,role]);
+}
+await db.query("update profiles set allowed_vehicle_types=array['motorcycle'] where id=$1",[soMotas]);
+for(const [id,phone]of[[admin,'912000001'],[seller,'+351 912 000 002'],[mechanic,'916193337'],[limited,'912000004'],[soMotas,'912000005'],[chefe,'912 000 007']])
+ await db.query('update profiles set phone=$2 where id=$1',[id,phone]);
+/** Quem tem um aviso agendado para este acontecimento. */
+const recipients=async(event,subject)=>(await db.query(
+ "select recipient_id from notification_jobs where channel='whatsapp' and event=$1 and subject_id=$2",[event,subject])).rows.map(r=>r.recipient_id).sort();
+/** Um contacto vindo do site (sem sessão, como o servidor o grava). */
+const newLead=async(kind,vtype,name='Cliente')=>(await db.query(
+ 'insert into leads(name,email,kind,vehicle_type) values($1,$2,$3,$4) returning id',[name,'cliente@example.test',kind,vtype])).rows[0].id;
+
+await test('with WhatsApp notices switched off, nothing is queued for anyone',async()=>{
+ const id=await newLead('contact','car');
+ assert.deepEqual(await recipients('lead_contact',id),[]);
+ // O webhook da 0013 continua com o seu envio por contacto.
+ assert.equal((await db.query("select count(*)::int n from notification_jobs where channel='webhook' and lead_id=$1",[id])).rows[0].n,1);
+});
+
+await test('only an administrator switches the WhatsApp notices on',async()=>{
+ await asUser(seller,async()=>assert.equal((await db.query('update notification_settings set whatsapp_enabled=true returning id')).rows.length,0));
+ await asUser(admin,async()=>assert.equal((await db.query('update notification_settings set whatsapp_enabled=true returning id')).rows.length,1));
+});
+
+await test('a new lead reaches exactly the people who could open it in the backoffice',async()=>{
+ const carro=await newLead('offer','car');
+ // Vendedor e chefe têm Leads; o mecânico e o vendedor limitado não; quem só
+ // trabalha com motas não vê um contacto de carros; sem telefone não há destino.
+ assert.deepEqual(await recipients('lead_offer',carro),[admin,seller,chefe].sort());
+ const mota=await newLead('test_drive','motorcycle');
+ assert.deepEqual(await recipients('lead_test_drive',mota),[admin,seller,soMotas,chefe].sort());
+ // Um contacto sem tipo de viatura é de toda a equipa comercial.
+ const geral=await newLead('contact',null);
+ assert.deepEqual(await recipients('lead_contact',geral),[admin,seller,soMotas,chefe].sort());
+ // Cada tipo de pedido do site tem o seu aviso.
+ for(const [kind,event] of [['finance','lead_contact'],['trade_in','lead_trade_in'],['order','lead_order'],['alert','lead_alert'],['reservation','lead_reservation']])
+  assert.deepEqual(await recipients(event,await newLead(kind,'car')),[admin,seller,chefe].sort(),kind);
+ // O email e o telefone do cliente não vão para o WhatsApp.
+ const {payload}=(await db.query("select payload from notification_jobs where channel='whatsapp' and subject_id=$1 limit 1",[carro])).rows[0];
+ assert.equal(payload.name,'Cliente');assert.equal(payload.kind,'offer');
+ assert.equal(payload.email,undefined);assert.equal(payload.phone,undefined);
+});
+
+await test('a notice switched off in the profile is not sent, and only that one',async()=>{
+ await asUser(seller,()=>db.query("insert into notification_preferences(profile_id,event,enabled) values($1,'lead_offer',false)",[seller]));
+ assert.ok(!(await recipients('lead_offer',await newLead('offer','car'))).includes(seller));
+ assert.ok((await recipients('lead_contact',await newLead('contact','car'))).includes(seller));
+});
+
+await test('the same event never reaches the same person twice',async()=>{
+ const id=await newLead('alert','car');
+ const before=await recipients('lead_alert',id);
+ const again=await asServer(async()=>(await db.query("select public.queue_whatsapp_event('lead_alert',$1,'car','{}'::jsonb,$1) n",[id])).rows[0].n);
+ assert.equal(again,0);
+ assert.deepEqual(await recipients('lead_alert',id),before);
+ // Nem inserido à mão: o índice único é a garantia final.
+ await assert.rejects(db.query("insert into notification_jobs(channel,event,subject_id,recipient_id) values('whatsapp','lead_alert',$1,$2)",[id,admin]),/duplicate key|unique/i);
+});
+
+await test('a failure while scheduling a notice never stops the lead from being saved',async()=>{
+ const sql=await readFile('supabase/migrations/0036_whatsapp_notifications.sql','utf8');
+ const original=sql.match(/create or replace function public\.notification_recipients[\s\S]*?\n\$\$;/)[0];
+ await db.exec(`create or replace function public.notification_recipients(ev text, vtype text, actor uuid)
+  returns table (profile_id uuid, phone text) language plpgsql as $$ begin raise exception 'avaria simulada'; end $$;`);
+ try{
+  const id=await newLead('contact','car','Gravado na mesma');
+  assert.equal((await db.query('select name from leads where id=$1',[id])).rows[0].name,'Gravado na mesma');
+  assert.deepEqual(await recipients('lead_contact',id),[]);
+ }finally{await db.exec(original);}
+ assert.equal((await recipients('lead_contact',await newLead('contact','car'))).length,3,'reposta a função, tudo volta ao normal');
+});
+
+await test('a testimonial waiting for approval reaches whoever approves testimonials',async()=>{
+ const pendente=(await db.query("insert into testimonials(name,body,rating,published) values('Rui','Atendimento impecável',5,false) returning id")).rows[0].id;
+ assert.deepEqual(await recipients('testimonial_pending',pendente),[admin,chefe].sort());
+ // Os criados no backoffice já vêm aprovados.
+ const aprovado=(await db.query("insert into testimonials(name,body) values('Staff','Criado no backoffice') returning id")).rows[0].id;
+ assert.deepEqual(await recipients('testimonial_pending',aprovado),[]);
+});
+
+await test('vehicles: workshop entries reach the workshop, the rest reaches sales, never the author',async()=>{
+ // Entrada na oficina pelo backoffice: o mecânico não é avisado do que fez.
+ const oficina=await asUser(mechanic,async()=>(await db.query("select create_workshop_intake_for_type('Honda por identificar','AA-22-BB','motorcycle') id")).rows[0].id);
+ assert.deepEqual(await recipients('vehicle_workshop',oficina),[admin]);
+ // Pelo assistente do WhatsApp, o autor é quem deu a ordem (wa_begin_as, 0024).
+ const peloBot=await asServer(async()=>(await db.query("select public.wa_create_workshop_vehicle($1,'Yamaha por identificar','BB-33-CC','motorcycle') id",[admin])).rows[0].id);
+ assert.deepEqual(await recipients('vehicle_workshop',peloBot),[mechanic]);
+ // Dada como preparada: quem tem Viaturas (e acesso a motas) fica a saber.
+ await asUser(mechanic,()=>db.query('select mark_vehicle_prepared($1)',[oficina]));
+ assert.deepEqual(await recipients('vehicle_prepared',oficina),[admin,seller,soMotas,chefe].sort());
+ // Publicada pela primeira vez pelo administrador: avisa os outros.
+ await asUser(admin,()=>db.query("update cars set model='PCX',year=2021,fuel='Gasolina',transmission='Automática',body='Scooter',status='published' where id=$1",[oficina]));
+ assert.deepEqual(await recipients('vehicle_published',oficina),[seller,soMotas,chefe].sort());
+ // Tirar do site e voltar a publicar não é novidade.
+ await asUser(admin,()=>db.query("update cars set status='draft' where id=$1",[oficina]));
+ await asUser(admin,()=>db.query("update cars set status='published' where id=$1",[oficina]));
+ assert.equal((await recipients('vehicle_published',oficina)).length,3);
+ // Criada em Viaturas, por um chefe, em rascunho.
+ const nova=await asUser(chefe,async()=>(await db.query("insert into cars(slug,make,model,status,vehicle_type,price_on_request) values('wa-nova','Peugeot','208','draft','car',true) returning id")).rows[0].id);
+ assert.deepEqual(await recipients('vehicle_created',nova),[admin,seller].sort());
+});
+
+await test('a reservation confirmed by a colleague reaches the rest of the sales team',async()=>{
+ const carro=(await db.query(`insert into cars(slug,make,model,year,fuel,transmission,body,status,price,vehicle_type)
+  values('wa-reserva','Audi','A3',2019,'Diesel','Manual','Berlina','published',21000,'car') returning id`)).rows[0].id;
+ const cliente=(await db.query("insert into leads(car_id,name,email) values($1,'Reserva','reserva-wa@example.test') returning id",[carro])).rows[0].id;
+ const reserva=await asUser(admin,async()=>(await db.query("select reserve_vehicle($1,now()+interval '3 days',500) id",[cliente])).rows[0].id);
+ assert.deepEqual(await recipients('vehicle_reserved',reserva),[seller,chefe].sort());
+ const {payload}=(await db.query("select payload from notification_jobs where event='vehicle_reserved' and subject_id=$1 limit 1",[reserva])).rows[0];
+ assert.equal(payload.lead_id,cliente);assert.equal(Number(payload.deposit),500);assert.equal(payload.make,'Audi');
+});
+
+await test('sending re-checks who may receive, and a doubtful send is never repeated',async()=>{
+ const before=(await db.query('select allowed_sections from profiles where id=$1',[seller])).rows[0].allowed_sections;
+ // Entre agendar e enviar, o vendedor perdeu o separador Leads.
+ await db.query("update profiles set allowed_sections=array['dashboard','carros'] where id=$1",[seller]);
+ try{
+  const claimed=[];
+  for(;;){const rows=(await asServer(()=>db.query('select * from public.claim_whatsapp_notifications(50)'))).rows;if(!rows.length)break;claimed.push(...rows);}
+  assert.ok(claimed.length>10);
+  assert.ok(claimed.every(c=>/^\d{9,15}$/.test(c.to_phone)),'telefones normalizados, com indicativo');
+  assert.ok(claimed.some(c=>c.to_phone==='351912000002'&&c.event_kind.startsWith('vehicle_')),'as viaturas continuam a chegar-lhe');
+  const leadsDoVendedor=(await db.query("select cancelled_at,last_error from notification_jobs where channel='whatsapp' and recipient_id=$1 and event like 'lead_%'",[seller])).rows;
+  assert.ok(leadsDoVendedor.length>0);
+  assert.ok(leadsDoVendedor.every(r=>r.cancelled_at&&r.last_error==='Sem acesso a este separador'));
+
+  const [enviado,falhou,definitivo,incerto]=claimed.map(c=>c.job_id);
+  await asServer(async()=>{
+   await db.query("select public.finish_whatsapp_notification($1,'sent',null,'wamid.1')",[enviado]);
+   await db.query("select public.finish_whatsapp_notification($1,'failed','HTTP 500 — (#1) erro temporário')",[falhou]);
+   await db.query("select public.finish_whatsapp_notification($1,'permanent','HTTP 404 — (#132001) Template name does not exist')",[definitivo]);
+   await db.query("select public.finish_whatsapp_notification($1,'uncertain','A Meta não respondeu a tempo')",[incerto]);
+  });
+  const job=async id=>(await db.query('select * from notification_jobs where id=$1',[id])).rows[0];
+  assert.ok((await job(enviado)).delivered_at);assert.equal((await job(enviado)).wa_message_id,'wamid.1');
+  assert.ok((await job(definitivo)).attempts>=8,'fica para o administrador');
+  assert.ok((await job(incerto)).claimed_at,'fica reclamado: pode ter chegado');
+  // Nada é reclamado outra vez: o que falhou espera pela próxima tentativa.
+  assert.equal((await asServer(()=>db.query('select * from public.claim_whatsapp_notifications(50)'))).rows.length,0);
+  await db.query('update notification_jobs set next_attempt_at=now() where id in ($1,$2,$3)',[falhou,incerto,definitivo]);
+  const retry=(await asServer(()=>db.query('select * from public.claim_whatsapp_notifications(50)'))).rows;
+  assert.deepEqual(retry.map(r=>r.job_id),[falhou],'só o que falhou volta a ser tentado');
+  assert.equal(retry[0].attempt,2);
+
+  // Um aviso que ficou mais de um dia sem ser tentado já não é novidade.
+  const velho=await newLead('contact','car','Antigo');
+  await db.query("update notification_jobs set next_attempt_at=now()-interval '25 hours' where subject_id=$1 and channel='whatsapp'",[velho]);
+  assert.equal((await asServer(()=>db.query('select * from public.claim_whatsapp_notifications(50)'))).rows.length,0);
+  const expirados=(await db.query("select last_error from notification_jobs where subject_id=$1 and channel='whatsapp'",[velho])).rows;
+  assert.ok(expirados.length>0&&expirados.every(r=>/Expirou/.test(r.last_error)));
+ }finally{await db.query('update profiles set allowed_sections=$2 where id=$1',[seller,before]);}
+});
+
+await test('notice preferences are personal, and the queue stays server-only',async()=>{
+ await asUser(seller,async()=>{
+  assert.ok((await db.query('select * from notification_preferences')).rows.every(r=>r.profile_id===seller));
+  // Ninguém desliga os avisos de outra pessoa, nem inventa avisos.
+  await assert.rejects(db.query("insert into notification_preferences(profile_id,event,enabled) values($1,'lead_contact',false)",[admin]),/row-level security/);
+  await assert.rejects(db.query("insert into notification_preferences(profile_id,event,enabled) values($1,'aviso_inventado',false)",[seller]),/check/i);
+  // O interruptor geral vê-se (o perfil diz se está ligado), mas não se muda.
+  assert.equal((await db.query('select whatsapp_enabled from notification_settings')).rows[0].whatsapp_enabled,true);
+  // A fila tem nomes de clientes: é só do administrador.
+  assert.equal((await db.query("select * from notification_jobs where channel='whatsapp'")).rows.length,0);
+ });
+ await asUser(admin,async()=>{
+  assert.equal((await db.query('select * from notification_preferences where profile_id=$1',[seller])).rows.length,0,'nem o administrador vê as escolhas dos outros');
+  assert.ok((await db.query("select * from notification_jobs where channel='whatsapp'")).rows.length>0);
+ });
+ await asUser(null,async()=>assert.rejects(db.query('select * from notification_settings'),/permission denied/),'anon');
+ // Agendar, reclamar e registar envios: só o servidor.
+ for(const call of [
+  'public.claim_whatsapp_notifications(10)',
+  `public.finish_whatsapp_notification('${admin}','sent')`,
+  `public.queue_whatsapp_event('lead_contact','${admin}',null,'{}'::jsonb)`,
+  'public.queue_whatsapp_expiry_warning()',
+  `public.notification_block_reason('${admin}','lead_contact',null)`,
+ ]) await asUser(admin,async()=>assert.rejects(db.query(`select ${call}`),/permission denied/,call));
+});
+
+await test('the WhatsApp access about to expire is announced once, to whoever manages integrations',async()=>{
+ await db.query("insert into whatsapp_connection(waba_id,phone_number_id,access_token,token_expires_at) values('111','222','t',now()+interval '3 days')");
+ try{
+  const queue=async()=>(await asServer(()=>db.query('select public.queue_whatsapp_expiry_warning() n'))).rows[0].n;
+  assert.equal(await queue(),1);
+  assert.equal(await queue(),0,'uma vez só');
+  assert.deepEqual((await db.query("select recipient_id from notification_jobs where event='whatsapp_expiring'")).rows.map(r=>r.recipient_id),[admin]);
+  // Longe do fim, não há aviso.
+  await db.query("update whatsapp_connection set token_expires_at=now()+interval '30 days'");
+  assert.equal(await queue(),0);
+ }finally{await db.query('delete from whatsapp_connection');}
+});
+
+await test('old WhatsApp notices are pruned and the webhook queue is left alone',async()=>{
+ const webhook=async()=>(await db.query("select count(*)::int n from notification_jobs where channel='webhook'")).rows[0].n;
+ const antes=await webhook();
+ await db.query("update notification_jobs set created_at=now()-interval '31 days' where channel='whatsapp' and event='testimonial_pending'");
+ await asServer(()=>db.query('select public.prune_notification_jobs()'));
+ assert.equal((await db.query("select count(*)::int n from notification_jobs where event='testimonial_pending'")).rows[0].n,0);
+ assert.ok((await db.query("select count(*)::int n from notification_jobs where channel='whatsapp'")).rows[0].n>0);
+ assert.equal(await webhook(),antes);
+ await db.query('update notification_settings set whatsapp_enabled=false');
+});
+
 await db.close();

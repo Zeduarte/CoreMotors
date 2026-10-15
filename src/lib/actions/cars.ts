@@ -10,6 +10,7 @@ import { vehicleSlug } from "@/lib/slug";
 import { MEDIA_BUCKET } from "@/lib/storage";
 import type { CarInsert, CarStatus } from "@/lib/supabase/database.types";
 import { queueOlxSync, retireOlxAdverts } from "@/lib/olx/queue";
+import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 
 export interface SaveResult {
   ok: boolean;
@@ -132,6 +133,8 @@ export async function createCar(input: unknown): Promise<SaveResult> {
   revalidatePublic(data.slug);
   // O anúncio do OLX acompanha a viatura (se tiver OLX marcado nos canais).
   await queueOlxSync([data.id]);
+  // Viatura nova (ou publicada): o aviso à equipa foi agendado pela base de dados.
+  deliverNotificationsSoon();
   return { ok: true, id: data.id, slug: data.slug };
 }
 
@@ -174,6 +177,8 @@ export async function updateCar(
   revalidatePublic(data.slug);
   // O anúncio do OLX acompanha a viatura (se tiver OLX marcado nos canais).
   await queueOlxSync([data.id]);
+  // Se foi publicada pela primeira vez, há aviso à equipa.
+  deliverNotificationsSoon();
   return { ok: true, id: data.id, slug: data.slug };
 }
 
@@ -207,6 +212,7 @@ export async function setCarStatus(
   revalidatePublic(data.slug);
   // Vendida sai do OLX; publicada volta a entrar.
   await queueOlxSync([id]);
+  deliverNotificationsSoon();
   return { ok: true };
 }
 
@@ -270,6 +276,7 @@ export async function duplicateCar(id: string): Promise<SaveResult> {
 
   if (error) return { ok: false, error: error.message };
   revalidatePublic();
+  deliverNotificationsSoon();
   return { ok: true, id: data.id };
 }
 
@@ -315,6 +322,8 @@ export async function bulkSetStatus(
   if (error) return { ok: false, error: error.message };
   revalidatePublic();
   await queueOlxSync(ids);
+  // Publicar em lote: o envio junta-as numa mensagem por pessoa.
+  deliverNotificationsSoon();
   return { ok: true };
 }
 

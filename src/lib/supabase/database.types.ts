@@ -639,6 +639,32 @@ export type OlxCategoryCacheRow = {
   fetched_at: string;
 };
 
+/** Interruptor geral dos avisos por WhatsApp (0036). Uma linha só. */
+export type NotificationSettingsRow = {
+  id: number;
+  whatsapp_enabled: boolean;
+  updated_by: string | null;
+  updated_at: string;
+};
+
+/** Um aviso que a pessoa mudou no perfil (0036). Sem linha = ligado. */
+export type NotificationPreferenceRow = {
+  profile_id: string;
+  event: string;
+  enabled: boolean;
+  updated_at: string;
+};
+
+/** Um aviso por WhatsApp reclamado para envio (`claim_whatsapp_notifications`). */
+export type WhatsAppNotificationClaimRow = {
+  job_id: string;
+  event_kind: string;
+  subject: string;
+  details: Record<string, unknown>;
+  attempt: number;
+  to_phone: string | null;
+};
+
 /** Atributos de uma categoria do OLX escolhida para alguma viatura (0031). */
 export type OlxCategoryDetailsRow = {
   category_id: number;
@@ -739,7 +765,19 @@ export type Database = {
       preparation_tasks: Table<PreparationTask, "car_id" | "title">;
       reservations: Table<Reservation, "car_id" | "lead_id" | "expires_at">;
       audit_log: Table<AuditEntry>;
-      notification_jobs: Table<NotificationJob, "lead_id">;
+      notification_jobs: Table<NotificationJob>;
+      notification_settings: {
+        Row: NotificationSettingsRow;
+        Insert: Partial<NotificationSettingsRow>;
+        Update: Partial<NotificationSettingsRow>;
+        Relationships: [];
+      };
+      notification_preferences: {
+        Row: NotificationPreferenceRow;
+        Insert: { profile_id: string; event: string; enabled?: boolean; updated_at?: string };
+        Update: { enabled?: boolean; updated_at?: string };
+        Relationships: [];
+      };
       profiles: {
         Row: ProfilesRow;
         Insert: ProfilesInsert;
@@ -823,6 +861,16 @@ export type Database = {
         Args: Record<string, never>;
         Returns: undefined;
       };
+      claim_whatsapp_notifications: {
+        Args: { batch?: number };
+        Returns: WhatsAppNotificationClaimRow[];
+      };
+      finish_whatsapp_notification: {
+        Args: { job: string; outcome: string; detail?: string | null; message_id?: string | null };
+        Returns: undefined;
+      };
+      queue_whatsapp_expiry_warning: { Args: Record<string, never>; Returns: number };
+      prune_notification_jobs: { Args: Record<string, never>; Returns: undefined };
       has_section: { Args: { section: string }; Returns: boolean };
       has_section_for: { Args: { uid: string; section: string }; Returns: boolean };
       has_vehicle_type_for: { Args: { uid: string; vtype: string }; Returns: boolean };
