@@ -7,7 +7,10 @@ export const site = {
   legalName: "Supermotas — Motas e Automóveis",
   description:
     "Stand de motas e automóveis em Portugal. Viaturas selecionadas, histórico transparente e uma experiência de compra sem fricção.",
-  url: "https://supermotas.netlify.app",
+  // O domínio de cada stand vem do Netlify (NEXT_PUBLIC_SITE_URL, fixado no
+  // build). O valor fixo é só o último recurso: canónicos, sitemap e links de
+  // partilha apontavam para ele mesmo com o domínio próprio já ligado.
+  url: process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "") || "https://supermotas.netlify.app",
   phone: "+351 210 000 000",
   phoneHref: "tel:+351210000000",
   whatsapp: "351910000000",
