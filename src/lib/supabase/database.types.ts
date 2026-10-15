@@ -544,6 +544,8 @@ export type WaPendingRow = {
   status: string;
   settled_at: string | null;
   result_id: string | null;
+  /** Mensagem da Meta com a imagem da proposta (0038), para o recurso a texto. */
+  image_wamid: string | null;
 };
 
 /** Viatura que um colaborador pode ver (já filtrada pelas permissões). */
@@ -557,6 +559,38 @@ export type WaVehicleRow = {
   status: string;
   vehicle_type: string;
 };
+
+/** Contacto que um colaborador pode alterar (0038, já filtrado). */
+export type WaLeadRow = {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  status: string;
+  car_label: string | null;
+  vehicle_type: string | null;
+  assigned_to: string | null;
+  assigned_name: string | null;
+  /** Tem uma reserva activa: não se perde nem se fecha por mensagem. */
+  active_reservation: boolean;
+  created_at: string;
+  total: number;
+};
+
+/** Testemunho que um colaborador pode aprovar ou rejeitar (0038). */
+export type WaTestimonialRow = {
+  id: string;
+  name: string;
+  rating: number;
+  role: string | null;
+  body: string;
+  published: boolean;
+  created_at: string;
+  total: number;
+};
+
+/** Colaborador que pode ser responsável de um contacto (0038). */
+export type WaStaffRow = { id: string; full_name: string; total: number };
 
 export type WaVehicleSummary = {
   costs: number;
@@ -654,7 +688,8 @@ export type Database = {
         Row: WaPendingRow;
         Insert: { id?: string; actor_id: string; from_phone: string; kind: string;
           payload: Json; summary: string; expires_at?: string; status?: string };
-        Update: { status?: string; settled_at?: string | null; result_id?: string | null };
+        Update: { status?: string; settled_at?: string | null; result_id?: string | null;
+          image_wamid?: string | null };
         Relationships: [];
       };
       company_days: {
@@ -811,6 +846,51 @@ export type Database = {
       wa_log_hours: {
         Args: { actor: string; car: string; work_day: string; starts: string;
           ends: string | null; note: string | null };
+        Returns: string;
+      };
+      // ---- 0038: mais ordens por WhatsApp ----
+      wa_leads_for_actor: {
+        Args: { actor: string; search: string | null; only_status: string | null };
+        Returns: WaLeadRow[];
+      };
+      wa_testimonials_for_actor: {
+        Args: { actor: string; search: string | null; only_pending: boolean };
+        Returns: WaTestimonialRow[];
+      };
+      wa_staff_for_actor: {
+        Args: { actor: string; search: string };
+        Returns: WaStaffRow[];
+      };
+      wa_create_draft_car: {
+        Args: { actor: string; selected_type: string; vehicle_make: string;
+          vehicle_model: string; vehicle_variant: string | null; vehicle_year: number;
+          km: number; fuel_kind: string; gearbox: string; body_kind: string;
+          asking_price: number | null; on_request: boolean; plate: string | null;
+          paint: string | null; door_count: number; seat_count: number; slug_base: string };
+        Returns: string;
+      };
+      wa_update_car: {
+        Args: { actor: string; car: string; changes: Json };
+        Returns: string;
+      };
+      wa_set_car_status: {
+        Args: { actor: string; car: string; new_status: string };
+        Returns: string;
+      };
+      wa_set_lead_status: {
+        Args: { actor: string; lead: string; new_status: string; reason: string | null };
+        Returns: string;
+      };
+      wa_assign_lead: {
+        Args: { actor: string; lead: string; assignee: string };
+        Returns: string;
+      };
+      wa_add_lead_note: {
+        Args: { actor: string; lead: string; note_kind: string; note: string };
+        Returns: string;
+      };
+      wa_set_testimonial: {
+        Args: { actor: string; testimonial: string; publish: boolean };
         Returns: string;
       };
       can_approve_leave: { Args: Record<string, never>; Returns: boolean };

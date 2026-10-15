@@ -7,6 +7,7 @@ import { requireSection } from "@/lib/guard";
 import { site } from "@/lib/site";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { connectAccount, disconnectAccount, type ConnectResult } from "@/lib/whatsapp/account";
+import { afterWrite } from "@/lib/whatsapp/after-write";
 import { handleInbound, toActor } from "@/lib/whatsapp/handle";
 
 /**
@@ -32,6 +33,8 @@ export interface SimulationResult {
   error?: string;
   reply?: string;
   wrote?: boolean;
+  /** A imagem da proposta (caminho relativo, assinado e com prazo). */
+  image?: string;
 }
 
 export async function simulateInbound(data: FormData): Promise<SimulationResult> {
@@ -64,15 +67,18 @@ export async function simulateInbound(data: FormData): Promise<SimulationResult>
     const result = await handleInbound(
       { from, text: parsed.data.text, type: "text" },
       toActor(me),
-      { db, anthropic },
+      // Origem vazia → o link da imagem é um caminho relativo: abre no próprio
+      // backoffice, sem depender de saber o domínio.
+      { db, anthropic, origin: "" },
     );
-    if (result.wrote) {
-      revalidatePath("/admin/financeiro", "layout");
-      revalidatePath("/admin/oficina", "layout");
-      revalidatePath("/admin/carros", "layout");
-    }
+    if (result.changed) await afterWrite(result.changed);
     revalidatePath("/admin/integracoes");
-    return { ok: true, reply: result.reply ?? "", wrote: result.wrote };
+    return {
+      ok: true,
+      reply: result.reply ?? "",
+      wrote: result.wrote,
+      ...(result.image ? { image: result.image.url } : {}),
+    };
   } catch (error) {
     console.error("simulateInbound:", error);
     return { ok: false, error: "Não foi possível simular. Veja os registos do servidor." };

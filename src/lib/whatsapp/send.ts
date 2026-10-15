@@ -16,10 +16,25 @@ import type { WhatsAppNumber } from "./account";
 
 /** O WhatsApp aceita mais, mas uma ordem nunca precisa de tanto. */
 const MAX_BODY = 4000;
+/** Limite da Meta para a legenda de uma imagem. */
+export const MAX_CAPTION = 1024;
 
 export interface SendResult {
   ok: boolean;
   error?: string;
+  /** O id que a Meta deu à mensagem (para casar com um recibo «failed»). */
+  id?: string;
+}
+
+/** O id da mensagem enviada, na resposta da Meta. Nunca lança. */
+async function messageId(response: Response): Promise<string | undefined> {
+  try {
+    const data = (await response.json()) as { messages?: { id?: unknown }[] };
+    const id = data.messages?.[0]?.id;
+    return typeof id === "string" ? id : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -114,6 +129,50 @@ export async function sendWhatsAppText(
     );
     if (!response.ok) return { ok: false, error: await graphError(response) };
     return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message.slice(0, 200) : "Falha no envio" };
+  }
+}
+
+/**
+ * Uma imagem por link, com legenda — a proposta como formulário preenchido.
+ *
+ * A Meta só aceita o link se for HTTPS, e vai buscá-lo ela própria DEPOIS de
+ * responder: um `ok` aqui quer dizer que aceitou o pedido, não que a imagem
+ * chegou. Se não conseguir ir buscá-la, avisa por um recibo «failed» com o
+ * `id` devolvido aqui (ver `recoverFailedImages` em delivery.ts).
+ */
+export async function sendWhatsAppImage(
+  to: string,
+  link: string,
+  caption: string,
+  number: WhatsAppNumber | null,
+): Promise<SendResult> {
+  if (!number?.accessToken) return { ok: false, error: "WhatsApp não configurado" };
+  if (!/^https:\/\//i.test(link)) return { ok: false, error: "a imagem precisa de um endereço HTTPS" };
+  try {
+    const response = await fetch(
+      `${graphBase()}/${graphVersion()}/${encodeURIComponent(number.phoneNumberId)}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${number.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to,
+          type: "image",
+          image: { link, caption: caption.slice(0, MAX_CAPTION) },
+        }),
+        signal: AbortSignal.timeout(5000),
+        redirect: "error",
+      },
+    );
+    if (!response.ok) return { ok: false, error: await graphError(response) };
+    const id = await messageId(response);
+    return { ok: true, ...(id ? { id } : {}) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message.slice(0, 200) : "Falha no envio" };
   }

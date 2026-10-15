@@ -3,10 +3,12 @@ import { NextResponse } from "next/server";
 import { publicSubmissionClient } from "@/lib/public-submissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { whatsAppNumber, type WhatsAppNumber } from "@/lib/whatsapp/account";
-import { handleInbound, toActor } from "@/lib/whatsapp/handle";
-import { extractMessages, type InboundMessage } from "@/lib/whatsapp/payload";
+import { afterWrite } from "@/lib/whatsapp/after-write";
+import { deliverReply, recoverFailedImages } from "@/lib/whatsapp/delivery";
+import { handleInbound, toActor, type HandleResult } from "@/lib/whatsapp/handle";
+import { extractFailedStatuses, extractMessages, type InboundMessage } from "@/lib/whatsapp/payload";
 import { REPLIES } from "@/lib/whatsapp/replies";
-import { markReadAndTyping, sendWhatsAppText } from "@/lib/whatsapp/send";
+import { markReadAndTyping } from "@/lib/whatsapp/send";
 import { verifyChallenge, verifySignature } from "@/lib/whatsapp/signature";
 
 export const runtime = "nodejs";
@@ -82,9 +84,11 @@ export async function POST(request: Request) {
     return new NextResponse(null, { status: 400 });
   }
 
-  // A maioria das entregas são recibos (entregue, lido): não há nada a fazer.
+  // A maioria das entregas são recibos (entregue, lido): não há nada a fazer —
+  // excepto quando a Meta não conseguiu entregar a imagem de uma proposta.
   const messages = extractMessages(payload);
-  if (!messages.length) return NextResponse.json({ ok: true });
+  const failed = extractFailedStatuses(payload);
+  if (!messages.length && !failed.length) return NextResponse.json({ ok: true });
 
   const db = createAdminClient();
   if (!db) {
@@ -95,9 +99,16 @@ export async function POST(request: Request) {
   // O número ligado em Integrações; sem ele, o das variáveis do Netlify.
   const number = await whatsAppNumber(db);
 
+  if (failed.length) await recoverFailedImages(db, failed, number);
+
+  // A imagem da proposta é servida por este mesmo site, no endereço a que a
+  // Meta acabou de chegar. Não se usa NEXT_PUBLIC_SITE_URL: um valor errado lá
+  // (já aconteceu em produção) dava imagens num domínio que não as serve.
+  const origin = new URL(request.url).origin;
+
   for (const msg of messages) {
     try {
-      await processOne(db, msg, number);
+      await processOne(db, msg, number, origin);
     } catch (error) {
       // Uma mensagem que falha não pode impedir as outras nem mudar o 200.
       console.error("api/whatsapp:", error);
@@ -112,6 +123,7 @@ async function processOne(
   db: Db,
   msg: InboundMessage,
   number: WhatsAppNumber | null,
+  origin: string,
 ): Promise<void> {
   // Reclamação. Falha (chave duplicada) = já vista = reentrega: pára aqui. Vem
   // ANTES da quota, senão as reentregas da Meta gastavam a quota da pessoa.
@@ -174,7 +186,7 @@ async function processOne(
   // quem é: a um número desconhecido não se mostra nem os vistos.
   await markReadAndTyping(msg.wamId, number);
 
-  let reply: string | null;
+  let result: HandleResult;
   try {
     await publicSubmissionClient("whatsapp", msg.from);
     const anthropic = process.env.ANTHROPIC_API_KEY
@@ -185,29 +197,37 @@ async function processOne(
             : {}),
         })
       : null;
-    const result = await handleInbound(
+    result = await handleInbound(
       { from: msg.from, text: msg.text, type: msg.type },
       toActor(profile),
-      { db, anthropic },
+      { db, anthropic, origin },
     );
-    reply = result.reply;
   } catch (error) {
     // `publicSubmissionClient` lança quando a quota se esgota.
     const quota = error instanceof Error && /Demasiados pedidos/.test(error.message);
     if (!quota) console.error("api/whatsapp handleInbound:", error);
-    reply = quota ? REPLIES.demasiadas : REPLIES.falhou;
+    result = { reply: quota ? REPLIES.demasiadas : REPLIES.falhou, wrote: false };
   }
 
-  if (!reply) {
+  if (result.changed) await afterWrite(result.changed);
+
+  if (!result.reply) {
     await finish({ actor_id: actorId });
     return;
   }
-  const sent = await sendWhatsAppText(msg.from, reply, number);
+  // A proposta vai como imagem com o texto por legenda; se a imagem não
+  // puder ir, vai o texto (deliverReply).
+  const { sent, imageError } = await deliverReply(db, msg.from, result.reply, result.image, number);
   await finish({
     actor_id: actorId,
     reply_sent_at: sent.ok ? new Date().toISOString() : null,
     // Visível no painel de Integrações: uma escrita que correu bem cuja
-    // resposta se perdeu é a única lacuna deste canal, e tem de se ver.
-    last_error: sent.ok ? null : `resposta não enviada: ${sent.error}`,
+    // resposta se perdeu é a única lacuna deste canal, e tem de se ver. Uma
+    // imagem que não foi também — a pessoa recebeu o texto, mas algo está mal.
+    last_error: !sent.ok
+      ? `resposta não enviada: ${sent.error}`
+      : imageError
+        ? `imagem não enviada (respondida em texto): ${imageError}`
+        : null,
   });
 }

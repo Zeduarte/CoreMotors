@@ -15,6 +15,8 @@ const EXEMPLOS = [
   "registaa um novo audi a1 com a matricula 00-TE-00",
   "coloca uma despesa de 450 de troca de embraiagem e revisao geral ao bmw 320 preto",
   "das 9h às 17h30 no bmw 320, mudança de travões",
+  "baixa o preço do bmw 320 para 23 500",
+  "o contacto do joão silva perdeu-se, comprou noutro stand",
   "quanto já gastei no bmw 320?",
 ];
 
@@ -22,6 +24,8 @@ interface Linha {
   de: "eu" | "assistente";
   texto: string;
   gravou?: boolean;
+  /** A proposta como imagem — a mesma que segue pelo WhatsApp. */
+  imagem?: string;
 }
 
 export function WhatsAppSimulator() {
@@ -47,7 +51,12 @@ export function WhatsAppSimulator() {
       }
       setLinhas((l) => [
         ...l,
-        { de: "assistente", texto: res.reply || "(sem resposta)", gravou: res.wrote },
+        {
+          de: "assistente",
+          texto: res.reply || "(sem resposta)",
+          gravou: res.wrote,
+          imagem: res.image,
+        },
       ]);
       // Uma escrita muda os custos e a oficina: recarrega para se ver logo.
       if (res.wrote) router.refresh();
@@ -78,6 +87,17 @@ export function WhatsAppSimulator() {
                   : "bg-white/[0.06] text-paper/90"
               }`}
             >
+              {l.imagem && (
+                // Uma imagem gerada no servidor, já no tamanho final e com
+                // link que expira: o next/image não traz nada aqui e o
+                // otimizador ia guardá-la em cache para além do prazo.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={l.imagem}
+                  alt="A proposta, como o formulário preenchido"
+                  className="mb-2 block w-full max-w-sm rounded-lg border border-white/10"
+                />
+              )}
               <span className="whitespace-pre-line">{l.texto}</span>
               {l.gravou && (
                 <span className="mt-1 block text-xs font-medium text-emerald-300">

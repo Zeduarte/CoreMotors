@@ -167,9 +167,9 @@ await test('the sentence the person reads is the record that gets written',()=>{
   assert.ok(recibo.includes(parte),`recibo sem "${parte}": ${recibo}`);
  }
  assert.match(pergunta,/Vai ser adicionada/);
- assert.match(pergunta,/Confirma\?/);
+ assert.match(pergunta,/Confirmar\? Responda sim ou não\./);
  assert.match(recibo,/Foi adicionada/);
- assert.equal(/Confirma\?/.test(recibo),false,'o recibo não volta a perguntar');
+ assert.equal(/Confirmar\?/.test(recibo),false,'o recibo não volta a perguntar');
  // As outras duas acções.
  assert.match(describeAction({kind:'register_vehicle',nome:'Audi A1',matricula:'00TE00',tipo:'car'},'passado'),
   /Audi A1.*00-TE-00/);
@@ -224,4 +224,201 @@ await test('hours reuse the backoffice rule: no zero, no silent night shift',()=
  assert.equal(noite.action.horas,4);
  assert.match(buildHours(base,viatura,['financeiro'],HOJE).error,/Oficina/);
  assert.equal(buildHours({...base,data:'2026-09-25'},viatura,['oficina'],HOJE).ok,false);
+});
+
+// ---------------------------------------------------------------------------
+// Fase 2: a imagem de confirmação e as ordens novas (viaturas, leads,
+// testemunhos). Partes puras: link assinado, frases, formulário e regras.
+// ---------------------------------------------------------------------------
+
+const {previewUrl,verifyPreview,signPreview,PREVIEW_TTL_S}=load('src/lib/whatsapp/preview-link.ts');
+const PROPOSTA='3f2b8c1e-5d4a-4b6c-9e7f-1a2b3c4d5e6f';
+const SEGREDO_IMG='segredo-do-servidor';
+const AGORA_IMG=new Date('2026-10-15T10:00:00Z');
+const partes=(url)=>{const u=new URL(url,'https://x');return {id:u.pathname.split('/').pop(),exp:u.searchParams.get('exp'),sig:u.searchParams.get('sig')};};
+await test('the image link is signed, expires, and refuses anything forged',()=>{
+ const url=previewUrl('https://stand.example.pt',PROPOSTA,AGORA_IMG,SEGREDO_IMG);
+ assert.match(url,new RegExp(`^https://stand\\.example\\.pt/api/whatsapp/preview/${PROPOSTA}\\?exp=\\d+&sig=[0-9a-f]{64}$`));
+ const {id,exp,sig}=partes(url);
+ assert.equal(Number(exp),Math.floor(AGORA_IMG.getTime()/1000)+PREVIEW_TTL_S,'vale ~15 minutos');
+ assert.equal(verifyPreview(id,exp,sig,AGORA_IMG,SEGREDO_IMG),true);
+ // Assinatura de outra proposta, prazo mexido, segredo errado: tudo recusado.
+ assert.equal(verifyPreview('3f2b8c1e-5d4a-4b6c-9e7f-1a2b3c4d5e70',exp,sig,AGORA_IMG,SEGREDO_IMG),false,'outro id');
+ assert.equal(verifyPreview(id,String(Number(exp)+60),sig,AGORA_IMG,SEGREDO_IMG),false,'prazo alargado à mão');
+ assert.equal(verifyPreview(id,exp,sig,AGORA_IMG,'outro-segredo'),false,'segredo errado');
+ assert.equal(verifyPreview(id,exp,sig.replace(/^./,c=>c==='a'?'b':'a'),AGORA_IMG,SEGREDO_IMG),false,'um carácter trocado');
+ assert.equal(verifyPreview(id,exp,'abc',AGORA_IMG,SEGREDO_IMG),false,'comprimento errado, sem estourar');
+ assert.equal(verifyPreview(id,exp,null,AGORA_IMG,SEGREDO_IMG),false,'sem assinatura');
+ assert.equal(verifyPreview(id,null,sig,AGORA_IMG,SEGREDO_IMG),false,'sem prazo');
+ assert.equal(verifyPreview('../../etc',exp,sig,AGORA_IMG,SEGREDO_IMG),false,'id que não é uuid');
+ // Expirado: um segundo depois do fim já não vale.
+ const depois=new Date((Number(exp)+1)*1000);
+ assert.equal(verifyPreview(id,exp,sig,depois,SEGREDO_IMG),false,'expirado');
+ // Um prazo muito para lá do normal é recusado mesmo bem assinado (segredo vazado).
+ const longe=String(Math.floor(AGORA_IMG.getTime()/1000)+86400);
+ assert.equal(verifyPreview(id,longe,signPreview(id,Number(longe),SEGREDO_IMG),AGORA_IMG,SEGREDO_IMG),false);
+ // A chave é derivada: o HMAC directo com o segredo NÃO é a assinatura (o
+ // App Secret também assina os webhooks da Meta e os dois usos não se cruzam).
+ assert.notEqual(sig,createHmac('sha256',SEGREDO_IMG).update(`${id}.${exp}`).digest('hex'));
+ // Sem segredo configurado não há link (e a proposta segue só em texto).
+ assert.equal(previewUrl('https://stand.example.pt',PROPOSTA,AGORA_IMG,''),null);
+ assert.equal(verifyPreview(id,exp,sig,AGORA_IMG,''),false);
+ // No simulador a origem é vazia: caminho relativo.
+ assert.match(previewUrl('',PROPOSTA,AGORA_IMG,SEGREDO_IMG),/^\/api\/whatsapp\/preview\//);
+});
+
+const {previewCard,CAR_STATUS_LABEL}=load('src/lib/whatsapp/describe.ts');
+const UUID=/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+const CARRO_ID='11111111-1111-4111-8111-111111111111';
+const LEAD_ID='44444444-4444-4444-8444-444444444444';
+const NOVAS=[
+ {kind:'create_draft_car',tipo:'car',marca:'BMW',modelo:'320d',versao:'M Sport',ano:2019,km:120000,combustivel:'Diesel',caixa:'Automática',segmento:'Berlina',preco:23500,matricula:'33AD22',cor:'Preto',portas:4,lugares:5},
+ {kind:'update_car',carId:CARRO_ID,veiculo:'BMW 320, matrícula 33-AD-22',novo:{preco:23500,km:121000},antes:{preco:25000,km:120000,tagline:'',descricao:''}},
+ {kind:'set_car_status',carId:CARRO_ID,veiculo:'BMW 320, matrícula 33-AD-22',de:'draft',para:'published'},
+ {kind:'set_lead_status',leadId:LEAD_ID,contacto:'João Silva (BMW 320)',de:'new',para:'lost',motivo:'Comprou noutro stand'},
+ {kind:'assign_lead',leadId:LEAD_ID,contacto:'João Silva (BMW 320)',responsavelId:CARRO_ID,responsavel:'Ana Costa',antes:'Por atribuir'},
+ {kind:'add_lead_note',leadId:LEAD_ID,contacto:'João Silva (BMW 320)',tipo:'call',texto:'Ligou a pedir o IUC'},
+ {kind:'set_testimonial',testimonialId:LEAD_ID,autor:'Maria',classificacao:5,excerto:'Excelente serviço',publicar:true},
+];
+await test('every new order reads the same in the question, the receipt and the image',()=>{
+ const chaves={create_draft_car:['BMW 320d M Sport','2019','120 000 km','Diesel','Automática','Berlina','23 500','33-AD-22'],
+  update_car:['23 500','25 000','121 000','120 000'],set_car_status:['Rascunho','Publicado'],
+  set_lead_status:['João Silva','Novo','Perdido','Comprou noutro stand'],assign_lead:['João Silva','Ana Costa'],
+  add_lead_note:['João Silva','chamada','Ligou a pedir o IUC'],set_testimonial:['Maria','5/5','Excelente serviço']};
+ const sem=(s)=>s.replace(/\s/g,' ');
+ for(const a of NOVAS){
+  const pergunta=sem(confirmationMessage(a)),recibo=sem(receiptMessage(a));
+  for(const parte of chaves[a.kind]){
+   assert.ok(pergunta.includes(parte),`${a.kind}: pergunta sem "${parte}": ${pergunta}`);
+   assert.ok(recibo.includes(parte),`${a.kind}: recibo sem "${parte}": ${recibo}`);
+  }
+  assert.match(pergunta,/Confirmar\? Responda sim ou não\.$/);
+  assert.equal(/Confirmar\?/.test(recibo),false);
+  // A imagem: nenhum identificador interno, e os mesmos valores.
+  const card=previewCard(a);
+  const tudo=sem(JSON.stringify(card));
+  assert.equal(UUID.test(tudo),false,`${a.kind}: a imagem não mostra ids internos`);
+  assert.ok(card.title&&card.subject&&card.fields.length,a.kind);
+  for(const f of card.fields)if(f.before!==undefined)assert.notEqual(f.before,f.value,`${a.kind}: um «antes» igual ao «depois» não é alteração`);
+ }
+ // Uma alteração mostra o antes e o depois, campo a campo.
+ const edicao=previewCard(NOVAS[1]);
+ assert.deepEqual(edicao.fields.map(f=>[f.label,sem(f.before),sem(f.value)]),[['Preço','25 000 €','23 500 €'],['Quilómetros','120 000 km','121 000 km']]);
+ assert.equal(CAR_STATUS_LABEL.published,'Publicado');
+});
+
+const {buildCreateCar,buildUpdateCar,buildCarStatus,buildLeadStatus,buildAssignLead,buildLeadNote,buildTestimonial,
+ CreateCarInput,LeadStatusInput,UpdateCarInput,PendingActionSchema}=load('src/lib/whatsapp/actions.ts');
+const fichaCompleta={status:'draft',price:25000,price_on_request:false,mileage:120000,tagline:null,description:null,
+ year:2019,fuel:'Diesel',transmission:'Manual',body:'Berlina',model:'320',reservaAtiva:false};
+const carroV={carId:CARRO_ID,veiculo:'BMW 320, matrícula 33-AD-22'};
+await test('a new stock vehicle follows the backoffice form rules and is always a draft',()=>{
+ const base={tipo:'car',marca:'bmw',modelo:'320d',ano:2019,km:120000,combustivel:'Diesel',caixa:'Manual',segmento:'Berlina',preco:23500};
+ const ok=buildCreateCar(CreateCarInput.parse(base),['carros'],['car','motorcycle']);
+ assert.equal(ok.ok,true,ok.error);
+ assert.equal(ok.action.marca,'BMW','grafia do catálogo, como no formulário');
+ assert.deepEqual([ok.action.portas,ok.action.lugares],[5,5]);
+ assert.equal(PendingActionSchema.safeParse(ok.action).success,true);
+ // Mota: 0 portas e 2 lugares por defeito; um segmento de carro é recusado
+ // pela MESMA regra do carFormSchema.
+ const mota=buildCreateCar(CreateCarInput.parse({...base,tipo:'motorcycle',segmento:'Naked',marca:'Honda',modelo:'CB500F'}),['carros'],['car','motorcycle']);
+ assert.deepEqual([mota.action.portas,mota.action.lugares],[0,2]);
+ assert.match(buildCreateCar(CreateCarInput.parse({...base,tipo:'motorcycle'}),['carros'],['car','motorcycle']).error,/segmento adequado/);
+ assert.match(buildCreateCar(CreateCarInput.parse({...base,ano:1900}),['carros'],['car','motorcycle']).error,/Ano inválido/);
+ // Sem preço nem «sob consulta» o modelo tem de perguntar (erro recuperável).
+ const {preco:_p,...semPreco}=base;void _p;
+ assert.equal(CreateCarInput.safeParse(semPreco).success,false);
+ assert.equal(buildCreateCar(CreateCarInput.parse({...semPreco,sob_consulta:true}),['carros'],['car']).action.preco,null);
+ // Secção e tipo de viatura.
+ assert.match(buildCreateCar(CreateCarInput.parse(base),['oficina'],['car']).error,/Não tem acesso a Viaturas/);
+ assert.match(buildCreateCar(CreateCarInput.parse(base),['carros'],['motorcycle']).error,/carros/);
+ assert.match(buildCreateCar(CreateCarInput.parse({...base,matricula:'AB'}),['carros'],['car']).error,/matrícula/);
+});
+await test('editing a vehicle only proposes what really changes',()=>{
+ const r=buildUpdateCar(UpdateCarInput.parse({viatura:'V1',preco:23500,km:120000}),carroV,fichaCompleta,['carros']);
+ assert.deepEqual(r.action.novo,{preco:23500},'os km já eram 120 000');
+ assert.deepEqual(r.action.antes,{preco:25000,km:120000,tagline:'',descricao:''});
+ assert.match(buildUpdateCar(UpdateCarInput.parse({viatura:'V1',preco:25000}),carroV,fichaCompleta,['carros']).error,/já está assim/);
+ assert.equal(buildUpdateCar(UpdateCarInput.parse({viatura:'V1',sob_consulta:true}),carroV,fichaCompleta,['carros']).action.novo.preco,null);
+ assert.match(buildUpdateCar(UpdateCarInput.parse({viatura:'V1',preco:1}),carroV,fichaCompleta,['oficina']).error,/Viaturas/);
+ // Nada para alterar, preço com cêntimos, preço e «sob consulta» juntos: o modelo corrige.
+ assert.equal(UpdateCarInput.safeParse({viatura:'V1'}).success,false);
+ assert.equal(UpdateCarInput.safeParse({viatura:'V1',preco:23500.5}).success,false);
+ assert.equal(UpdateCarInput.safeParse({viatura:'V1',preco:23500,sob_consulta:true}).success,false);
+ // Texto vazio não apaga.
+ assert.equal(UpdateCarInput.safeParse({viatura:'V1',descricao:'  '}).success,false);
+});
+await test('vehicle status: publish or draft here; reservations and sales have their own flow',()=>{
+ const st=(estado,ficha=fichaCompleta,sec=['carros'])=>buildCarStatus({viatura:'V1',estado},carroV,ficha,sec);
+ assert.equal(st('published').ok,true);
+ assert.equal(st('published').action.de,'draft');
+ assert.match(st('reserved').error,/contacto do cliente.*prazo e sinal/);
+ assert.match(st('sold').error,/Concluir venda/);
+ assert.match(st('draft').error,/já está como «Rascunho»/);
+ assert.match(st('published',{...fichaCompleta,status:'workshop'}).error,/oficina/);
+ assert.match(st('draft',{...fichaCompleta,status:'sold'}).error,/vendida/);
+ assert.match(st('draft',{...fichaCompleta,status:'published',reservaAtiva:true}).error,/reserva ativa/);
+ assert.match(st('published',{...fichaCompleta,fuel:null}).error,/ficha/);
+ assert.match(st('published',{...fichaCompleta,model:'—'}).error,/ficha/);
+ assert.match(st('published',{...fichaCompleta,price:null}).error,/preço/);
+ assert.equal(st('published',{...fichaCompleta,price:null,price_on_request:true}).ok,true,'sob consulta publica');
+ assert.match(st('published',fichaCompleta,['oficina']).error,/Viaturas/);
+});
+const lead={id:LEAD_ID,label:'João Silva (BMW 320)',status:'new',assigned_to:null,assigned_name:null,active_reservation:false};
+await test('leads follow the backoffice rules: lost needs a reason, won needs the sale',()=>{
+ assert.equal(LeadStatusInput.safeParse({contacto:'C1',estado:'lost'}).success,false,'o motivo pergunta-se');
+ const perdido=buildLeadStatus(LeadStatusInput.parse({contacto:'C1',estado:'lost',motivo:'Comprou noutro stand'}),lead,['leads']);
+ assert.equal(perdido.action.motivo,'Comprou noutro stand');
+ assert.equal(buildLeadStatus({contacto:'C1',estado:'contacted',motivo:'x'},lead,['leads']).action.motivo,'','só um perdido leva motivo');
+ assert.match(buildLeadStatus({contacto:'C1',estado:'won'},lead,['leads']).error,/Concluir venda/);
+ assert.match(buildLeadStatus({contacto:'C1',estado:'new'},lead,['leads']).error,/já está como «Novo»/);
+ assert.match(buildLeadStatus({contacto:'C1',estado:'closed'},{...lead,status:'won'},['leads']).error,/já está concluída/);
+ assert.match(buildLeadStatus({contacto:'C1',estado:'closed'},{...lead,active_reservation:true},['leads']).error,/reserva ativa/);
+ assert.match(buildLeadStatus({contacto:'C1',estado:'closed'},lead,['carros']).error,/Não tem acesso a Leads/);
+ const ana={id:CARRO_ID,nome:'Ana Costa'};
+ assert.equal(buildAssignLead(lead,ana,['leads']).action.antes,'Por atribuir');
+ assert.match(buildAssignLead({...lead,assigned_to:ana.id},ana,['leads']).error,/já é o responsável/);
+ assert.match(buildLeadNote({contacto:'C1',texto:'x',tipo:'note'},lead,['oficina']).error,/Leads/);
+});
+await test('testimonials: approve publishes, reject only takes it off the site',()=>{
+ const t={id:LEAD_ID,name:'Maria',rating:5,body:'Excelente serviço, recomendo a toda a gente.',published:false};
+ const aprovar=buildTestimonial({testemunho:'T1',acao:'aprovar'},t,['testemunhos']);
+ assert.equal(aprovar.action.publicar,true);
+ assert.match(buildTestimonial({testemunho:'T1',acao:'rejeitar'},t,['testemunhos']).error,/não está publicado.*backoffice/);
+ assert.equal(buildTestimonial({testemunho:'T1',acao:'rejeitar'},{...t,published:true},['testemunhos']).action.publicar,false);
+ assert.match(buildTestimonial({testemunho:'T1',acao:'aprovar'},{...t,published:true},['testemunhos']).error,/já está publicado/);
+ assert.match(buildTestimonial({testemunho:'T1',acao:'aprovar'},t,['leads']).error,/Testemunhos/);
+});
+await test('a stored proposal that was tampered with is not executable',()=>{
+ for(const a of NOVAS)assert.equal(PendingActionSchema.safeParse(a).success,true,a.kind);
+ // Campos que a RPC não aceita, estados de fluxo próprio, ids que não são uuid.
+ assert.equal(PendingActionSchema.safeParse({...NOVAS[1],novo:{status:'sold'}}).success,false);
+ assert.equal(PendingActionSchema.safeParse({...NOVAS[2],para:'sold'}).success,false);
+ assert.equal(PendingActionSchema.safeParse({...NOVAS[3],para:'won'}).success,false);
+ assert.equal(PendingActionSchema.safeParse({...NOVAS[3],leadId:'C1'}).success,false);
+ assert.equal(PendingActionSchema.safeParse({kind:'delete_car',carId:CARRO_ID}).success,false,'não existe acção de apagar');
+});
+
+const {extractFailedStatuses}=load('src/lib/whatsapp/payload.ts');
+await test('a failed delivery receipt is picked up, everything else is ignored',()=>{
+ const recibos=envelope({metadata:{phone_number_id:'123'},statuses:[
+  {id:'wamid.IMG',status:'failed',errors:[{code:131053,title:'Media upload error'}]},
+  {id:'wamid.OK',status:'delivered'},{status:'failed'},
+ ]});
+ assert.deepEqual(extractFailedStatuses(recibos),[{id:'wamid.IMG',error:'(#131053) Media upload error'}]);
+ for(const mau of [null,{},{entry:[{changes:[{value:{statuses:'x'}}]}]},'texto'])
+  assert.deepEqual(extractFailedStatuses(mau),[],JSON.stringify(mau));
+});
+
+const {layoutPreview,imageText}=load('src/lib/whatsapp/preview.ts');
+await test('the image is tall enough for its fields and only uses what the font can draw',()=>{
+ const curto=layoutPreview(previewCard(NOVAS[2]));
+ const longo=layoutPreview(previewCard(NOVAS[0]));
+ assert.ok(longo.height>curto.height,'mais campos, imagem mais alta');
+ assert.ok(curto.height>=500&&longo.height<=2800,`${curto.height} / ${longo.height}`);
+ // Campos curtos vão aos pares, como no formulário; uma alteração tem a sua linha.
+ assert.ok(longo.rows.some(r=>r.kind==='pair'&&r.fields.length===2));
+ assert.equal(curto.rows[0].kind,'change');
+ assert.equal(imageText('Ótimo 👍 serviço\n\nспасибо obrigado',100),'Ótimo serviço obrigado');
+ assert.equal(imageText('a'.repeat(300),10).length,10);
 });

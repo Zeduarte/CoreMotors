@@ -25,6 +25,31 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
+/**
+ * Os recibos de mensagens NOSSAS que a Meta não conseguiu entregar
+ * (`status: "failed"`). Interessam por um motivo: a imagem da proposta é
+ * enviada por link e a Meta só a vai buscar depois de aceitar o envio — se
+ * falhar, é por aqui que se sabe, e a proposta segue em texto. Nunca lança.
+ */
+export function extractFailedStatuses(payload: unknown): { id: string; error: string }[] {
+  const out: { id: string; error: string }[] = [];
+  for (const entry of asArray(asRecord(payload).entry)) {
+    for (const change of asArray(asRecord(entry).changes)) {
+      const value = asRecord(asRecord(change).value);
+      for (const raw of asArray(value.statuses)) {
+        const s = asRecord(raw);
+        if (s.status !== "failed" || typeof s.id !== "string" || !s.id) continue;
+        const first = asRecord(asArray(s.errors)[0]);
+        const error = [first.code ? `(#${String(first.code)})` : "", typeof first.title === "string" ? first.title : ""]
+          .filter(Boolean)
+          .join(" ");
+        out.push({ id: s.id, error: error.slice(0, 200) });
+      }
+    }
+  }
+  return out;
+}
+
 /** Extrai as mensagens de um corpo da Meta. Nunca lança. */
 export function extractMessages(payload: unknown): InboundMessage[] {
   const out: InboundMessage[] = [];

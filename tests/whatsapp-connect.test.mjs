@@ -51,6 +51,9 @@ const server=http.createServer(async(req,res)=>{
  if(m&&req.method==='POST'){
   // Um destinatário para o qual a Meta recusa, como faz com um token sem permissão.
   if(body.to==='351000000403')return send(403,{error:{message:'Application does not have permission for this action',code:10}});
+  // Uma imagem que a Meta recusa logo no envio (link que não aceita).
+  if(body.type==='image'&&String(body.image?.link).includes('quebrada'))
+   return send(400,{error:{message:'Param image[\'link\'] is not a valid URI',code:100}});
   meta.sent.push({id:m[1],...body});return send(200,{messages:[{id:'wamid.1'}]});
  }
  send(404,{error:{message:'not simulated'}});
@@ -256,6 +259,79 @@ await test('the person sees the message read and "typing…" while the assistant
  assert.deepEqual(meta.sent,[{id:'222',messaging_product:'whatsapp',status:'read',message_id:'wamid.ABC',typing_indicator:{type:'text'}}]);
  // Sem token não se tenta nada.
  assert.equal((await markReadAndTyping('wamid.ABC',{phoneNumberId:'222',accessToken:null,source:'variaveis'})).ok,false);
+ assert.equal(meta.sent.length,1);
+});
+
+// ---- A proposta como imagem ------------------------------------------------
+const {sendWhatsAppImage}=load('src/lib/whatsapp/send.ts');
+const {deliverReply,recoverFailedImages}=load('src/lib/whatsapp/delivery.ts');
+const NUMERO={phoneNumberId:'222',accessToken:TOKEN,source:'backoffice'};
+const PERGUNTA='Vai ser alterada a viatura BMW 320: preço 23 500 € (era 25 000 €).\n\nConfirmar? Responda sim ou não.';
+const LINK='https://stand.example.pt/api/whatsapp/preview/3f2b8c1e-5d4a-4b6c-9e7f-1a2b3c4d5e6f?exp=1&sig=ab';
+/** Só a tabela das propostas: update…eq, e update…eq…select…maybeSingle. */
+function pendDb(rows){
+ const t=rows.map(r=>({...r}));
+ return {_t:t,from:()=>{let patch=null;const f=[];const hit=(x)=>f.every(([c,v])=>x[c]===v);const api={
+  update(p){patch=p;return api;},eq(c,v){f.push([c,v]);return api;},select(){return api;},
+  async maybeSingle(){const r=t.find(hit);if(r&&patch)Object.assign(r,patch);return {data:r?{...r}:null,error:null};},
+  then(res,rej){t.filter(hit).forEach(x=>patch&&Object.assign(x,patch));return Promise.resolve({data:null,error:null}).then(res,rej);},
+ };return api;}};
+}
+
+await test('a proposal goes out as an image, with the confirmation question as the caption',async()=>{
+ reset();
+ const db=pendDb([{id:'p1',image_wamid:null}]);
+ const d=await deliverReply(db,'351916193337',PERGUNTA,{url:LINK,pendingId:'p1'},NUMERO);
+ assert.deepEqual(d,{sent:{ok:true,id:'wamid.1'}});
+ assert.deepEqual(meta.sent,[{id:'222',messaging_product:'whatsapp',recipient_type:'individual',to:'351916193337',
+  type:'image',image:{link:LINK,caption:PERGUNTA}}]);
+ // Guarda-se o id da mensagem, para um recibo «failed» posterior a encontrar.
+ assert.equal(db._t[0].image_wamid,'wamid.1');
+ // Sem número, ou com um link que não é HTTPS, a imagem nem é tentada.
+ assert.equal((await sendWhatsAppImage('351916193337',LINK,'x',null)).ok,false);
+ assert.match((await sendWhatsAppImage('351916193337','http://localhost:3000/x','x',NUMERO)).error,/HTTPS/);
+ assert.equal(meta.sent.length,1);
+});
+
+await test('if the image cannot go, the same question goes as text',async()=>{
+ for(const link of [LINK.replace('preview','quebrada'),'http://localhost:3000/api/whatsapp/preview/x']){
+  reset();
+  const db=pendDb([{id:'p1',image_wamid:null}]);
+  const d=await deliverReply(db,'351916193337',PERGUNTA,{url:link,pendingId:'p1'},NUMERO);
+  assert.equal(d.sent.ok,true,link);
+  assert.ok(d.imageError,'o painel fica a saber porquê');
+  assert.deepEqual(meta.sent.map(m=>[m.type,m.text?.body]),[['text',PERGUNTA]],'a pessoa recebe a pergunta na mesma');
+  assert.equal(db._t[0].image_wamid,null);
+ }
+ assert.match((await deliverReply(pendDb([]),'351916193337',PERGUNTA,{url:LINK.replace('preview','quebrada'),pendingId:'p1'},NUMERO)).imageError,/not a valid URI/);
+ // Uma legenda que a Meta cortaria: vai só o texto, inteiro.
+ reset();
+ const longa='x'.repeat(1100);
+ const d=await deliverReply(pendDb([]),'351916193337',longa,{url:LINK,pendingId:'p1'},NUMERO);
+ assert.equal(d.imageError,undefined);
+ assert.deepEqual(meta.sent.map(m=>[m.type,m.text?.body.length]),[['text',1100]]);
+ // Sem imagem (respostas normais): texto, como sempre.
+ reset();
+ await deliverReply(pendDb([]),'351916193337','Registado.',undefined,NUMERO);
+ assert.deepEqual(meta.sent.map(m=>m.type),['text']);
+});
+
+await test('when Meta fails to fetch the image later, the question is resent as text, once',async()=>{
+ reset();
+ const futuro=new Date(Date.now()+5*60000).toISOString();
+ const db=pendDb([
+  {id:'p1',from_phone:'351916193337',summary:PERGUNTA,status:'pending',expires_at:futuro,image_wamid:'wamid.IMG'},
+  {id:'p2',from_phone:'351916193338',summary:'outra',status:'confirmed',expires_at:futuro,image_wamid:'wamid.VELHA'},
+ ]);
+ const falha=[{id:'wamid.IMG',error:'(#131053) Media upload error'}];
+ assert.equal(await recoverFailedImages(db,falha,NUMERO),1);
+ assert.deepEqual(meta.sent.map(m=>[m.to,m.type,m.text.body]),[['351916193337','text',PERGUNTA]]);
+ // Uma reentrega do mesmo recibo já não encontra nada: não há pergunta em duplicado.
+ assert.equal(await recoverFailedImages(db,falha,NUMERO),0);
+ // Uma proposta já respondida não volta a ser perguntada.
+ assert.equal(await recoverFailedImages(db,[{id:'wamid.VELHA',error:''}],NUMERO),0);
+ // E um recibo de uma mensagem que não é nossa é ignorado.
+ assert.equal(await recoverFailedImages(db,[{id:'wamid.OUTRA',error:''}],NUMERO),0);
  assert.equal(meta.sent.length,1);
 });
 

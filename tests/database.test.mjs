@@ -443,4 +443,178 @@ await test('OLX tokens and cache are unreachable from any logged-in session',asy
  await assert.rejects(db.query(`update channel_listings set sync_state='qualquer' where car_id=$1`,[car]),/check/i);
 });
 
+// ---------------------------------------------------------------------------
+// 0038 — mais ordens pelo WhatsApp (viaturas, leads, testemunhos). Como na
+// 0024: a chave de serviço ignora a RLS, por isso estas funções são a barreira.
+// ---------------------------------------------------------------------------
+
+const draftCar=(actor,extra={})=>{
+ const v={type:'car',make:'BMW',model:'320d',variant:'M Sport',year:2019,km:120000,fuel:'Diesel',gear:'Automática',body:'Berlina',
+  price:23500,onRequest:false,plate:'12-AB-34',paint:'Preto',doors:5,seats:5,slug:'bmw-320d-m-sport-2019',...extra};
+ return db.query(`select public.wa_create_draft_car($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) id`,
+  [actor,v.type,v.make,v.model,v.variant,v.year,v.km,v.fuel,v.gear,v.body,v.price,v.onRequest,v.plate,v.paint,v.doors,v.seats,v.slug]);
+};
+const lastAudit=async(entity,id)=>(await db.query(
+ 'select actor_id,action,changed_fields from audit_log where entity=$1 and record_id=$2 order by id desc limit 1',[entity,id])).rows[0];
+
+await test('the new WhatsApp RPCs are closed to logged-in users',async()=>{
+ const id='00000000-0000-4000-8000-0000000000aa';
+ for(const call of [
+  `public.wa_leads_for_actor('${seller}','x',null)`,
+  `public.wa_testimonials_for_actor('${seller}','x',false)`,
+  `public.wa_staff_for_actor('${seller}','x')`,
+  `public.wa_create_draft_car('${seller}','car','BMW','320',null,2019,1,'Diesel','Manual','Berlina',1,false,null,null,5,5,'x')`,
+  `public.wa_update_car('${seller}','${id}','{"price":1}')`,
+  `public.wa_set_car_status('${seller}','${id}','draft')`,
+  `public.wa_set_lead_status('${seller}','${id}','closed',null)`,
+  `public.wa_assign_lead('${seller}','${id}','${seller}')`,
+  `public.wa_add_lead_note('${seller}','${id}','note','x')`,
+  `public.wa_set_testimonial('${seller}','${id}',true)`,
+ ]) await asUser(seller,async()=>assert.rejects(db.query(`select ${call}`),/permission denied/,call));
+});
+
+let waCar;
+await test('a draft car from WhatsApp follows the form rules and is attributed to who ordered it',async()=>{
+ await asServer(async()=>{
+  waCar=(await draftCar(seller)).rows[0].id;
+  const row=(await db.query('select status,slug,created_by,price,price_on_request,license_plate,doors from cars where id=$1',[waCar])).rows[0];
+  assert.deepEqual(row,{status:'draft',slug:'bmw-320d-m-sport-2019',created_by:seller,price:23500,price_on_request:false,license_plate:'12-AB-34',doors:5});
+  const audit=await lastAudit('cars',waCar);
+  assert.equal(audit.actor_id,seller,'o histórico da viatura tem autor');
+  assert.equal(audit.action,'INSERT');
+  // Slug repetido: fica único, como no formulário.
+  const dup=(await draftCar(seller)).rows[0].id;
+  assert.equal((await db.query('select slug from cars where id=$1',[dup])).rows[0].slug,'bmw-320d-m-sport-2019-2');
+  await db.query('delete from cars where id=$1',[dup]);
+  // Sob consulta: sem preço.
+  const pedido=(await draftCar(seller,{price:999,onRequest:true,slug:'sob-consulta'})).rows[0].id;
+  assert.deepEqual((await db.query('select price,price_on_request from cars where id=$1',[pedido])).rows[0],{price:null,price_on_request:true});
+  await db.query('delete from cars where id=$1',[pedido]);
+  // Secção: o mecânico só tem a Oficina; o vendedor limitado só o dashboard.
+  for(const quem of [mechanic,limited])await assert.rejects(draftCar(quem),/Sem permissão/);
+  // As regras do formulário, repetidas no SQL.
+  await assert.rejects(draftCar(seller,{year:1900}),/Ano inválido/);
+  await assert.rejects(draftCar(seller,{price:null}),/Preço inválido/);
+  await assert.rejects(draftCar(seller,{type:'motorcycle',body:'Naked',doors:4}),/Portas ou lugares/);
+  await assert.rejects(draftCar(seller,{body:'Naked'}),/cars_vehicle_category_check/);
+  await assert.rejects(draftCar(seller,{fuel:'Vapor'}),/invalid input value|fuel_type/);
+  await assert.rejects(draftCar(seller,{plate:'12AB34'}),/Matrícula inválida/);
+  await assert.rejects(draftCar(seller,{slug:'../x'}),/Slug inválido/);
+  await assert.rejects(draftCar(seller,{model:'—'}),/Marca ou modelo/);
+  // Tipo de viatura: limitado a motas, não cria carros.
+  await db.query("update profiles set allowed_vehicle_types=array['motorcycle'] where id=$1",[seller]);
+  try{await assert.rejects(draftCar(seller),/Sem acesso a este tipo de viatura/);}
+  finally{await db.query('update profiles set allowed_vehicle_types=null where id=$1',[seller]);}
+ });
+});
+
+await test('editing a car from WhatsApp is one attributed change, limited to price, km and texts',async()=>{
+ await asServer(async()=>{
+  await db.query(`select public.wa_update_car($1,$2,'{"price":21000,"mileage":121000,"tagline":"Nova frase"}')`,[seller,waCar]);
+  const row=(await db.query('select price,mileage,tagline,description,status from cars where id=$1',[waCar])).rows[0];
+  assert.deepEqual(row,{price:21000,mileage:121000,tagline:'Nova frase',description:null,status:'draft'});
+  const audit=await lastAudit('cars',waCar);
+  assert.equal(audit.actor_id,seller);
+  assert.deepEqual(Object.keys(audit.changed_fields).sort(),['mileage','price','tagline'],'uma só alteração, com tudo');
+  await db.query(`select public.wa_update_car($1,$2,'{"price":null}')`,[seller,waCar]);
+  assert.deepEqual((await db.query('select price,price_on_request from cars where id=$1',[waCar])).rows[0],{price:null,price_on_request:true});
+  await db.query(`select public.wa_update_car($1,$2,'{"price":22000}')`,[seller,waCar]);
+  for(const [changes,erro] of [
+   ['{"status":"sold"}',/Campo não permitido/],['{"price":1.5}',/Preço inválido/],['{"price":"22000"}',/Preço inválido/],
+   ['{"mileage":-1}',/Quilómetros inválidos/],['{"description":""}',/Descrição inválida/],['{"tagline":"   "}',/destaque inválida/],
+   ['{}',/Nada para alterar/],
+  ]) await assert.rejects(db.query('select public.wa_update_car($1,$2,$3)',[seller,waCar,changes]),erro,changes);
+  await assert.rejects(db.query(`select public.wa_update_car($1,$2,'{"price":1}')`,[mechanic,waCar]),/Sem permissão/);
+  await assert.rejects(db.query(`select public.wa_update_car($1,'00000000-0000-4000-8000-0000000000aa','{"price":1}')`,[seller]),/Viatura inexistente/);
+ });
+});
+
+let waLead;
+await test('car status from WhatsApp: only publish or draft, never past a reservation or an incomplete record',async()=>{
+ await asServer(async()=>{
+  await db.query("select public.wa_set_car_status($1,$2,'published')",[seller,waCar]);
+  assert.equal((await db.query('select status from cars where id=$1',[waCar])).rows[0].status,'published');
+  assert.equal((await lastAudit('cars',waCar)).actor_id,seller);
+  await assert.rejects(db.query("select public.wa_set_car_status($1,$2,'published')",[seller,waCar]),/Já está nesse estado/);
+  for(const st of ['sold','reserved','workshop'])
+   await assert.rejects(db.query('select public.wa_set_car_status($1,$2,$3)',[seller,waCar,st]),/Estado não permitido/,st);
+  const incompleto=(await db.query("insert into cars(slug,make,model,status,price_on_request) values('wa-incompleto','BMW','—','draft',true) returning id")).rows[0].id;
+  await assert.rejects(db.query("select public.wa_set_car_status($1,$2,'published')",[seller,incompleto]),/Ficha incompleta/);
+  await db.query("update cars set status='workshop' where id=$1",[incompleto]);
+  await assert.rejects(db.query("select public.wa_set_car_status($1,$2,'draft')",[seller,incompleto]),/Estado atual não se altera/);
+  await db.query('delete from cars where id=$1',[incompleto]);
+ });
+ // Uma reserva activa (feita pelo fluxo próprio, no contacto) bloqueia.
+ waLead=(await db.query("insert into leads(car_id,name,email,phone) values($1,'João Silva','joao@example.test','912 345 678') returning id",[waCar])).rows[0].id;
+ await asUser(admin,()=>db.query("select reserve_vehicle($1,now()+interval '1 day',0)",[waLead]));
+ await asServer(async()=>{
+  await assert.rejects(db.query("select public.wa_set_car_status($1,$2,'draft')",[seller,waCar]),/Termine a reserva/);
+  await assert.rejects(db.query("select public.wa_set_lead_status($1,$2,'closed',null)",[seller,waLead]),/Termine a reserva/,
+   'nem fechar o contacto que tem a viatura reservada');
+ });
+});
+
+await test('leads from WhatsApp: found without accents, changed by the CRM rules, attributed',async()=>{
+ const outro=(await db.query("insert into leads(name,email) values('Joana Ribeiro','joana@example.test') returning id")).rows[0].id;
+ await asServer(async()=>{
+  const procura=async(quem,texto,estado=null)=>(await db.query('select id,active_reservation from public.wa_leads_for_actor($1,$2,$3)',[quem,texto,estado])).rows;
+  assert.deepEqual((await procura(seller,'joao silva')).map(r=>r.id),[waLead],'«João» encontra-se como «joao»');
+  assert.equal((await procura(seller,'joao silva'))[0].active_reservation,true);
+  assert.deepEqual((await procura(seller,'912345678')).map(r=>r.id),[waLead],'telefone sem espaços');
+  assert.equal((await procura(seller,'%')).length,0,'um curinga não devolve tudo');
+  assert.equal((await procura(seller,'')).length,0,'sem pistas não se devolve nada');
+  for(const quem of [mechanic,limited])assert.equal((await procura(quem,'joao')).length,0,'sem Leads não vê contactos');
+
+  await assert.rejects(db.query("select public.wa_set_lead_status($1,$2,'lost',null)",[seller,outro]),/motivo de perda/);
+  await assert.rejects(db.query("select public.wa_set_lead_status($1,$2,'won',null)",[seller,outro]),/Estado não permitido/);
+  await db.query("select public.wa_set_lead_status($1,$2,'lost','Comprou noutro stand')",[seller,outro]);
+  assert.deepEqual((await db.query('select status,loss_reason from leads where id=$1',[outro])).rows[0],{status:'lost',loss_reason:'Comprou noutro stand'});
+  assert.equal((await lastAudit('leads',outro)).actor_id,seller);
+  await db.query("select public.wa_set_lead_status($1,$2,'contacted',null)",[seller,outro]);
+  assert.equal((await db.query('select loss_reason from leads where id=$1',[outro])).rows[0].loss_reason,null,'o motivo sai com o perdido');
+
+  // Responsável: qualquer colaborador menos o mecânico.
+  assert.deepEqual((await db.query("select id from public.wa_staff_for_actor($1,'example')",[seller])).rows.map(r=>r.id).includes(mechanic),false);
+  await assert.rejects(db.query('select public.wa_assign_lead($1,$2,$3)',[seller,outro,mechanic]),/Responsável inválido/);
+  await db.query('select public.wa_assign_lead($1,$2,$3)',[seller,outro,admin]);
+  assert.equal((await db.query('select assigned_to from leads where id=$1',[outro])).rows[0].assigned_to,admin);
+  await assert.rejects(db.query('select public.wa_assign_lead($1,$2,$3)',[seller,outro,admin]),/Já está nesse estado/);
+
+  const nota=(await db.query("select public.wa_add_lead_note($1,$2,'call','Ligou a pedir o IUC') id",[seller,outro])).rows[0].id;
+  assert.deepEqual((await db.query('select kind,body,created_by from lead_activities where id=$1',[nota])).rows[0],
+   {kind:'call',body:'Ligou a pedir o IUC',created_by:seller});
+  await assert.rejects(db.query("select public.wa_add_lead_note($1,$2,'note','')",[seller,outro]),/Texto inválido/);
+  await assert.rejects(db.query("select public.wa_add_lead_note($1,$2,'note','x')",[mechanic,outro]),/Sem permissão/);
+ });
+});
+
+await test('testimonials from WhatsApp: approve or take off the site, only with the section',async()=>{
+ const t=(await db.query("insert into testimonials(name,body,published) values('Maria','Excelente serviço, recomendo.',false) returning id")).rows[0].id;
+ await asServer(async()=>{
+  // O vendedor não tem Testemunhos: nem os vê por aqui, nem os aprova.
+  assert.equal((await db.query('select * from public.wa_testimonials_for_actor($1,null,true)',[seller])).rows.length,0);
+  await assert.rejects(db.query('select public.wa_set_testimonial($1,$2,true)',[seller,t]),/Sem permissão/);
+  assert.ok((await db.query('select id from public.wa_testimonials_for_actor($1,null,true)',[admin])).rows.some(r=>r.id===t));
+  await db.query('select public.wa_set_testimonial($1,$2,true)',[admin,t]);
+  assert.equal((await db.query('select published from testimonials where id=$1',[t])).rows[0].published,true);
+  await assert.rejects(db.query('select public.wa_set_testimonial($1,$2,true)',[admin,t]),/Já está nesse estado/);
+  await db.query('select public.wa_set_testimonial($1,$2,false)',[admin,t]);
+  assert.equal((await db.query('select count(*)::int n from testimonials where id=$1',[t])).rows[0].n,1,'rejeitar não apaga');
+ });
+});
+
+await test('pending proposals accept the new kinds, and nothing in the WhatsApp functions deletes',async()=>{
+ await asServer(async()=>{
+  const ok=(await db.query(`insert into wa_pending_actions(actor_id,from_phone,kind,payload,summary,image_wamid)
+   values($1,'351900000038','update_car','{}','x','wamid.1') returning id`,[seller])).rows[0].id;
+  assert.ok(ok);
+  await assert.rejects(db.query(`insert into wa_pending_actions(actor_id,from_phone,kind,payload,summary)
+   values($1,'351900000039','delete_car','{}','x')`,[seller]),/check/i);
+ });
+ const {rows}=await db.query(`select proname,prosrc from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+  where n.nspname='public' and proname like 'wa\\_%'`);
+ assert.ok(rows.length>=15);
+ for(const r of rows)assert.doesNotMatch(r.prosrc,/\bdelete\b/i,r.proname);
+});
+
 await db.close();
