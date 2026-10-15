@@ -718,7 +718,8 @@ await test('vehicles: workshop entries reach the workshop, the rest reaches sale
  assert.deepEqual(await recipients('vehicle_workshop',peloBot),[mechanic]);
  // Dada como preparada: quem tem Viaturas (e acesso a motas) fica a saber.
  await asUser(mechanic,()=>db.query('select mark_vehicle_prepared($1)',[oficina]));
- assert.deepEqual(await recipients('vehicle_prepared',oficina),[admin,seller,soMotas,chefe].sort());
+ // (Desde a 0041, o registo deste aviso é a saída da oficina, não a viatura.)
+ assert.deepEqual((await db.query("select recipient_id from notification_jobs where event='vehicle_prepared' and payload->>'car_id'=$1",[oficina])).rows.map(r=>r.recipient_id).sort(),[admin,seller,soMotas,chefe].sort());
  // Publicada pela primeira vez pelo administrador: avisa os outros.
  await asUser(admin,()=>db.query("update cars set model='PCX',year=2021,fuel='Gasolina',transmission='Automática',body='Scooter',status='published' where id=$1",[oficina]));
  assert.deepEqual(await recipients('vehicle_published',oficina),[seller,soMotas,chefe].sort());
@@ -829,6 +830,242 @@ await test('old WhatsApp notices are pruned and the webhook queue is left alone'
  assert.equal((await db.query("select count(*)::int n from notification_jobs where event='testimonial_pending'")).rows[0].n,0);
  assert.ok((await db.query("select count(*)::int n from notification_jobs where channel='whatsapp'")).rows[0].n>0);
  assert.equal(await webhook(),antes);
+ await db.query('update notification_settings set whatsapp_enabled=false');
+});
+
+// ---------------------------------------------------------------------------
+// 0041 — mais avisos por WhatsApp: férias, contactos atribuídos, vendas,
+// reservas que terminam, preços e viaturas que saem da oficina. As mesmas
+// garantias da 0036: quem recebe segue as permissões (aqui, também a hierarquia
+// das férias), o autor fica de fora, nada chega duas vezes, nada entra na fila
+// com o interruptor desligado, e agendar nunca impede a gravação.
+// ---------------------------------------------------------------------------
+
+/** Quem tem um aviso agendado, procurando pelo conteúdo (registo = a mudança). */
+const recipientsBy=async(event,key,value)=>(await db.query(
+ "select recipient_id from notification_jobs where channel='whatsapp' and event=$1 and payload->>$2=$3",[event,key,value])).rows.map(r=>r.recipient_id).sort();
+const leaveRecipients=async(event,who)=>recipientsBy(event,'profile_id',who);
+await db.query('update notification_settings set whatsapp_enabled=true');
+
+await test('0041: with the switch off nothing new is queued either',async()=>{
+ await db.query('update notification_settings set whatsapp_enabled=false');
+ try{
+  const id=await newLead('contact','car','Desligado');
+  await asUser(admin,()=>db.query('update leads set assigned_to=$2 where id=$1',[id,seller]));
+  await asUser(seller,()=>db.query("insert into leave_days(profile_id,day,status) values($1,'2031-06-02','pending')",[seller]));
+  assert.equal((await asServer(()=>db.query("select public.queue_whatsapp_leave_upcoming('2031-05-28T10:00:00Z') n"))).rows[0].n,0);
+  assert.deepEqual(await recipientsBy('lead_assigned','lead_id',id),[]);
+  assert.deepEqual(await leaveRecipients('leave_requested',seller),[]);
+ }finally{
+  await db.query("delete from leave_days where profile_id=$1",[seller]);
+  await db.query('update notification_settings set whatsapp_enabled=true');
+ }
+});
+
+await test('0041: a leave request reaches exactly who may decide it (the 0022 hierarchy)',async()=>{
+ // Vendedor: o administrador e o chefe. Mecânico: também. Chefe: só o administrador.
+ await asUser(seller,()=>db.query("insert into leave_days(profile_id,day,status) values($1,'2031-07-07','pending'),($1,'2031-07-08','pending')",[seller]));
+ assert.deepEqual(await leaveRecipients('leave_requested',seller),[admin,chefe].sort());
+ await asUser(mechanic,()=>db.query("insert into leave_days(profile_id,day,status) values($1,'2031-07-09','pending')",[mechanic]));
+ assert.deepEqual(await leaveRecipients('leave_requested',mechanic),[admin,chefe].sort());
+ await asUser(chefe,()=>db.query("insert into leave_days(profile_id,day,status) values($1,'2031-07-10','pending')",[chefe]));
+ assert.deepEqual(await leaveRecipients('leave_requested',chefe),[admin]);
+ // O administrador aprova o próprio plano ao submetê-lo: não há pedido.
+ await asUser(admin,()=>db.query("insert into leave_days(profile_id,day,status,decided_by) values($1,'2031-07-11','approved',$1)",[admin]));
+ assert.deepEqual(await leaveRecipients('leave_requested',admin),[]);
+ // Um pedido de vários dias é UM aviso por pessoa, com o período todo.
+ const {payload}=(await db.query("select payload from notification_jobs where event='leave_requested' and payload->>'profile_id'=$1 limit 1",[seller])).rows[0];
+ assert.equal(payload.start,'2031-07-07');assert.equal(payload.end,'2031-07-08');assert.equal(Number(payload.days),2);
+ // Marcar de uma vez dias novos e um rascunho (insert + update na mesma
+ // instrução) continua a ser um aviso só, com os dois dias.
+ await asUser(limited,()=>db.query("insert into leave_days(profile_id,day,status) values($1,'2031-07-15','draft')",[limited]));
+ assert.deepEqual(await leaveRecipients('leave_requested',limited),[],'um rascunho não é um pedido');
+ await asUser(limited,()=>db.query("insert into leave_days(profile_id,day,status) values($1,'2031-07-14','pending'),($1,'2031-07-15','pending') on conflict(profile_id,day) do update set status=excluded.status",[limited]));
+ const jobs=(await db.query("select recipient_id,payload from notification_jobs where event='leave_requested' and payload->>'profile_id'=$1",[limited])).rows;
+ assert.deepEqual(jobs.map(j=>j.recipient_id).sort(),[admin,chefe].sort());
+ assert.ok(jobs.every(j=>j.payload.start==='2031-07-14'&&j.payload.end==='2031-07-15'));
+});
+
+await test('0041: the decision reaches the requester, never the one who decided',async()=>{
+ await asUser(chefe,()=>db.query("update leave_days set status='approved',decided_by=$2,decided_at=now() where profile_id=$1 and status='pending'",[seller,chefe]));
+ assert.deepEqual(await recipientsBy('leave_decided','profile_id',seller),[seller]);
+ await asUser(admin,()=>db.query("update leave_days set status='rejected',decided_by=$2,decided_at=now() where profile_id=$1 and status='pending'",[chefe,admin]));
+ assert.deepEqual(await recipientsBy('leave_decided','profile_id',chefe),[chefe]);
+ const {payload}=(await db.query("select payload from notification_jobs where event='leave_decided' and payload->>'profile_id'=$1",[chefe])).rows[0];
+ assert.equal(payload.decision,'rejected');
+ // Um chefe não decide o plano de outro chefe: a RLS não o deixa, e não há aviso.
+ await asUser(chefe,()=>db.query("update leave_days set status='approved' where profile_id=$1",[chefe]));
+ assert.equal((await db.query("select count(*)::int n from notification_jobs where event='leave_decided' and payload->>'profile_id'=$1",[chefe])).rows[0].n,1);
+});
+
+await test('0041: weekends and holidays do not split a leave period',async()=>{
+ const q=async(sql,params)=>(await asServer(()=>db.query(sql,params))).rows[0].v;
+ assert.equal(await q("select public.easter_sunday(2026)::text v"),'2026-04-05');
+ assert.equal(await q("select public.is_day_off('2026-04-03') v"),true,'Sexta-feira Santa');
+ assert.equal(await q("select public.is_day_off('2026-06-04') v"),true,'Corpo de Deus');
+ assert.equal(await q("select public.is_day_off('2026-10-05') v"),true,'5 de Outubro');
+ assert.equal(await q("select public.is_day_off('2026-10-17') v"),true,'sábado');
+ assert.equal(await q("select public.is_day_off('2026-10-14') v"),false);
+ await db.query("insert into company_days(day,kind,label) values('2026-10-14','holiday','Feriado municipal')");
+ try{assert.equal(await q("select public.is_day_off('2026-10-14') v"),true,'feriado do stand');}
+ finally{await db.query("delete from company_days where day='2026-10-14'");}
+});
+
+await test('0041: a colleague going on leave next week is announced once, to the whole team but them',async()=>{
+ const upcoming=async(at)=>(await asServer(()=>db.query('select public.queue_whatsapp_leave_upcoming($1) n',[at]))).rows[0].n;
+ // Quinta e sexta, fim de semana, segunda e terça: UM período (6 a 11 de março).
+ await db.query("insert into leave_days(profile_id,day,status) values($1,'2031-03-06','approved'),($1,'2031-03-07','approved'),($1,'2031-03-10','approved'),($1,'2031-03-11','approved')",[seller]);
+ // Pedidos, recusados e longe de mais não contam.
+ await db.query("insert into leave_days(profile_id,day,status) values($1,'2031-03-04','pending')",[mechanic]);
+ await db.query("insert into leave_days(profile_id,day,status) values($1,'2031-03-05','rejected')",[chefe]);
+ await db.query("insert into leave_days(profile_id,day,status) values($1,'2031-03-20','approved')",[soMotas]);
+ // De noite não se agenda (sai às 9h).
+ assert.equal(await upcoming('2031-03-01T03:00:00Z'),0);
+ assert.equal(await upcoming('2031-03-01T10:00:00Z'),5);
+ assert.equal(await upcoming('2031-03-02T10:00:00Z'),0,'uma vez por período');
+ // Toda a equipa que vê «Férias colegas», menos o próprio; sem telefone, nada.
+ assert.deepEqual(await leaveRecipients('leave_upcoming',seller),[admin,mechanic,limited,soMotas,chefe].sort());
+ for(const who of [mechanic,chefe,soMotas])assert.deepEqual(await leaveRecipients('leave_upcoming',who),[]);
+ const {payload}=(await db.query("select payload from notification_jobs where event='leave_upcoming' and payload->>'profile_id'=$1 limit 1",[seller])).rows[0];
+ assert.equal(payload.start,'2031-03-06');assert.equal(payload.end,'2031-03-11');assert.equal(Number(payload.days),4);
+ // Com um dia de trabalho pelo meio, são dois períodos.
+ await db.query("insert into leave_days(profile_id,day,status) values($1,'2031-03-24','approved'),($1,'2031-03-26','approved')",[limited]);
+ assert.equal(await upcoming('2031-03-21T10:00:00Z'),10,'dois períodos, cinco colegas cada');
+ // Desmarcadas antes do envio: o envio volta a verificar e não as anuncia.
+ await db.query("delete from leave_days where profile_id=$1 and day='2031-03-26'",[limited]);
+ for(;;){if(!(await asServer(()=>db.query('select * from public.claim_whatsapp_notifications(50)'))).rows.length)break;}
+ const canceladas=(await db.query("select last_error from notification_jobs where event='leave_upcoming' and payload->>'start'='2031-03-26'")).rows;
+ assert.equal(canceladas.length,5);assert.ok(canceladas.every(r=>r.last_error==='As férias foram desmarcadas'));
+ assert.ok((await db.query("select cancelled_at from notification_jobs where event='leave_upcoming' and payload->>'start'='2031-03-24'")).rows.every(r=>!r.cancelled_at));
+});
+
+await test('0041: a lead assigned to someone reaches only them, and only while it is theirs',async()=>{
+ const id=await newLead('contact','car','Atribuído');
+ // A si próprio: não é novidade.
+ await asUser(seller,()=>db.query('update leads set assigned_to=$2 where id=$1',[id,seller]));
+ assert.deepEqual(await recipientsBy('lead_assigned','lead_id',id),[]);
+ await asUser(admin,()=>db.query('update leads set assigned_to=$2 where id=$1',[id,chefe]));
+ assert.deepEqual(await recipientsBy('lead_assigned','lead_id',id),[chefe]);
+ // Gravar outra vez sem mudar o responsável não repete.
+ await asUser(admin,()=>db.query("update leads set assigned_to=$2,notes='x' where id=$1",[id,chefe]));
+ assert.deepEqual(await recipientsBy('lead_assigned','lead_id',id),[chefe]);
+ // Reatribuído antes do envio: o aviso ao chefe já não sai; o vendedor recebe o seu.
+ await asUser(admin,()=>db.query('update leads set assigned_to=$2 where id=$1',[id,seller]));
+ for(;;){if(!(await asServer(()=>db.query('select * from public.claim_whatsapp_notifications(50)'))).rows.length)break;}
+ const jobs=(await db.query("select recipient_id,cancelled_at,last_error from notification_jobs where event='lead_assigned' and payload->>'lead_id'=$1",[id])).rows;
+ assert.equal(jobs.find(j=>j.recipient_id===chefe).last_error,'O contacto já não está atribuído a esta pessoa');
+ assert.equal(jobs.find(j=>j.recipient_id===seller).cancelled_at,null);
+ // Perdido por outra pessoa: o responsável fica a saber.
+ await asUser(admin,()=>db.query("update leads set status='lost',loss_reason='Desistiu' where id=$1",[id]));
+ assert.deepEqual(await recipientsBy('lead_outcome','lead_id',id),[seller]);
+ // Um contacto de motas não chega a quem só trabalha com carros.
+ const mota=await newLead('contact','motorcycle','Mota');
+ await db.query("update profiles set allowed_vehicle_types=array['car'] where id=$1",[chefe]);
+ try{
+  await asUser(admin,()=>db.query('update leads set assigned_to=$2 where id=$1',[mota,chefe]));
+  assert.deepEqual(await recipientsBy('lead_assigned','lead_id',mota),[]);
+ }finally{await db.query('update profiles set allowed_vehicle_types=null where id=$1',[chefe]);}
+});
+
+await test('0041: a sale reaches the sales team and the contact owner; a cancelled or expired reservation too',async()=>{
+ const carro=(await db.query("insert into cars(slug,make,model,year,fuel,transmission,body,status,price,vehicle_type) values('wa-venda-41','Seat','Leon',2018,'Gasolina','Manual','Berlina','published',14000,'car') returning id")).rows[0].id;
+ const cliente=(await db.query("insert into leads(car_id,name,email,assigned_to) values($1,'Comprador','comprador-41@example.test',$2) returning id",[carro,seller])).rows[0].id;
+ // Reserva cancelada pelo administrador: a equipa comercial (menos ele) volta a oferecê-la.
+ const r1=await asUser(admin,async()=>(await db.query("select reserve_vehicle($1,now()+interval '3 days',0) id",[cliente])).rows[0].id);
+ await asUser(admin,()=>db.query('select release_reservation($1)',[r1]));
+ assert.deepEqual(await recipients('reservation_ended',r1),[seller,chefe].sort());
+ // Expirada na manutenção (sem autor): toda a equipa comercial de carros.
+ const r2=await asUser(admin,async()=>(await db.query("select reserve_vehicle($1,now()+interval '3 days',0) id",[cliente])).rows[0].id);
+ await db.query("update reservations set expires_at=now()-interval '1 minute' where id=$1",[r2]);
+ await asServer(()=>db.query('select public.expire_reservations()'));
+ assert.deepEqual(await recipients('reservation_ended',r2),[admin,seller,chefe].sort());
+ assert.equal((await db.query("select payload->>'outcome' o from notification_jobs where event='reservation_ended' and subject_id=$1 limit 1",[r2])).rows[0].o,'expired');
+ // Vendida pelo administrador: quem vende carros, e o responsável do contacto (ganho).
+ await asUser(admin,()=>db.query("select close_vehicle_sale($1,13500,current_date)",[cliente]));
+ assert.deepEqual(await recipientsBy('vehicle_sold','car_id',carro),[seller,chefe].sort());
+ assert.deepEqual(await recipientsBy('lead_outcome','lead_id',cliente),[seller]);
+});
+
+await test('0041: a price change is off by default, and only for a vehicle on sale',async()=>{
+ const carro=(await db.query("insert into cars(slug,make,model,year,fuel,transmission,body,status,price,vehicle_type) values('wa-preco-41','Fiat','Panda',2017,'Gasolina','Manual','Citadino','published',8000,'car') returning id")).rows[0].id;
+ await asUser(admin,()=>db.query('update cars set price=7500 where id=$1',[carro]));
+ assert.deepEqual(await recipientsBy('vehicle_price_changed','car_id',carro),[],'desligado para quem nunca escolheu');
+ await asUser(chefe,()=>db.query("insert into notification_preferences(profile_id,event,enabled) values($1,'vehicle_price_changed',true)",[chefe]));
+ await asUser(admin,()=>db.query('update cars set price=7000 where id=$1',[carro]));
+ assert.deepEqual(await recipientsBy('vehicle_price_changed','car_id',carro),[chefe]);
+ const {payload}=(await db.query("select payload from notification_jobs where event='vehicle_price_changed' and payload->>'car_id'=$1",[carro])).rows[0];
+ assert.equal(Number(payload.old_price),7500);assert.equal(Number(payload.new_price),7000);
+ // Num rascunho, ou na mesma gravação em que muda o estado, não.
+ await asUser(admin,()=>db.query("update cars set status='draft',price=6000 where id=$1",[carro]));
+ await asUser(admin,()=>db.query('update cars set price=5000 where id=$1',[carro]));
+ assert.equal((await recipientsBy('vehicle_price_changed','car_id',carro)).length,1);
+});
+
+await test('0041: leaving the workshop is announced every time, also when changed in the vehicle form',async()=>{
+ const id=await asUser(mechanic,async()=>(await db.query("select create_workshop_intake_for_type('Kawasaki Z900','ZZ-90-00','motorcycle') id")).rows[0].id);
+ // Pela ficha (estado «Na oficina» → «Rascunho»), por quem tem Viaturas.
+ await asUser(chefe,()=>db.query("update cars set status='draft' where id=$1",[id]));
+ assert.deepEqual(await recipientsBy('vehicle_prepared','car_id',id),[admin,seller,soMotas].sort());
+ // Volta à oficina e sai pelo botão da Oficina: outra vez.
+ await asUser(chefe,()=>db.query('select return_vehicle_to_workshop($1)',[id]));
+ await asUser(mechanic,()=>db.query('select mark_vehicle_prepared($1)',[id]));
+ assert.equal((await db.query("select count(*)::int n from notification_jobs where event='vehicle_prepared' and payload->>'car_id'=$1",[id])).rows[0].n,7);
+});
+
+await test('0041: the same change never reaches the same person twice',async()=>{
+ const id=await newLead('contact','car','Duas vezes');
+ await asUser(admin,()=>db.query('update leads set assigned_to=$2 where id=$1',[id,seller]));
+ const [{subject_id}]=(await db.query("select subject_id from notification_jobs where event='lead_assigned' and payload->>'lead_id'=$1",[id])).rows;
+ const again=await asServer(async()=>(await db.query("select public.queue_whatsapp_notice('lead_assigned',$1,'car',jsonb_build_object('lead_id',$2::text),$2::uuid,array[$3::uuid]) n",[subject_id,id,seller])).rows[0].n);
+ assert.equal(again,0);
+ // Uma transação dá sempre o mesmo registo; outra transação, outro.
+ const pair=await asServer(async()=>{await db.exec('begin');try{return (await db.query("select public.notification_subject('x',$1) a, public.notification_subject('x',$1) b",[id])).rows[0];}finally{await db.exec('commit');}});
+ assert.equal(pair.a,pair.b);
+ const other=await asServer(async()=>(await db.query("select public.notification_subject('x',$1) a",[id])).rows[0].a);
+ assert.notEqual(other,pair.a);
+ assert.deepEqual(await recipientsBy('lead_assigned','lead_id',id),[seller]);
+});
+
+await test('0041: a failure while scheduling never stops the change from being saved',async()=>{
+ const sql=await readFile('supabase/migrations/0041_more_notifications.sql','utf8');
+ const original=sql.match(/create or replace function public\.queue_whatsapp_notice[\s\S]*?\nend \$\$;/)[0];
+ await db.exec(`create or replace function public.queue_whatsapp_notice(ev text, subject uuid, vtype text, details jsonb, lead uuid, candidates uuid[])
+  returns int language plpgsql as $$ begin raise exception 'avaria simulada'; end $$;`);
+ try{
+  const id=await newLead('contact','car','Gravado');
+  await asUser(admin,()=>db.query('update leads set assigned_to=$2 where id=$1',[id,seller]));
+  assert.equal((await db.query('select assigned_to from leads where id=$1',[id])).rows[0].assigned_to,seller);
+  await asUser(soMotas,()=>db.query("insert into leave_days(profile_id,day,status) values($1,'2031-09-01','pending')",[soMotas]));
+  assert.equal((await db.query("select count(*)::int n from leave_days where profile_id=$1 and day='2031-09-01'",[soMotas])).rows[0].n,1);
+  assert.deepEqual(await recipientsBy('lead_assigned','lead_id',id),[]);
+ }finally{await db.exec(original);}
+});
+
+await test('0041: the new functions are server-only',async()=>{
+ for(const call of [
+  `public.queue_whatsapp_notice('lead_assigned','${admin}',null,'{}'::jsonb,null,array['${admin}'::uuid])`,
+  'public.queue_whatsapp_leave_upcoming()',
+  `public.queue_whatsapp_leave_request('${admin}')`,
+  `public.notification_job_block_reason('${admin}','lead_contact','{}'::jsonb)`,
+  `public.can_decide_leave_as('${admin}','${seller}')`,
+  `public.notification_subject('x','${admin}')`,
+  "public.is_day_off('2031-01-01')",
+  'public.easter_sunday(2031)',
+ ]) for(const [id,role] of [[admin,'authenticated'],[null,'anon']])
+  await asUser(id,async()=>assert.rejects(db.query(`select ${call}`),/permission denied/,call),role);
+ // A regra da 0022 continua a valer para quem está na sessão.
+ await asUser(chefe,async()=>{
+  assert.equal((await db.query('select public.can_decide_leave_for($1) v',[seller])).rows[0].v,true);
+  assert.equal((await db.query('select public.can_decide_leave_for($1) v',[admin])).rows[0].v,false);
+ });
+ assert.equal((await asServer(()=>db.query('select public.notification_event_default($1) v',['vehicle_price_changed']))).rows[0].v,false);
+});
+
+await test('0041: old notices of the new kinds are pruned too',async()=>{
+ await db.query("update notification_jobs set created_at=now()-interval '31 days' where channel='whatsapp' and event in ('leave_upcoming','lead_assigned','vehicle_sold')");
+ await asServer(()=>db.query('select public.prune_notification_jobs()'));
+ assert.equal((await db.query("select count(*)::int n from notification_jobs where event in ('leave_upcoming','lead_assigned','vehicle_sold')")).rows[0].n,0);
+ assert.ok((await db.query("select count(*)::int n from notification_jobs where event='leave_requested'")).rows[0].n>0);
  await db.query('update notification_settings set whatsapp_enabled=false');
 });
 

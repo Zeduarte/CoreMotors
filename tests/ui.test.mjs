@@ -179,3 +179,33 @@ await test('Integrations shows the templates to submit and the latest notices wi
   assert.ok(html.includes('Voltar a tentar'));
  }finally{delete fixtures.notification_settings;delete fixtures.notification_jobs;fixtures.profiles=[];}
 });
+
+// ---- Avisos por WhatsApp (0041) ---------------------------------------------
+await test('the profile groups the new notices, shows leave notices only to who can get them, and keeps the noisy one off',async()=>{
+ fixtures.notification_settings=[{whatsapp_enabled:true}];
+ fixtures.notification_preferences=[];
+ try{
+  const base={id:'me',allowed_sections:null,allowed_vehicle_types:null,phone:'912 345 678'};
+  const vendedor=await renderComponent('src/components/admin/NotificationPreferences.tsx','NotificationPreferences',{me:{...base,role:'vendedor'}});
+  for(const text of ['Férias','Contactos atribuídos a mim','Viaturas vendidas','Reservas canceladas ou expiradas','Viaturas que saem da oficina e ficam prontas no stand','Decisões sobre os meus pedidos de férias','Colegas que vão de férias nos próximos 7 dias','Preço alterado numa viatura à venda'])
+   assert.ok(vendedor.includes(text),text);
+  // Só decide férias quem está acima: o vendedor não recebe pedidos.
+  assert.ok(!vendedor.includes('Pedidos de férias à espera da minha decisão'));
+  assert.ok(checked(vendedor,'lead_assigned'));assert.ok(checked(vendedor,'leave_upcoming'));
+  assert.ok(!checked(vendedor,'vehicle_price_changed'),'o preço vem desligado por defeito');
+  // Ligado por escolha da pessoa, aparece ligado.
+  fixtures.notification_preferences=[{event:'vehicle_price_changed',enabled:true},{event:'leave_upcoming',enabled:false}];
+  const escolhas=await renderComponent('src/components/admin/NotificationPreferences.tsx','NotificationPreferences',{me:{...base,role:'vendedor'}});
+  assert.ok(checked(escolhas,'vehicle_price_changed'));assert.ok(!checked(escolhas,'leave_upcoming'));
+  fixtures.notification_preferences=[];
+  // O chefe decide férias e também pede; o administrador só decide (aprova o próprio plano).
+  const chefe=await renderComponent('src/components/admin/NotificationPreferences.tsx','NotificationPreferences',{me:{...base,role:'chefe'}});
+  assert.ok(chefe.includes('Pedidos de férias à espera da minha decisão'));assert.ok(chefe.includes('Decisões sobre os meus pedidos de férias'));
+  const admin=await renderComponent('src/components/admin/NotificationPreferences.tsx','NotificationPreferences',{me:{...base,role:'admin'}});
+  assert.ok(admin.includes('Pedidos de férias à espera da minha decisão'));assert.ok(!admin.includes('Decisões sobre os meus pedidos de férias'));
+  // O mecânico: a Oficina e as férias, nada de Leads nem de Viaturas.
+  const mecanico=await renderComponent('src/components/admin/NotificationPreferences.tsx','NotificationPreferences',{me:{...base,role:'mecanico'}});
+  for(const text of ['Viaturas novas na oficina','Colegas que vão de férias nos próximos 7 dias','Decisões sobre os meus pedidos de férias'])assert.ok(mecanico.includes(text),text);
+  for(const text of ['Contactos atribuídos a mim','Viaturas que saem da oficina','Pedidos de férias à espera'])assert.ok(!mecanico.includes(text),text);
+ }finally{delete fixtures.notification_settings;delete fixtures.notification_preferences;}
+});

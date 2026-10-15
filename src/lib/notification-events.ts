@@ -1,4 +1,5 @@
-import type { Section } from "@/lib/permissions";
+import { describeRange } from "@/lib/leave";
+import type { Role, Section } from "@/lib/permissions";
 
 /**
  * Os avisos por WhatsApp aos colaboradores: o catálogo e o texto de cada um.
@@ -14,34 +15,55 @@ import type { Section } from "@/lib/permissions";
  * docs/WHATSAPP_TEMPLATES.md) e aqui só se calculam as variáveis. Há quatro
  * modelos para todos os avisos — cada modelo novo é mais um pedido de
  * aprovação para o administrador de cada stand.
+ *
+ * A migração 0041 acrescentou os avisos do que acontece DEPOIS (contactos
+ * atribuídos, vendas, reservas que terminam, preços, viaturas que saem da
+ * oficina) e os das férias — todos nos mesmos quatro modelos.
  */
 
 export type TemplateFamily = "lead" | "viatura" | "testemunho" | "aviso";
 
+/**
+ * Separador do backoffice a que o aviso pertence: só o recebe quem o tem.
+ * «perfil» é a área pessoal (as férias), que toda a gente tem.
+ */
+export type NotificationSection = Section | "perfil";
+
 export interface NotificationEventInfo {
   key: string;
-  /** Separador do backoffice a que o aviso pertence: só o recebe quem o tem. */
-  section: Section;
+  section: NotificationSection;
   family: TemplateFamily;
   /** Como aparece no perfil, para ligar e desligar. */
   label: string;
+  /** Ligado para quem nunca mexeu nas escolhas (`notification_event_default`). */
+  defaultOn: boolean;
+  /** Só faz sentido para estes papéis (ex.: decidir férias). Sem isto, todos. */
+  roles?: readonly Role[];
 }
 
 export const NOTIFICATION_EVENTS = [
-  { key: "lead_contact", section: "leads", family: "lead", label: "Pedidos de contacto e de financiamento" },
-  { key: "lead_test_drive", section: "leads", family: "lead", label: "Pedidos de test drive" },
-  { key: "lead_offer", section: "leads", family: "lead", label: "Propostas de preço" },
-  { key: "lead_reservation", section: "leads", family: "lead", label: "Pedidos de reserva com sinal" },
-  { key: "lead_trade_in", section: "leads", family: "lead", label: "Pedidos de venda ou retoma" },
-  { key: "lead_order", section: "leads", family: "lead", label: "Encomendas de viatura" },
-  { key: "lead_alert", section: "leads", family: "lead", label: "Alertas de stock («avise-me quando entrar»)" },
-  { key: "vehicle_reserved", section: "leads", family: "viatura", label: "Viaturas reservadas por um colega" },
-  { key: "testimonial_pending", section: "testemunhos", family: "testemunho", label: "Testemunhos à espera de aprovação" },
-  { key: "vehicle_workshop", section: "oficina", family: "viatura", label: "Viaturas novas na oficina" },
-  { key: "vehicle_created", section: "carros", family: "viatura", label: "Viaturas novas criadas em Viaturas" },
-  { key: "vehicle_prepared", section: "carros", family: "viatura", label: "Viaturas dadas como preparadas pela oficina" },
-  { key: "vehicle_published", section: "carros", family: "viatura", label: "Viaturas publicadas no site" },
-  { key: "whatsapp_expiring", section: "integracoes", family: "aviso", label: "Acesso ao WhatsApp prestes a expirar" },
+  { key: "lead_contact", section: "leads", family: "lead", label: "Pedidos de contacto e de financiamento", defaultOn: true },
+  { key: "lead_test_drive", section: "leads", family: "lead", label: "Pedidos de test drive", defaultOn: true },
+  { key: "lead_offer", section: "leads", family: "lead", label: "Propostas de preço", defaultOn: true },
+  { key: "lead_reservation", section: "leads", family: "lead", label: "Pedidos de reserva com sinal", defaultOn: true },
+  { key: "lead_trade_in", section: "leads", family: "lead", label: "Pedidos de venda ou retoma", defaultOn: true },
+  { key: "lead_order", section: "leads", family: "lead", label: "Encomendas de viatura", defaultOn: true },
+  { key: "lead_alert", section: "leads", family: "lead", label: "Alertas de stock («avise-me quando entrar»)", defaultOn: true },
+  { key: "lead_assigned", section: "leads", family: "lead", label: "Contactos atribuídos a mim", defaultOn: true },
+  { key: "lead_outcome", section: "leads", family: "viatura", label: "Contactos meus dados como ganhos ou perdidos por um colega", defaultOn: true },
+  { key: "vehicle_reserved", section: "leads", family: "viatura", label: "Viaturas reservadas por um colega", defaultOn: true },
+  { key: "vehicle_sold", section: "leads", family: "viatura", label: "Viaturas vendidas", defaultOn: true },
+  { key: "reservation_ended", section: "leads", family: "viatura", label: "Reservas canceladas ou expiradas (a viatura volta a estar disponível)", defaultOn: true },
+  { key: "testimonial_pending", section: "testemunhos", family: "testemunho", label: "Testemunhos à espera de aprovação", defaultOn: true },
+  { key: "vehicle_workshop", section: "oficina", family: "viatura", label: "Viaturas novas na oficina", defaultOn: true },
+  { key: "vehicle_created", section: "carros", family: "viatura", label: "Viaturas novas criadas em Viaturas", defaultOn: true },
+  { key: "vehicle_prepared", section: "carros", family: "viatura", label: "Viaturas que saem da oficina e ficam prontas no stand", defaultOn: true },
+  { key: "vehicle_published", section: "carros", family: "viatura", label: "Viaturas publicadas no site", defaultOn: true },
+  { key: "vehicle_price_changed", section: "carros", family: "viatura", label: "Preço alterado numa viatura à venda", defaultOn: false },
+  { key: "leave_requested", section: "perfil", family: "aviso", label: "Pedidos de férias à espera da minha decisão", defaultOn: true, roles: ["admin", "chefe"] },
+  { key: "leave_decided", section: "perfil", family: "aviso", label: "Decisões sobre os meus pedidos de férias", defaultOn: true, roles: ["chefe", "vendedor", "mecanico"] },
+  { key: "leave_upcoming", section: "perfil", family: "aviso", label: "Colegas que vão de férias nos próximos 7 dias", defaultOn: true },
+  { key: "whatsapp_expiring", section: "integracoes", family: "aviso", label: "Acesso ao WhatsApp prestes a expirar", defaultOn: true },
 ] as const satisfies readonly NotificationEventInfo[];
 
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number]["key"];
@@ -52,10 +74,22 @@ export function notificationEvent(key: string): NotificationEventInfo | null {
   return BY_KEY.get(key) ?? null;
 }
 
-/** Os avisos que fazem sentido para quem tem estes separadores. */
-export function eventsForSections(sections: readonly Section[]): NotificationEventInfo[] {
-  return NOTIFICATION_EVENTS.filter((e) => sections.includes(e.section));
+/**
+ * Os avisos que podem chegar a quem tem este papel e estes separadores: os dos
+ * separadores que tem, os das férias (toda a gente tem perfil) e, destes, só os
+ * do seu papel — o pedido de férias só chega a quem decide, a decisão só a quem
+ * pede (o administrador aprova o próprio plano ao submetê-lo).
+ */
+export function eventsForProfile(role: string, sections: readonly Section[]): NotificationEventInfo[] {
+  return NOTIFICATION_EVENTS.filter(
+    (e: NotificationEventInfo) =>
+      (e.section === "perfil" || sections.includes(e.section)) &&
+      (!e.roles || e.roles.includes(role as Role)),
+  );
 }
+
+/** O nome do grupo dos avisos das férias, no perfil. */
+export const PERSONAL_GROUP_LABEL = "Férias";
 
 /** As variáveis de um modelo, por ordem ({{1}}, {{2}}, …). */
 export interface NotificationMessage {
@@ -142,9 +176,61 @@ function leadLabel(payload: Payload): string {
 const VEHICLE_LABEL: Record<string, string> = {
   vehicle_workshop: "viatura nova na oficina",
   vehicle_created: "viatura nova criada em Viaturas",
-  vehicle_prepared: "viatura preparada pela oficina, pronta a completar e publicar",
   vehicle_published: "viatura publicada no site",
 };
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/** A ficha da viatura: o id vem no aviso (0041) ou é o próprio registo (0036). */
+function carPath(payload: Payload, subject: string): string {
+  return `/admin/carros/${text(payload.car_id) || subject}`;
+}
+
+/** O contacto: o id vem no aviso (0041) ou é o próprio registo (0036). */
+function leadPath(payload: Payload, subject: string): string {
+  return `/admin/leads/${text(payload.lead_id) || subject}`;
+}
+
+/**
+ * «a mota Honda CB650R saiu da oficina e está pronta no stand». O nome sem a
+ * matrícula: a matrícula vai na linha da viatura.
+ */
+function leftWorkshop(payload: Payload): string {
+  const name = vehicleLabel({ ...payload, plate: null });
+  const [artigo, tipo, pronta] =
+    payload.vehicle_type === "motorcycle"
+      ? ["a", "mota", "pronta"]
+      : payload.vehicle_type === "car"
+        ? ["o", "carro", "pronto"]
+        : ["a", "viatura", "pronta"];
+  return payload.status === "published"
+    ? `${artigo} ${tipo} ${name} saiu da oficina e está outra vez à venda no site`
+    : `${artigo} ${tipo} ${name} saiu da oficina e está ${pronta} no stand`;
+}
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** «de 13 a 17 de julho (5 dias)», «a 24 de dezembro (meio dia)». */
+function leavePeriod(payload: Payload): string {
+  const from = text(payload.start);
+  const to = text(payload.end) || from;
+  if (!ISO_DAY.test(from) || !ISO_DAY.test(to)) return "";
+  const range = describeRange(from, to);
+  const days = Number(payload.days);
+  const count = !Number.isFinite(days) || days <= 0
+    ? ""
+    : days === 0.5
+      ? " (meio dia)"
+      : ` (${String(days).replace(".", ",")} ${days === 1 ? "dia" : "dias"})`;
+  return `${from === to ? "a" : "de"} ${range}${count}`;
+}
+
+function withPeriod(base: string, payload: Payload): string {
+  const period = leavePeriod(payload);
+  return period ? `${base} ${period}` : base;
+}
 
 function link(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/$/, "")}${path}`;
@@ -214,9 +300,114 @@ export function buildNotification(
         ],
       };
     }
+    case "lead_assigned":
+      return {
+        family: "lead",
+        params: [
+          templateParam(`contacto atribuído a si (${leadLabel(payload)})`),
+          templateParam(payload.name, 60),
+          templateParam(text(payload.car_label) || "sem viatura associada", 80),
+          templateParam(link(baseUrl, leadPath(payload, subject)), 300),
+        ],
+      };
+    case "lead_outcome": {
+      const name = text(payload.name) || "um cliente";
+      const reason = text(payload.loss_reason);
+      const what =
+        payload.status === "won"
+          ? "foi dado como ganho"
+          : `foi dado como perdido${reason ? ` (motivo: ${templateParam(reason, 60)})` : ""}`;
+      return {
+        family: "viatura",
+        params: [
+          templateParam(`o contacto de ${templateParam(name, 60)}, atribuído a si, ${what}`, 160),
+          templateParam(text(payload.car_label) || "sem viatura associada", 80),
+          templateParam(link(baseUrl, leadPath(payload, subject)), 300),
+        ],
+      };
+    }
+    case "vehicle_sold":
+      return {
+        family: "viatura",
+        params: [
+          templateParam("viatura vendida, já não está disponível"),
+          templateParam(vehicleLabel(payload), 80),
+          templateParam(link(baseUrl, carPath(payload, subject)), 300),
+        ],
+      };
+    case "reservation_ended": {
+      const customer = text(payload.customer);
+      const how = payload.outcome === "expired" ? "expirada sem venda" : "cancelada";
+      return {
+        family: "viatura",
+        params: [
+          templateParam(
+            `reserva${customer ? ` de ${templateParam(customer, 60)}` : ""} ${how}; a viatura voltou a estar disponível`,
+            160,
+          ),
+          templateParam(vehicleLabel(payload), 80),
+          templateParam(link(baseUrl, carPath(payload, subject)), 300),
+        ],
+      };
+    }
+    case "vehicle_price_changed":
+      return {
+        family: "viatura",
+        params: [
+          templateParam(
+            `preço alterado de ${money(payload.old_price) ?? "sob consulta"} para ${money(payload.new_price) ?? "sob consulta"}`,
+          ),
+          templateParam(vehicleLabel(payload), 80),
+          templateParam(link(baseUrl, carPath(payload, subject)), 300),
+        ],
+      };
+    case "vehicle_prepared":
+      return {
+        family: "viatura",
+        params: [
+          templateParam(leftWorkshop(payload), 160),
+          templateParam(vehicleLabel(payload), 80),
+          templateParam(link(baseUrl, carPath(payload, subject)), 300),
+        ],
+      };
+    case "leave_requested":
+      return {
+        family: "aviso",
+        params: [
+          templateParam(
+            `${withPeriod(`${templateParam(text(payload.name) || "Um colaborador", 60)} pediu férias`, payload)} e aguarda a sua decisão`,
+            200,
+          ),
+          templateParam(link(baseUrl, "/admin/perfil/pedidos"), 300),
+        ],
+      };
+    case "leave_decided": {
+      const by = text(payload.decided_by);
+      const decision = payload.decision === "rejected" ? "recusado" : "aprovado";
+      return {
+        family: "aviso",
+        params: [
+          templateParam(
+            `${withPeriod("o seu pedido de férias", payload)} foi ${decision}${by ? ` por ${templateParam(by, 60)}` : ""}`,
+            200,
+          ),
+          templateParam(link(baseUrl, "/admin/perfil/ferias"), 300),
+        ],
+      };
+    }
+    case "leave_upcoming":
+      return {
+        family: "aviso",
+        params: [
+          templateParam(
+            withPeriod(`${templateParam(text(payload.name) || "Um colega", 60)} vai estar de férias`, payload),
+            200,
+          ),
+          templateParam(link(baseUrl, "/admin/perfil/colegas"), 300),
+        ],
+      };
     case "vehicle_workshop":
     case "vehicle_created":
-    case "vehicle_prepared":
     case "vehicle_published":
       return {
         family: "viatura",
@@ -253,7 +444,7 @@ export function buildNotification(
 const DIGEST: Record<string, { label: (n: number) => string; path: string }> = {
   vehicle_workshop: { label: (n) => `${n} viaturas novas na oficina`, path: "/admin/oficina" },
   vehicle_created: { label: (n) => `${n} viaturas novas criadas em Viaturas`, path: "/admin/carros" },
-  vehicle_prepared: { label: (n) => `${n} viaturas preparadas pela oficina`, path: "/admin/carros" },
+  vehicle_prepared: { label: (n) => `${n} viaturas saíram da oficina e estão prontas no stand`, path: "/admin/carros" },
   vehicle_published: { label: (n) => `${n} viaturas publicadas no site`, path: "/admin/carros" },
 };
 export const DIGEST_FROM = 3;

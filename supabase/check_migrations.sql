@@ -54,6 +54,8 @@ from (values
   ('0037_wa_conversation',
     to_regclass('public.wa_conversation') is not null),
   ('0038_wa_more_actions',
-    exists (select 1 from pg_proc where proname = 'wa_update_car'))
+    exists (select 1 from pg_proc where proname = 'wa_update_car')),
+  ('0041_more_notifications',
+    exists (select 1 from pg_proc where proname = 'queue_whatsapp_leave_upcoming'))
 ) as m(migracao, aplicada)
 order by migracao;

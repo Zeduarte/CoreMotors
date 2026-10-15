@@ -35,6 +35,8 @@ export async function saveLeadFollowup(data: FormData) {
   const {error} = await db.from("leads").update({...v, next_action: v.next_action || null,
     next_action_at: v.next_action_at ? new Date(v.next_action_at).toISOString() : null,
     loss_reason: v.status === "lost" ? v.loss_reason : null }).eq("id",id).select("id").single();
+  // Contacto atribuído a alguém, ou ganho/perdido: o responsável é avisado (0041).
+  if (!error) deliverNotificationsSoon();
   refresh(); return result(error);
 }
 export async function addLeadActivity(data: FormData) {
@@ -135,7 +137,10 @@ export async function reserveVehicle(data: FormData) {
 export async function releaseReservation(data: FormData) {
   await requireSection("leads"); await requireSection("carros");
   const id = uuid.safeParse(data.get("id")); if (!id.success) return {ok:false,error:"Reserva inválida"};
-  const db = await createClient(); const {error} = await db.rpc("release_reservation",{reservation_id:id.data}); refresh(); return result(error);
+  const db = await createClient(); const {error} = await db.rpc("release_reservation",{reservation_id:id.data});
+  // A viatura volta a estar disponível: quem vende fica a saber (0041).
+  if (!error) deliverNotificationsSoon();
+  refresh(); return result(error);
 }
 export async function confirmDeposit(data: FormData) {
   await requireSection("leads");
@@ -146,7 +151,10 @@ export async function closeSale(data: FormData) {
   await requireSection("leads"); await requireSection("carros"); await requireSection("financeiro");
   const parsed = z.object({lead:uuid,amount:z.coerce.number().positive().max(9999999999),sale_date:z.string().date()}).safeParse(Object.fromEntries(data));
   if (!parsed.success) return {ok:false,error:"Verifique o preço de venda e a data."};
-  const db = await createClient(); const {error} = await db.rpc("close_vehicle_sale",parsed.data); refresh(); return result(error);
+  const db = await createClient(); const {error} = await db.rpc("close_vehicle_sale",parsed.data);
+  // Viatura vendida e contacto ganho (0041).
+  if (!error) deliverNotificationsSoon();
+  refresh(); return result(error);
 }
 
 export async function retryNotifications() {
@@ -160,7 +168,10 @@ export async function expireReservationsNow() {
   if(me.role!=="admin")return {ok:false,error:"Apenas administradores."};
   const {createAdminClient}=await import("@/lib/supabase/admin");
   const db=createAdminClient();if(!db)return {ok:false,error:"Chave de administração não configurada."};
-  const {error}=await db.rpc("expire_reservations");refresh();return result(error);
+  const {error}=await db.rpc("expire_reservations");
+  // Reservas expiradas: a viatura volta a estar disponível (0041).
+  if(!error)deliverNotificationsSoon();
+  refresh();return result(error);
 }
 
 export async function saveLeadNotesForm(data: FormData) {
