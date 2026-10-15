@@ -1,6 +1,6 @@
 import { ActionForm } from "@/components/admin/ActionForm";
 import { saveMyNotificationPreferences } from "@/lib/actions/notifications";
-import { eventsForSections } from "@/lib/notification-events";
+import { eventsForProfile, PERSONAL_GROUP_LABEL } from "@/lib/notification-events";
 import { effectiveSections, effectiveVehicleTypes, SECTIONS } from "@/lib/permissions";
 import { normalizeWhatsApp } from "@/lib/phone";
 import { createClient } from "@/lib/supabase/server";
@@ -9,10 +9,12 @@ import type { ProfileRow } from "@/lib/supabase/database.types";
 /**
  * «Avisos por WhatsApp» em O meu perfil: cada pessoa liga e desliga cada tipo
  * de aviso. Só aparecem os avisos dos separadores a que a pessoa tem acesso —
- * os outros nunca lhe chegariam. Por defeito, tudo ligado.
+ * os outros nunca lhe chegariam —, mais os das férias, que são de toda a gente
+ * (filtrados pelo papel: o pedido só chega a quem decide). Por defeito, tudo
+ * ligado, menos os avisos que podem chegar aos montes (o preço de cada viatura).
  */
 export async function NotificationPreferences({ me }: { me: ProfileRow }) {
-  const events = eventsForSections(effectiveSections(me.role, me.allowed_sections));
+  const events = eventsForProfile(me.role, effectiveSections(me.role, me.allowed_sections));
   if (events.length === 0) return null;
 
   const db = await createClient();
@@ -32,20 +34,22 @@ export async function NotificationPreferences({ me }: { me: ProfileRow }) {
     );
   }
 
-  const off = new Set((prefs ?? []).filter((p) => !p.enabled).map((p) => p.event));
+  const chosen = new Map((prefs ?? []).map((p) => [p.event, p.enabled]));
   const hasPhone = /^\d{9,15}$/.test(me.phone ? normalizeWhatsApp(me.phone) : "");
   const types = effectiveVehicleTypes(me.role, me.allowed_vehicle_types);
   const tipos = types.length > 1 ? "carros e motas" : types[0] === "motorcycle" ? "motas" : "carros";
-  const groups = SECTIONS.map((s) => ({ ...s, events: events.filter((e) => e.section === s.key) })).filter(
-    (s) => s.events.length > 0,
-  );
+  const groups = [
+    ...SECTIONS.map((s) => ({ key: s.key as string, label: s.label, events: events.filter((e) => e.section === s.key) })),
+    { key: "perfil", label: PERSONAL_GROUP_LABEL, events: events.filter((e) => e.section === "perfil") },
+  ].filter((s) => s.events.length > 0);
 
   return (
     <ActionForm action={saveMyNotificationPreferences} label="Guardar avisos">
       <h2 className="text-lg font-semibold text-paper">Avisos por WhatsApp</h2>
       <p className="text-sm text-paper/50">
-        Quando entra algo novo na sua área do backoffice, recebe uma mensagem no
-        WhatsApp, no telefone acima. Desmarque o que não quer receber.
+        Quando acontece algo na sua área do backoffice — ou nas férias da
+        equipa —, recebe uma mensagem no WhatsApp, no telefone acima. Marque o
+        que quer receber.
       </p>
       {!settings?.whatsapp_enabled && (
         <p className="text-sm text-amber-300">
@@ -67,7 +71,7 @@ export async function NotificationPreferences({ me }: { me: ProfileRow }) {
                 <input
                   type="checkbox"
                   name={e.key}
-                  defaultChecked={!off.has(e.key)}
+                  defaultChecked={chosen.get(e.key) ?? e.defaultOn}
                   className="mt-0.5 h-4 w-4 shrink-0 accent-accent"
                 />
                 <span>{e.label}</span>

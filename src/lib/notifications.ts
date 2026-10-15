@@ -189,6 +189,9 @@ export async function processWhatsAppNotifications(
   // Antes de reclamar, para o aviso sair já nesta volta. Se falhar, os outros
   // avisos seguem na mesma.
   await db.rpc("queue_whatsapp_expiry_warning");
+  // Colegas que vão de férias nos próximos 7 dias (0041). A base de dados só
+  // agenda entre as 9h e as 20h de Lisboa, e uma vez por período.
+  await db.rpc("queue_whatsapp_leave_upcoming");
 
   while (Date.now() - started < budgetMs) {
     const { data, error } = await db.rpc("claim_whatsapp_notifications", { batch: options.batch ?? 25 });

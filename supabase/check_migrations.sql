@@ -58,6 +58,8 @@ from (values
   ('0039_wa_media',
     to_regclass('public.wa_media') is not null),
   ('0040_wa_site_settings',
-    exists (select 1 from pg_proc where proname = 'wa_update_site_settings'))
+    exists (select 1 from pg_proc where proname = 'wa_update_site_settings')),
+  ('0041_more_notifications',
+    exists (select 1 from pg_proc where proname = 'queue_whatsapp_leave_upcoming'))
 ) as m(migracao, aplicada)
 order by migracao;

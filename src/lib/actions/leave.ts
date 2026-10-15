@@ -7,6 +7,7 @@ import { getCurrentProfile } from "@/lib/admin-queries";
 import { companyCalendar, isSelectable, summarise } from "@/lib/leave";
 import { canDecideLeaveFor, leaveSelfApproves } from "@/lib/permissions";
 import { getBalance, getCompanyDays, getLeaveDays } from "@/lib/leave-queries";
+import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 
 /**
  * Marcação e aprovação de férias.
@@ -121,6 +122,8 @@ export async function applyLeaveChanges(input: {
   }
 
   revalidatePath("/admin/perfil", "layout");
+  // Um pedido novo: quem o decide é avisado (agendado pela base de dados, 0041).
+  if (!aprovaSozinho && add.length) deliverNotificationsSoon();
   return { ok: true, approved: aprovaSozinho };
 }
 
@@ -178,6 +181,8 @@ export async function decideLeave(input: {
     console.error("decideLeave:", error.message);
     return { ok: false, error: "Não foi possível registar a decisão." };
   }
+  // Quem pediu fica a saber da decisão (agendado pela base de dados, 0041).
+  deliverNotificationsSoon();
 
   revalidatePath("/admin/perfil", "layout");
   return { ok: true };

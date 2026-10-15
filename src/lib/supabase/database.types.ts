@@ -898,6 +898,7 @@ export type Database = {
         Returns: undefined;
       };
       queue_whatsapp_expiry_warning: { Args: Record<string, never>; Returns: number };
+      queue_whatsapp_leave_upcoming: { Args: { agora?: string }; Returns: number };
       prune_notification_jobs: { Args: Record<string, never>; Returns: undefined };
       has_section: { Args: { section: string }; Returns: boolean };
       has_section_for: { Args: { uid: string; section: string }; Returns: boolean };

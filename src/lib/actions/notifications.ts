@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentProfile } from "@/lib/admin-queries";
 import { requireSection } from "@/lib/guard";
-import { eventsForSections, type TemplateFamily } from "@/lib/notification-events";
+import { eventsForProfile, type TemplateFamily } from "@/lib/notification-events";
 import { backofficeBaseUrl } from "@/lib/notifications";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 import { effectiveSections } from "@/lib/permissions";
@@ -41,7 +41,7 @@ function migrationHint(error: { code?: string; message: string }): string | null
 export async function saveMyNotificationPreferences(data: FormData): Promise<Result> {
   const me = await getCurrentProfile();
   if (!me) return { ok: false, error: "Sessão expirada. Volte a entrar." };
-  const events = eventsForSections(effectiveSections(me.role, me.allowed_sections));
+  const events = eventsForProfile(me.role, effectiveSections(me.role, me.allowed_sections));
   if (events.length === 0) return { ok: true };
 
   const now = new Date().toISOString();
