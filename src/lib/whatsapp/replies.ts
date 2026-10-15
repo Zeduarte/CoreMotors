@@ -7,7 +7,7 @@
 export const REPLIES = {
   semSecao: (secao: string) =>
     `Não tem acesso a ${secao}. Fale com o responsável.`,
-  soTexto: "Por agora só entendo mensagens de texto.",
+  soTexto: "Por agora só entendo mensagens de texto e fotografias.",
   semAssistente: "O assistente não está configurado.",
   falhou: "Não consegui processar agora. Tente daqui a pouco.",
   demasiadas: "Demasiadas mensagens em pouco tempo. Aguarde uns minutos.",

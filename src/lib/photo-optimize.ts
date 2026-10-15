@@ -35,6 +35,23 @@ export interface PhotoResult {
   error?: string;
 }
 
+/**
+ * A redução em si: no máximo 2400 px no lado maior, rotação EXIF aplicada,
+ * fundo branco e JPEG de qualidade alta. Partilhada com as fotografias que
+ * chegam pelo WhatsApp (src/lib/whatsapp/photos.ts), para ficarem iguais às do
+ * backoffice. Lança se não for uma imagem legível.
+ */
+export async function reencodePhoto(input: Buffer): Promise<{ data: Buffer; width: number; height: number }> {
+  // `.rotate()` sem argumentos aplica a rotação EXIF (fotos ao alto).
+  const { data, info } = await sharp(input, { failOn: "none" })
+    .rotate()
+    .resize({ width: MAX_PHOTO_SIDE, height: MAX_PHOTO_SIDE, fit: "inside", withoutEnlargement: true })
+    .flatten({ background: "#ffffff" })
+    .jpeg({ quality: QUALITY, mozjpeg: true })
+    .toBuffer({ resolveWithObject: true });
+  return { data, width: info.width, height: info.height };
+}
+
 export async function optimizeStoredPhoto(db: SupabaseClient, row: PhotoRow): Promise<PhotoResult> {
   const path = row.storage_path;
   const fail = (error: string, before = 0): PhotoResult => ({ id: row.id, before, after: before, status: "erro", error });
@@ -47,16 +64,7 @@ export async function optimizeStoredPhoto(db: SupabaseClient, row: PhotoRow): Pr
   let width: number;
   let height: number;
   try {
-    // `.rotate()` sem argumentos aplica a rotação EXIF (fotos ao alto).
-    const { data, info } = await sharp(original, { failOn: "none" })
-      .rotate()
-      .resize({ width: MAX_PHOTO_SIDE, height: MAX_PHOTO_SIDE, fit: "inside", withoutEnlargement: true })
-      .flatten({ background: "#ffffff" })
-      .jpeg({ quality: QUALITY, mozjpeg: true })
-      .toBuffer({ resolveWithObject: true });
-    output = data;
-    width = info.width;
-    height = info.height;
+    ({ data: output, width, height } = await reencodePhoto(original));
   } catch {
     return fail("não é uma imagem legível", original.length);
   }

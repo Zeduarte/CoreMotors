@@ -185,7 +185,29 @@ export function describeAction(action: PendingAction, tense: Tense): string {
         return futuro ? `Vai ser aprovado e publicado no site ${qual}` : `Aprovado e publicado no site ${qual}`;
       return futuro ? `Vai ser retirado do site ${qual}` : `Retirado do site ${qual}`;
     }
+    case "add_car_media":
+      return describePhotos(action, futuro);
   }
+}
+
+/** «Vão ser juntadas 4 fotografias à viatura BMW 320, matrícula 33-AD-22.» */
+function describePhotos(action: Extract<PendingAction, { kind: "add_car_media" }>, futuro: boolean): string {
+  const n = action.fotos.length;
+  const uma = n === 1;
+  const fotos = uma ? "1 fotografia" : `${n} fotografias`;
+  const verbo = futuro ? (uma ? "Vai ser juntada" : "Vão ser juntadas") : uma ? "Juntada" : "Juntadas";
+  const capa = !action.ficha.semCapa
+    ? ""
+    : futuro
+      ? uma ? " Passa a ser a capa." : " A primeira passa a ser a capa."
+      : uma ? " Ficou como capa." : " A primeira ficou como capa.";
+  const site =
+    action.ficha.estado !== "published"
+      ? ""
+      : futuro
+        ? " A viatura está publicada: aparecem logo no site."
+        : " Já aparecem no site.";
+  return `${verbo} ${fotos} à viatura ${action.veiculo}.${capa}${site}`;
 }
 
 /** A pergunta que fecha cada proposta (texto e legenda da imagem). */
@@ -219,6 +241,11 @@ export interface PreviewCard {
   /** De que registo se trata (a viatura, o contacto…). */
   subject: string;
   fields: PreviewField[];
+  /**
+   * Miniaturas das fotografias a juntar (`data:image/jpeg;base64,…`). Só as
+   * propostas de fotografias as têm, e é a rota da imagem que as preenche.
+   */
+  photos?: string[];
 }
 
 /**
@@ -352,5 +379,24 @@ export function previewCard(action: PendingAction): PreviewCard {
           },
         ],
       };
+    case "add_car_media": {
+      // Como os outros cartões de viatura: título, matrícula, ano e preço,
+      // para a pessoa ver que é a viatura certa antes de dizer «sim».
+      const f = action.ficha;
+      return {
+        title: "Viaturas · fotografias",
+        subject: action.veiculo,
+        fields: [
+          { label: "Viatura", value: f.titulo },
+          ...(f.matricula ? [{ label: "Matrícula", value: formatPlate(f.matricula) }] : []),
+          ...(f.ano ? [{ label: "Ano", value: String(f.ano) }] : []),
+          { label: "Preço", value: f.preco === null ? "Sob consulta" : formatMoney(f.preco) },
+          { label: "Estado", value: CAR_STATUS_LABEL[f.estado] ?? f.estado },
+          { label: "Fotografias novas", value: String(action.fotos.length) },
+          { label: "Já na galeria", value: String(f.existentes) },
+          ...(f.semCapa ? [{ label: "Capa", value: "A primeira destas" }] : []),
+        ],
+      };
+    }
   }
 }

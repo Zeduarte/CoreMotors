@@ -618,6 +618,101 @@ await test('pending proposals accept the new kinds, and nothing in the WhatsApp 
 });
 
 // ---------------------------------------------------------------------------
+// 0039 — fotografias por WhatsApp. As fotografias por confirmar ficam num
+// bucket privado e numa tabela só do servidor; juntá-las a uma viatura passa
+// pela RPC, que autoriza com o id explícito e usa a regra de capa do backoffice.
+// ---------------------------------------------------------------------------
+
+let fotoN=0;
+/** Uma fotografia recebida (como o servidor a guarda), por defeito do vendedor. */
+const stagedPhoto=async(actor=seller,extra={})=>{
+ fotoN++;
+ const id=`00000000-0000-4000-8000-${String(900000000000+fotoN)}`;
+ await db.query(`insert into wa_media(id,from_phone,actor_id,media_id,storage_path,width,height,bytes,created_at)
+  values($1,'351900000039',$2,$3,$4,1600,1200,1000,coalesce($5::timestamptz,now()))`,
+  [id,actor,`media-${fotoN}`,`${actor}/${id}.jpg`,extra.created_at??null]);
+ return id;
+};
+const photoItem=(carId,media,i=0)=>({media,path:`${carId}/00000000-0000-4000-8000-${String(800000000000+fotoN*10+i)}.jpg`,width:1600,height:1200});
+
+await test('photos waiting for a yes are server-only and their bucket is private',async()=>{
+ await asUser(admin,async()=>assert.rejects(db.query('select * from public.wa_media'),/permission denied/));
+ await asUser(null,async()=>assert.rejects(db.query('select * from public.wa_media'),/permission denied/),'anon');
+ assert.equal((await db.query("select public from storage.buckets where id='wa-media'")).rows[0].public,false);
+ for(const call of [
+  `public.wa_add_car_media('${seller}','${car}','[]')`,
+  `public.prune_wa_media(array[]::uuid[])`,
+ ]) await asUser(seller,async()=>assert.rejects(db.query(`select ${call}`),/permission denied/,call));
+ await asServer(async()=>{
+  // A proposta nova cabe na tabela de propostas.
+  assert.ok((await db.query(`insert into wa_pending_actions(actor_id,from_phone,kind,payload,summary)
+   values($1,'351900000040','add_car_media','{}','x') returning id`,[seller])).rows[0].id);
+  // Uma legenda gigante ou um caminho fora da pasta do colaborador são recusados.
+  await assert.rejects(db.query(`insert into wa_media(from_phone,actor_id,media_id,storage_path)
+   values('1',$1,'m-x','../x.jpg')`,[seller]),/check/i);
+ });
+});
+
+await test('photos join a vehicle with the backoffice order and cover rule, once',async()=>{
+ const novo=(await db.query(`insert into cars(slug,make,model,year,fuel,transmission,body,status,price)
+  values('test-fotos','Audi','A3',2020,'Diesel','Manual','Berlina','draft',20000) returning id`)).rows[0].id;
+ const a=await stagedPhoto(),b=await stagedPhoto();
+ const r=await asServer(async()=>(await db.query('select public.wa_add_car_media($1,$2,$3) id',
+  [seller,novo,JSON.stringify([photoItem(novo,a,0),photoItem(novo,b,1)])])).rows[0].id);
+ assert.equal(r,novo);
+ const media=(await db.query('select position,is_cover,kind,width from car_media where car_id=$1 order by position',[novo])).rows;
+ assert.deepEqual(media.map(m=>[m.position,m.is_cover,m.kind]),[[0,true,'image'],[1,false,'image']]);
+ const estado=(await db.query('select status,car_media_id from wa_media where id=any($1) order by id',[[a,b]])).rows;
+ assert.ok(estado.every(e=>e.status==='attached'&&e.car_media_id));
+ // A mesma fotografia não entra duas vezes.
+ await asServer(async()=>assert.rejects(db.query('select public.wa_add_car_media($1,$2,$3)',
+  [seller,novo,JSON.stringify([photoItem(novo,a,5)])]),/indisponível/));
+ // As seguintes vão para o fim, e a capa fica onde estava.
+ const c=await stagedPhoto();
+ await asServer(()=>db.query('select public.wa_add_car_media($1,$2,$3)',[seller,novo,JSON.stringify([photoItem(novo,c,0)])]));
+ const depois=(await db.query('select position,is_cover from car_media where car_id=$1 order by position',[novo])).rows;
+ assert.deepEqual(depois.map(m=>[m.position,m.is_cover]),[[0,true],[1,false],[2,false]]);
+ await db.query('delete from cars where id=$1',[novo]);
+});
+
+await test('only someone with Vehicles and the vehicle type attaches photos, and only their own',async()=>{
+ const mota=(await db.query(`insert into cars(slug,make,model,year,fuel,transmission,body,status,price,vehicle_type,doors,seats)
+  values('test-fotos-mota','Honda','CB500',2020,'Gasolina','Manual','Naked','draft',6000,'motorcycle',0,2) returning id`)).rows[0].id;
+ await asServer(async()=>{
+  // Sem o separador Viaturas: nem o mecânico nem quem só tem o dashboard.
+  for(const who of [mechanic,limited]){
+   const f=await stagedPhoto(who);
+   await assert.rejects(db.query('select public.wa_add_car_media($1,$2,$3)',[who,car,JSON.stringify([photoItem(car,f)])]),/Sem permissão/,who);
+  }
+  // Com Viaturas mas sem motas.
+  await db.query("update profiles set allowed_vehicle_types=array['car'] where id=$1",[seller]);
+  const f=await stagedPhoto();
+  await assert.rejects(db.query('select public.wa_add_car_media($1,$2,$3)',[seller,mota,JSON.stringify([photoItem(mota,f)])]),/Sem acesso a este tipo/);
+  await db.query('update profiles set allowed_vehicle_types=null where id=$1',[seller]);
+  // A fotografia de outra pessoa não se junta em nome desta.
+  const alheia=await stagedPhoto(admin);
+  await assert.rejects(db.query('select public.wa_add_car_media($1,$2,$3)',[seller,car,JSON.stringify([photoItem(car,alheia)])]),/indisponível/);
+  // O ficheiro tem de estar na pasta DESTA viatura.
+  await assert.rejects(db.query('select public.wa_add_car_media($1,$2,$3)',[seller,car,JSON.stringify([photoItem(car2,f)])]),/Caminho inválido/);
+  await assert.rejects(db.query('select public.wa_add_car_media($1,$2,$3)',[seller,car,'[]']),/inválidas/);
+  // Nada ficou a meio: a fotografia continua por juntar.
+  assert.equal((await db.query('select status from wa_media where id=$1',[f])).rows[0].status,'staged');
+ });
+ assert.equal((await db.query('select count(*)::int n from car_media where car_id=$1',[mota])).rows[0].n,0);
+ await db.query('delete from cars where id=$1',[mota]);
+});
+
+await test('the cleanup removes only old photo rows it was told about',async()=>{
+ const velha=await stagedPhoto(seller,{created_at:new Date(Date.now()-3*86400000).toISOString()});
+ const outraVelha=await stagedPhoto(seller,{created_at:new Date(Date.now()-3*86400000).toISOString()});
+ const nova=await stagedPhoto();
+ const n=await asServer(async()=>(await db.query('select public.prune_wa_media($1) n',[[velha,nova]])).rows[0].n);
+ assert.equal(n,1,'a recente fica, mesmo pedida');
+ const ficam=(await db.query('select id from wa_media where id=any($1)',[[velha,outraVelha,nova]])).rows.map(r=>r.id).sort();
+ assert.deepEqual(ficam,[outraVelha,nova].sort(),'a que não foi pedida fica: o ficheiro dela ainda não saiu');
+});
+
+// ---------------------------------------------------------------------------
 // 0036 — avisos por WhatsApp. Quem recebe decide-se na base de dados, com as
 // permissões do backoffice: estes testes vigiam que ninguém recebe o que não
 // podia abrir, que nada chega duas vezes à mesma pessoa e que agendar um aviso

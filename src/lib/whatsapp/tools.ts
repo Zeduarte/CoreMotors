@@ -55,6 +55,7 @@ export const TOOL = {
   assignLead: "propor_responsavel_contacto",
   leadNote: "propor_nota_contacto",
   testimonial: "propor_testemunho",
+  photos: "propor_fotos_viatura",
 } as const;
 
 /** Uma ferramenta de proposta foi chamada → o ciclo pára aqui. */
@@ -391,6 +392,20 @@ export const WA_TOOLS: Anthropic.Tool[] = [
         acao: { type: "string", enum: ["aprovar", "rejeitar"] },
       },
       required: ["testemunho", "acao"],
+    },
+  },
+  // Fica fora de PROPOSAL_TOOLS: as fotografias não vêm do modelo, vêm da
+  // conversa (as que a pessoa mandou e estão à espera). O handle trata-a à parte.
+  {
+    name: TOOL.photos,
+    description:
+      "Propõe juntar à galeria de uma viatura as fotografias que a pessoa " +
+      "mandou e estão à espera. Só a viatura: as fotografias são todas as que " +
+      "estão à espera. Não junta: a pessoa confirma.",
+    input_schema: {
+      type: "object",
+      properties: { viatura: viaturaProp },
+      required: ["viatura"],
     },
   },
 ];

@@ -548,6 +548,24 @@ export type WaPendingRow = {
   image_wamid: string | null;
 };
 
+/** Fotografia recebida pelo WhatsApp, à espera do «sim» (0039). */
+export type WaMediaRow = {
+  id: string;
+  seq: number;
+  from_phone: string;
+  actor_id: string | null;
+  media_id: string;
+  storage_path: string;
+  width: number | null;
+  height: number | null;
+  bytes: number | null;
+  caption: string;
+  status: string;
+  car_media_id: string | null;
+  created_at: string;
+  settled_at: string | null;
+};
+
 /** Viatura que um colaborador pode ver (já filtrada pelas permissões). */
 export type WaVehicleRow = {
   id: string;
@@ -715,7 +733,17 @@ export type Database = {
         Insert: { id?: string; actor_id: string; from_phone: string; kind: string;
           payload: Json; summary: string; expires_at?: string; status?: string };
         Update: { status?: string; settled_at?: string | null; result_id?: string | null;
-          image_wamid?: string | null };
+          image_wamid?: string | null;
+          // 0039: as fotografias que chegam depois juntam-se à mesma proposta.
+          payload?: Json; summary?: string; expires_at?: string };
+        Relationships: [];
+      };
+      wa_media: {
+        Row: WaMediaRow;
+        Insert: { id?: string; from_phone: string; actor_id: string | null; media_id: string;
+          storage_path: string; width?: number | null; height?: number | null;
+          bytes?: number | null; caption?: string; status?: string };
+        Update: { status?: string; settled_at?: string | null; car_media_id?: string | null };
         Relationships: [];
       };
       company_days: {
@@ -941,6 +969,12 @@ export type Database = {
         Args: { actor: string; testimonial: string; publish: boolean };
         Returns: string;
       };
+      // ---- 0039: fotografias por WhatsApp ----
+      wa_add_car_media: {
+        Args: { actor: string; car: string; items: Json };
+        Returns: string;
+      };
+      prune_wa_media: { Args: { ids: string[] }; Returns: number };
       can_approve_leave: { Args: Record<string, never>; Returns: boolean };
       leave_directory: {
         Args: Record<string, never>;

@@ -142,6 +142,27 @@ export type PendingAction =
       classificacao: number;
       excerto: string;
       publicar: boolean;
+    }
+  | {
+      kind: "add_car_media";
+      carId: string;
+      veiculo: string;
+      /** As fotografias recebidas (ids em `wa_media`), pela ordem da galeria. */
+      fotos: string[];
+      /** A viatura como está agora — só para a frase e a imagem. */
+      ficha: {
+        titulo: string;
+        /** Canónica ("33AD22"), ou vazia. */
+        matricula: string;
+        ano: number | null;
+        /** `null` = «sob consulta» (ou sem preço). */
+        preco: number | null;
+        estado: string;
+        /** Quantas imagens já tem na galeria. */
+        existentes: number;
+        /** Sem capa nem imagens: a primeira destas passa a ser a capa. */
+        semCapa: boolean;
+      };
     };
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -248,6 +269,13 @@ export const LeadNoteInput = z.object({
 export const TestimonialInput = z.object({
   testemunho: handle,
   acao: z.enum(["aprovar", "rejeitar"]),
+});
+
+/** Fotografias por proposta: as que a Meta deixa mandar de uma vez. */
+export const MAX_PHOTOS = 30;
+
+export const PhotosInput = z.object({
+  viatura: handle,
 });
 
 export type BuildResult =
@@ -755,5 +783,20 @@ export const PendingActionSchema = z.discriminatedUnion("kind", [
     classificacao: z.number().int().min(1).max(5),
     excerto: z.string().max(300),
     publicar: z.boolean(),
+  }),
+  z.object({
+    kind: z.literal("add_car_media"),
+    carId: uuid,
+    veiculo: label,
+    fotos: z.array(uuid).min(1).max(MAX_PHOTOS),
+    ficha: z.object({
+      titulo: label,
+      matricula: z.string().max(20),
+      ano: z.number().int().nullable(),
+      preco: z.number().nullable(),
+      estado: z.string().min(1).max(20),
+      existentes: z.number().int().min(0),
+      semCapa: z.boolean(),
+    }),
   }),
 ]);

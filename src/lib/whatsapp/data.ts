@@ -32,6 +32,7 @@ const BLOCKED_TABLES = new Set([
   "wa_messages",
   "wa_pending_actions",
   "wa_conversation",
+  "wa_media",
 ]);
 /** E qualquer tabela futura com nome de segredo. */
 const BLOCKED_TABLE = /(secret|token|credential|password|connection)/i;

@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { processNotificationJobs } from "@/lib/notifications";
 import { refreshIfNeeded } from "@/lib/olx/client";
 import { refreshStats, syncPending } from "@/lib/olx/sync";
+import { pruneWaMedia } from "@/lib/whatsapp/photos";
 export const runtime = "nodejs";
 export async function POST(request: Request) {
   const secret = process.env.MAINTENANCE_SECRET;
@@ -28,6 +29,9 @@ export async function POST(request: Request) {
   // Mensagens do WhatsApp já vistas (7 dias) e propostas resolvidas (1 dia).
   // A expiração das propostas é decidida no código; isto só recupera espaço.
   await db.rpc("prune_whatsapp");
+  // Fotografias do WhatsApp por juntar há mais de dois dias, com os ficheiros
+  // (0039). Nunca lança.
+  await pruneWaMedia(db);
   // OLX: mantém o token vivo, repete as sincronizações que falharam e
   // atualiza as estatísticas dos anúncios. Uma falha do OLX não pode fazer
   // falhar a manutenção do resto.

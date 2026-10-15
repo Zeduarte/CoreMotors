@@ -4,6 +4,7 @@ import { PendingActionSchema, type PendingAction } from "@/lib/whatsapp/actions"
 import { isUsable } from "@/lib/whatsapp/confirm";
 import { previewCard, type PreviewCard, type PreviewField } from "@/lib/whatsapp/describe";
 import { previewSecret, verifyPreview } from "@/lib/whatsapp/preview-link";
+import { photoThumbnails } from "@/lib/whatsapp/thumbnails";
 
 /**
  * O que a rota da imagem (`/api/whatsapp/preview/[id]`) precisa, sem o
@@ -48,8 +49,12 @@ export async function loadPreview(
       .select("company_name,accent")
       .eq("id", 1)
       .maybeSingle();
+    const action = parsed.data as PendingAction;
+    const card = previewCard(action);
+    // As fotografias a juntar, desenhadas a partir do bucket privado (0039).
+    if (action.kind === "add_car_media") card.photos = await photoThumbnails(db, action.fotos, MAX_THUMBS);
     return {
-      card: safeCard(previewCard(parsed.data as PendingAction)),
+      card: safeCard(card),
       companyName: imageText(brand?.company_name || "Backoffice", 60),
       accent: /^#[0-9a-f]{6}$/i.test(brand?.accent ?? "") ? brand!.accent : DEFAULT_ACCENT,
     };
@@ -76,7 +81,10 @@ export function imageText(value: string, max: number): string {
 const MAX_VALUE = 260;
 
 function safeCard(card: PreviewCard): PreviewCard {
+  // Só miniaturas geradas por nós (JPEG em base64): nada que o motor vá buscar à rede.
+  const photos = card.photos?.filter((p) => /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(p));
   return {
+    ...(photos?.length ? { photos } : {}),
     title: imageText(card.title, 60),
     subject: imageText(card.subject, 90),
     fields: card.fields.map((f) => ({
@@ -102,6 +110,19 @@ export const HALF_W = (IMAGE_WIDTH - 2 * PAD - ROW_GAP) / 2;
 /** Caracteres por linha, por baixo (a letra varia): mais linhas = nunca cortado. */
 const CHARS_FULL = 48;
 const CHARS_HALF = 20;
+
+/** Miniaturas das fotografias: quatro por linha, no máximo três linhas. */
+export const PHOTO_COLS = 4;
+export const PHOTO_GAP = 16;
+export const MAX_THUMBS = 12;
+export const PHOTO_SIZE = Math.floor((IMAGE_WIDTH - 2 * PAD - (PHOTO_COLS - 1) * PHOTO_GAP) / PHOTO_COLS);
+
+/** Altura do bloco das miniaturas (rótulo incluído), ou 0. */
+export function photosHeight(count: number): number {
+  if (!count) return 0;
+  const rows = Math.ceil(Math.min(count, MAX_THUMBS) / PHOTO_COLS);
+  return 28 + 10 + rows * PHOTO_SIZE + (rows - 1) * PHOTO_GAP + ROW_GAP;
+}
 
 export type PreviewRow =
   | { kind: "pair"; fields: PreviewField[] }
@@ -149,6 +170,7 @@ export function layoutPreview(card: PreviewCard): { rows: PreviewRow[]; height: 
     // Uma alteração leva por cima de cada caixa «Atual» / «Novo».
     height += box(n) + ROW_GAP + (row.kind === "change" ? CAPTION_H : 0);
   }
+  height += photosHeight(card.photos?.length ?? 0);
   height += 36 + 2 + 28 + 44 + 10 + 30 + 40; // rodapé e folga
   return { rows, height: Math.min(2800, Math.ceil(height)) };
 }

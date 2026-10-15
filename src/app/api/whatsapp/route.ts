@@ -106,14 +106,24 @@ export async function POST(request: Request) {
   // (já aconteceu em produção) dava imagens num domínio que não as serve.
   const origin = new URL(request.url).origin;
 
-  for (const msg of messages) {
+  const one = async (msg: InboundMessage) => {
     try {
       await processOne(db, msg, number, origin);
     } catch (error) {
       // Uma mensagem que falha não pode impedir as outras nem mudar o 200.
       console.error("api/whatsapp:", error);
     }
-  }
+  };
+  // As fotografias de uma rajada podem vir no mesmo pedido: cada uma espera
+  // um instante para ver se é a última (photos.ts), por isso correm ao mesmo
+  // tempo — em fila, a espera somava-se. O texto continua por ordem.
+  const photos = messages.filter((m) => m.media);
+  await Promise.all([
+    (async () => {
+      for (const msg of messages) if (!msg.media) await one(msg);
+    })(),
+    ...photos.map(one),
+  ]);
   return NextResponse.json({ ok: true });
 }
 
@@ -198,9 +208,10 @@ async function processOne(
         })
       : null;
     result = await handleInbound(
-      { from: msg.from, text: msg.text, type: msg.type },
+      { from: msg.from, text: msg.text, type: msg.type, ...(msg.media ? { media: msg.media } : {}) },
       toActor(profile),
-      { db, anthropic, origin },
+      // O número também serve para descarregar as fotografias (photos.ts).
+      { db, anthropic, origin, number },
     );
   } catch (error) {
     // `publicSubmissionClient` lança quando a quota se esgota.

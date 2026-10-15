@@ -44,10 +44,20 @@ import { vehicleSlug } from "@/lib/slug";
 import { rankVehicles, type Candidate } from "@/lib/whatsapp/match";
 import { previewUrl } from "@/lib/whatsapp/preview-link";
 import { REPLIES, SECTION_LABEL } from "@/lib/whatsapp/replies";
-import { WA_RULES, buildActorContext, buildSchemaContext } from "@/lib/whatsapp/prompt";
+import { WA_PHOTO_RULES, WA_RULES, buildActorContext, buildSchemaContext } from "@/lib/whatsapp/prompt";
 import { PROPOSAL_SCHEMA, PROPOSAL_TOOLS, TOOL, WA_TOOLS } from "@/lib/whatsapp/tools";
 import { describeSchema, loadSchema, runQuery, type Schema } from "@/lib/whatsapp/data";
 import { loadMemory, remember } from "@/lib/whatsapp/memory";
+import type { WhatsAppNumber } from "@/lib/whatsapp/account";
+import type { InboundMedia } from "@/lib/whatsapp/payload";
+import {
+  PHOTO_REPLIES,
+  attachPhotos,
+  discardPhotos,
+  photosWaitingNote,
+  receivePhoto,
+  runPhotoProposal,
+} from "@/lib/whatsapp/photos";
 
 /**
  * O percurso completo de uma mensagem, com as dependências injectadas.
@@ -99,6 +109,7 @@ const TOOL_SECTION: Record<string, string> = {
   [TOOL.assignLead]: "leads",
   [TOOL.leadNote]: "leads",
   [TOOL.testimonial]: "testemunhos",
+  [TOOL.photos]: "carros",
 };
 
 export interface Actor {
@@ -123,6 +134,10 @@ export interface HandleDeps {
    * Sem isto não há imagem — só o texto, como antes.
    */
   origin?: string;
+  /** Para descarregar as fotografias da Meta (o número ligado e o token). */
+  number?: WhatsAppNumber | null;
+  /** A espera da rajada de fotografias (photos.ts). Os testes passam uma curta. */
+  wait?: (ms: number) => Promise<void>;
 }
 
 export interface Inbound {
@@ -130,6 +145,8 @@ export interface Inbound {
   from: string;
   text: string;
   type: string;
+  /** Uma fotografia (image, ou document de imagem), com a legenda. */
+  media?: InboundMedia;
 }
 
 export interface HandleResult {
@@ -179,6 +196,7 @@ export async function handleInbound(
   actor: Actor,
   deps: HandleDeps,
 ): Promise<HandleResult> {
+  if (msg.media) return handlePhoto({ ...msg, media: msg.media }, actor, deps);
   const result = await respond(msg, actor, deps);
   // A memória guarda o que a pessoa escreveu e o que leu — nada mais.
   if (result.reply && msg.type === "text" && msg.text.trim()) {
@@ -211,6 +229,11 @@ async function respond(
       return executePending(pending, actor, deps);
     } else if (resposta === "no") {
       await settle(deps.db, pending.id, "cancelled");
+      // Fotografias recusadas: os ficheiros saem já do bucket privado.
+      if (pending.kind === "add_car_media") {
+        const fotos = (pending.payload as { fotos?: unknown } | null)?.fotos;
+        await discardPhotos(deps.db, Array.isArray(fotos) ? fotos.filter((f) => typeof f === "string") : []);
+      }
       return { reply: REPLIES.cancelado, wrote: false };
     } else {
       // Qualquer outra coisa é um pedido novo — incluindo "sim, mas muda para
@@ -272,6 +295,7 @@ const ON_EXISTING_VEHICLE = new Set<PendingAction["kind"]>([
   "log_hours",
   "update_car",
   "set_car_status",
+  "add_car_media",
 ]);
 
 /**
@@ -282,6 +306,7 @@ const ON_EXISTING_VEHICLE = new Set<PendingAction["kind"]>([
 function failureReply(action: PendingAction, message: string): string {
   if (/Termine a reserva/i.test(message)) return REPLIES.reservaAtiva;
   if (/Já está nesse estado/i.test(message)) return REPLIES.jaEstava;
+  if (/Fotografia indisponível/i.test(message)) return PHOTO_REPLIES.indisponiveis;
   if (/A venda já está concluída/i.test(message))
     return "A venda deste contacto já está concluída. Isso já não se altera.";
   if (/Ficha incompleta|Preço em falta|Estado atual não se altera/i.test(message))
@@ -419,6 +444,9 @@ function callWrite(db: HandleDeps["db"], actor: string, action: PendingAction) {
         testimonial: action.testimonialId,
         publish: action.publicar,
       });
+    case "add_car_media":
+      // Os ficheiros são copiados primeiro; a RPC wa_add_car_media autoriza e regista.
+      return attachPhotos(db, actor, action);
   }
 }
 
@@ -460,6 +488,7 @@ async function interpret(
   // da pessoa (nome, data de hoje) muda e vai depois.
   const system: Anthropic.TextBlockParam[] = [
     { type: "text", text: WA_RULES },
+    { type: "text", text: WA_PHOTO_RULES },
     {
       type: "text",
       text: buildSchemaContext(describeSchema(schema)),
@@ -477,6 +506,10 @@ async function interpret(
       }),
     },
   ];
+
+  // Fotografias à espera de viatura: o modelo tem de saber que existem.
+  const fotos = await photosWaitingNote(deps.db, msg.from, now);
+  if (fotos) system.push({ type: "text", text: fotos });
 
   // As mensagens anteriores (só texto) e depois a nova.
   const conversation: Anthropic.MessageParam[] = [
@@ -524,6 +557,13 @@ async function interpret(
         const needed = TOOL_SECTION[use.name];
         if (needed && !actor.secoes.includes(needed)) {
           refusal = REPLIES.semSecao(SECTION_LABEL[needed] ?? needed);
+          continue;
+        }
+        if (use.name === TOOL.photos) {
+          const outcome = await runPhotoProposal(use.input, refs.vehicles, actor, msg.from, deps.db, now);
+          if ("action" in outcome) proposal = outcome.action;
+          else if ("refusal" in outcome) refusal = outcome.refusal;
+          else results.push({ type: "tool_result", tool_use_id: use.id, ...outcome.result });
           continue;
         }
         if (PROPOSAL_TOOLS.includes(use.name)) {
@@ -873,6 +913,52 @@ async function storePending(
     return null;
   }
   return id;
+}
+
+// ---------------------------------------------------------------------------
+// Fotografias
+// ---------------------------------------------------------------------------
+
+/**
+ * Uma fotografia: guarda-se (photos.ts) e, se for a última da rajada, propõe-se
+ * juntá-las a uma viatura — ou pergunta-se a qual, ou o modelo descobre. A
+ * memória da conversa fica com «[4 fotografias recebidas]» e a resposta, para
+ * a resposta seguinte da pessoa («o preto») se perceber.
+ */
+async function handlePhoto(
+  msg: Inbound & { media: InboundMedia },
+  actor: Actor,
+  deps: HandleDeps,
+): Promise<HandleResult> {
+  const now = deps.now ?? new Date();
+  const outcome = await receivePhoto({ from: msg.from, media: msg.media }, actor, deps, now);
+  let result: HandleResult;
+  let memory: string | undefined;
+  if ("ask" in outcome) {
+    memory = outcome.memory;
+    result = await interpret({ from: msg.from, text: outcome.ask, type: "text" }, actor, deps, now);
+  } else if ("action" in outcome) {
+    memory = outcome.memory;
+    const id = await storePending(deps.db, actor.id, msg.from, outcome.action);
+    result = id ? proposalResult(outcome.action, id, deps, now) : { reply: REPLIES.falhou, wrote: false };
+  } else if ("updated" in outcome) {
+    result = proposalResult(outcome.updated.action, outcome.updated.id, deps, now);
+  } else {
+    memory = outcome.memory;
+    result = { reply: outcome.reply, wrote: false };
+  }
+  if (result.reply && memory) await remember(deps.db, msg.from, memory, result.reply);
+  return result;
+}
+
+/** A pergunta de uma proposta guardada, com a imagem quando há origem. */
+function proposalResult(action: PendingAction, id: string, deps: HandleDeps, now: Date): HandleResult {
+  const url = deps.origin === undefined ? null : previewUrl(deps.origin, id, now);
+  return {
+    reply: confirmationMessage(action),
+    wrote: false,
+    ...(url ? { image: { url, pendingId: id } } : {}),
+  };
 }
 
 export { SECTION_LABEL };

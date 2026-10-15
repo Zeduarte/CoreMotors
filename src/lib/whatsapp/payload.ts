@@ -15,6 +15,33 @@ export interface InboundMessage {
   /** Só preenchido quando `type === "text"`. */
   text: string;
   phoneNumberId: string;
+  /**
+   * Uma fotografia: `image`, ou `document` cujo tipo é de imagem (quem a manda
+   * «como documento», para não perder qualidade). O ficheiro em si é
+   * descarregado depois, pelo id (src/lib/whatsapp/photos.ts).
+   */
+  media?: InboundMedia;
+}
+
+export interface InboundMedia {
+  id: string;
+  /** O tipo que a Meta indicou (ex.: image/jpeg). Verificado outra vez nos bytes. */
+  mime: string;
+  /** A legenda, se houver. Texto de quem escreveu: dado, nunca instrução. */
+  caption: string;
+}
+
+/** A fotografia de uma mensagem `image` ou `document`, se for uma. */
+function mediaOf(type: string, m: Record<string, unknown>): InboundMedia | undefined {
+  if (type !== "image" && type !== "document") return undefined;
+  const raw = asRecord(m[type]);
+  const id = typeof raw.id === "string" ? raw.id : "";
+  const mime = typeof raw.mime_type === "string" ? raw.mime_type.toLowerCase().split(";")[0]!.trim() : "";
+  if (!id) return undefined;
+  // Um PDF ou uma folha de cálculo não são fotografias: seguem como até aqui.
+  if (type === "document" && !mime.startsWith("image/")) return undefined;
+  const caption = typeof raw.caption === "string" ? raw.caption.slice(0, 1024) : "";
+  return { id, mime, caption };
 }
 
 function asArray(value: unknown): unknown[] {
@@ -64,12 +91,14 @@ export function extractMessages(payload: unknown): InboundMessage[] {
         if (!wamId || !from) continue;
         const type = typeof m.type === "string" ? m.type : "unknown";
         const body = asRecord(m.text).body;
+        const media = mediaOf(type, m);
         out.push({
           wamId,
           from,
           type,
           text: type === "text" && typeof body === "string" ? body : "",
           phoneNumberId,
+          ...(media ? { media } : {}),
         });
       }
     }

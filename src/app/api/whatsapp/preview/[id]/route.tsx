@@ -7,6 +7,8 @@ import {
   IMAGE_WIDTH,
   LINE_H,
   PAD,
+  PHOTO_GAP,
+  PHOTO_SIZE,
   ROW_GAP,
   layoutPreview,
   loadPreview,
@@ -89,6 +91,8 @@ export async function GET(
           ))}
         </div>
 
+        {data.card.photos?.length ? <Photos photos={data.card.photos} total={data.card.fields} /> : null}
+
         <div
           style={{
             display: "flex",
@@ -108,6 +112,34 @@ export async function GET(
       </div>
     ),
     { width: IMAGE_WIDTH, height, headers: NO_STORE },
+  );
+}
+
+/**
+ * As fotografias a juntar, como vão ficar: miniaturas geradas no servidor a
+ * partir do bucket privado (nunca um link para ele).
+ */
+function Photos({ photos, total }: { photos: string[]; total: PreviewField[] }) {
+  const novas = Number(total.find((f) => f.label === "Fotografias novas")?.value ?? photos.length);
+  const titulo =
+    novas > photos.length ? `Fotografias a juntar (${photos.length} de ${novas})` : "Fotografias a juntar";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", marginTop: ROW_GAP }}>
+      <Label text={titulo} />
+      <div style={{ display: "flex", flexWrap: "wrap", gap: PHOTO_GAP }}>
+        {photos.map((src, i) => (
+          // eslint-disable-next-line @next/next/no-img-element -- o next/og só desenha <img>.
+          <img
+            key={i}
+            src={src}
+            width={PHOTO_SIZE}
+            height={PHOTO_SIZE}
+            alt=""
+            style={{ width: PHOTO_SIZE, height: PHOTO_SIZE, borderRadius: 14, objectFit: "cover" }}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 

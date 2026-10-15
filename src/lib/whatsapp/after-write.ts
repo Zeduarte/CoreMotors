@@ -32,7 +32,9 @@ export async function afterWrite(changed: NonNullable<HandleResult["changed"]>):
         break;
       case "update_car":
       case "set_car_status":
-        // Preço, km, texto e estado aparecem no site e nos portais.
+      case "add_car_media":
+        // Preço, km, texto, estado e fotografias aparecem no site e nos portais
+        // (como `updateCar` e `registerMedia` no backoffice).
         revalidateTag(PUBLIC_DATA_TAG);
         revalidatePath("/", "layout");
         if (changed.carId) await queueOlxSync([changed.carId]);
