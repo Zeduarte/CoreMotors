@@ -410,6 +410,23 @@ await test('the WhatsApp number token is unreachable from any logged-in session'
  });
 });
 
+await test('the WhatsApp conversation memory is server-only and short-lived',async()=>{
+ // Mensagens de colaboradores: nenhuma sessão as lê pela API, nem um administrador.
+ await asUser(admin,async()=>assert.rejects(db.query('select * from public.wa_conversation'),/permission denied/));
+ await asServer(async()=>{
+  await db.query(`insert into wa_conversation(from_phone,role,content,created_at) values
+   ('351916193337','user','quanto gastei no bmw?',now()-interval '3 days'),
+   ('351916193337','assistant','Qual BMW?',now())`);
+  await assert.rejects(db.query("insert into wa_conversation(from_phone,role,content) values('1','system','x')"),/check/i);
+  await assert.rejects(db.query("insert into wa_conversation(from_phone,role,content) values('1','user','')"),/check/i);
+  // A limpeza da manutenção apaga o que tem mais de dois dias.
+  await db.query('select public.prune_whatsapp()');
+  const left=(await db.query('select content from wa_conversation')).rows.map(r=>r.content);
+  assert.deepEqual(left,['Qual BMW?']);
+  await db.query('delete from wa_conversation');
+ });
+});
+
 await test('OLX tokens and cache are unreachable from any logged-in session',async()=>{
  // Os tokens dão acesso total à conta do OLX do stand: nem um administrador
  // os pode ler pela API.

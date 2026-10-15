@@ -248,6 +248,17 @@ await test('a refused reply says why, in Meta\'s words, without the token',async
  assert.doesNotMatch(r.error,new RegExp(TOKEN));
 });
 
+await test('the person sees the message read and "typing…" while the assistant thinks',async()=>{
+ reset();
+ const {markReadAndTyping}=load('src/lib/whatsapp/send.ts');
+ const numero={phoneNumberId:'222',accessToken:TOKEN,source:'variaveis'};
+ assert.deepEqual(await markReadAndTyping('wamid.ABC',numero),{ok:true});
+ assert.deepEqual(meta.sent,[{id:'222',messaging_product:'whatsapp',status:'read',message_id:'wamid.ABC',typing_indicator:{type:'text'}}]);
+ // Sem token não se tenta nada.
+ assert.equal((await markReadAndTyping('wamid.ABC',{phoneNumberId:'222',accessToken:null,source:'variaveis'})).ok,false);
+ assert.equal(meta.sent.length,1);
+});
+
 await test('disconnecting forgets the number here',async()=>{
  const db=makeDb([{id:1,waba_id:'111',phone_number_id:'222',access_token:TOKEN}]);
  assert.deepEqual(await disconnectAccount(db),{ok:true});

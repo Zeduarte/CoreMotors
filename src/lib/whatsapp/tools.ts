@@ -25,6 +25,7 @@ import {
 export const TOOL = {
   search: "procurar_viatura",
   summary: "resumo_viatura",
+  query: "consultar_dados",
   register: "propor_registo_viatura",
   cost: "propor_despesa",
   hours: "propor_horas",
@@ -74,6 +75,60 @@ export const WA_TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: { viatura: viaturaProp },
       required: ["viatura"],
+    },
+  },
+  {
+    name: TOOL.query,
+    description:
+      "Lê qualquer dado do stand: viaturas (cars), fotos, contactos/leads, " +
+      "propostas, reservas, oficina, custos, horas, testemunhos, utilizadores, " +
+      "definições, estatísticas… As tabelas e colunas estão no contexto. Só " +
+      "leitura. Usa filtros em vez de trazer tudo; para totais usa agregar. " +
+      "Valores de texto comparam-se com 'contem' (sem distinguir maiúsculas).",
+    input_schema: {
+      type: "object",
+      properties: {
+        tabela: { type: "string", description: "Nome da tabela, ex.: cars." },
+        colunas: {
+          type: "array",
+          items: { type: "string" },
+          description: "Colunas a devolver. Omite para todas.",
+        },
+        filtros: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              coluna: { type: "string" },
+              op: {
+                type: "string",
+                enum: ["eq", "neq", "gt", "gte", "lt", "lte", "contem", "em", "vazio", "preenchido"],
+              },
+              valor: {
+                description: "Texto, número ou booleano; para 'em', uma lista.",
+              },
+            },
+            required: ["coluna", "op"],
+          },
+        },
+        ordenar: {
+          type: "object",
+          properties: { coluna: { type: "string" }, descendente: { type: "boolean" } },
+          required: ["coluna"],
+        },
+        limite: { type: "integer", description: "1 a 50; por defeito 20." },
+        agregar: {
+          type: "object",
+          description: "Em vez de linhas, um número: contar, somar, media, minimo, maximo.",
+          properties: {
+            funcao: { type: "string", enum: ["contar", "somar", "media", "minimo", "maximo"] },
+            coluna: { type: "string", description: "Obrigatória exceto para contar." },
+            agrupar_por: { type: "string", description: "Coluna para agrupar o resultado." },
+          },
+          required: ["funcao"],
+        },
+      },
+      required: ["tabela"],
     },
   },
   {

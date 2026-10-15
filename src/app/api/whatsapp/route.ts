@@ -6,7 +6,7 @@ import { whatsAppNumber, type WhatsAppNumber } from "@/lib/whatsapp/account";
 import { handleInbound, toActor } from "@/lib/whatsapp/handle";
 import { extractMessages, type InboundMessage } from "@/lib/whatsapp/payload";
 import { REPLIES } from "@/lib/whatsapp/replies";
-import { sendWhatsAppText } from "@/lib/whatsapp/send";
+import { markReadAndTyping, sendWhatsAppText } from "@/lib/whatsapp/send";
 import { verifyChallenge, verifySignature } from "@/lib/whatsapp/signature";
 
 export const runtime = "nodejs";
@@ -169,6 +169,10 @@ async function processOne(
     await finish({ actor_id: null, last_error: "perfil não encontrado" });
     return;
   }
+
+  // Lida e «a escrever…» enquanto o assistente pensa. Só depois de se saber
+  // quem é: a um número desconhecido não se mostra nem os vistos.
+  await markReadAndTyping(msg.wamId, number);
 
   let reply: string | null;
   try {

@@ -227,13 +227,20 @@ await test('permissions are enforced with our own words, before any write',async
  assert.equal(db._pendentes.length,0);
 });
 
-await test('a person with neither section is turned away without spending a token',async()=>{
+await test('anyone recognised can ask, but writing still needs the section',async()=>{
+ // Decisão do dono: qualquer colaborador reconhecido pode perguntar. Escrever
+ // continua a exigir Oficina ou Custos e margens — e quem diz que não é o
+ // nosso código, não o modelo.
  const db=fakeDb();
- const ia=fakeAnthropic([]);
  const vendedor=toActor({id:'cccccccc-0000-4000-8000-000000000003',full_name:'Carla',role:'vendedor'});
- const r=await handleInbound({from:TELEFONE,text:'despesa de 450',type:'text'},vendedor,{db,anthropic:ia});
- assert.match(r.reply,/Oficina ou Custos e margens/);
- assert.equal(ia.chamadas,0);
+ const ia=fakeAnthropic([
+  usaFerramenta('procurar_viatura',{texto:'bmw 320 preto'}),
+  usaFerramenta('propor_despesa',{viatura:'V1',categoria:'parts',valor:450,descricao:'Embraiagem'}),
+ ]);
+ const r=await handleInbound({from:TELEFONE,text:'despesa de 450 no bmw 320 preto',type:'text'},vendedor,{db,anthropic:ia});
+ assert.match(r.reply,/Não tem acesso a Custos e margens/);
+ assert.equal(db._pendentes.length,0,'nada fica à espera de confirmação');
+ assert.equal(db.escritas().length,0);
 });
 
 await test('the channel degrades cleanly when the model is missing or failing',async()=>{

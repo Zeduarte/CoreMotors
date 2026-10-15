@@ -21,17 +21,14 @@ export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
   const signup = embeddedSignup();
   const numeroNasVariaveis = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
 
-  // Quem pode dar ordens: tem telefone no perfil e uma das duas secções.
+  // Quem pode usar o assistente: qualquer colaborador com telefone no perfil
+  // pode consultar; registar exige Oficina ou Custos e margens.
   const db = await createClient();
   const { data: perfis } = await db
     .from("profiles")
     .select("id,full_name,role,phone,allowed_sections")
     .order("full_name");
   const ligados = (perfis ?? [])
-    .filter((p) => {
-      const secoes = effectiveSections(p.role, p.allowed_sections);
-      return secoes.includes("oficina") || secoes.includes("financeiro");
-    })
     .map((p) => ({
       nome: p.full_name?.trim() || "Sem nome",
       telefone: p.phone?.trim() ?? "",
@@ -178,16 +175,18 @@ export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
       {/* Quem pode dar ordens */}
       <div>
         <h3 className="text-sm font-semibold uppercase tracking-wider text-paper/50">
-          Quem pode dar ordens
+          Quem pode usar o assistente
         </h3>
         <p className="mt-1 text-xs text-paper/50">
-          É o telefone do perfil que identifica a pessoa. Sem telefone, as
-          mensagens dela são ignoradas.
+          É o telefone do perfil que identifica a pessoa. Com telefone, qualquer
+          colaborador pode consultar dados; registar despesas, horas ou viaturas
+          exige Oficina ou Custos e margens. Sem telefone, as mensagens dela são
+          ignoradas.
         </p>
         <ul className="mt-3 space-y-2 text-sm">
           {ligados.length === 0 && (
             <li className="text-paper/50">
-              Ninguém com acesso à Oficina ou a Custos e margens.
+              Ainda não há colaboradores.
             </li>
           )}
           {ligados.map((p) => (
@@ -197,7 +196,9 @@ export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
             >
               <span className="text-paper">{p.nome}</span>
               <span className="text-paper/60">
-                {p.secoes.map((s) => (s === "oficina" ? "Oficina" : "Custos")).join(" + ")}
+                {p.secoes.length
+                  ? `Consulta + ${p.secoes.map((s) => (s === "oficina" ? "Oficina" : "Custos")).join(" + ")}`
+                  : "Só consulta"}
                 {" · "}
                 {p.telefone ? (
                   p.telefone

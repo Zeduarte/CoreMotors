@@ -48,6 +48,8 @@ from (values
     exists (select 1 from information_schema.columns
             where table_schema = 'public' and table_name = 'cars' and column_name = 'badges')),
   ('0035_whatsapp_connection',
-    to_regclass('public.whatsapp_connection') is not null)
+    to_regclass('public.whatsapp_connection') is not null),
+  ('0037_wa_conversation',
+    to_regclass('public.wa_conversation') is not null)
 ) as m(migracao, aplicada)
 order by migracao;

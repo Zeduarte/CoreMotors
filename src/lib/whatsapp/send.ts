@@ -45,6 +45,44 @@ async function graphError(response: Response): Promise<string> {
   }
 }
 
+/**
+ * Os dois vistos azuis e o «a escrever…» na conversa da pessoa, enquanto o
+ * assistente pensa — como numa conversa com alguém que está a responder. A Meta
+ * mostra o indicador até chegar a resposta (ou 25 segundos). Nunca lança: sem
+ * indicador, a resposta chega na mesma.
+ */
+export async function markReadAndTyping(
+  messageId: string,
+  number: WhatsAppNumber | null,
+): Promise<SendResult> {
+  if (!number?.accessToken) return { ok: false, error: "WhatsApp não configurado" };
+  try {
+    const response = await fetch(
+      `${graphBase()}/${graphVersion()}/${encodeURIComponent(number.phoneNumberId)}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${number.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          status: "read",
+          message_id: messageId,
+          typing_indicator: { type: "text" },
+        }),
+        // Curto: é só um sinal, não pode atrasar a resposta.
+        signal: AbortSignal.timeout(3000),
+        redirect: "error",
+      },
+    );
+    if (!response.ok) return { ok: false, error: await graphError(response) };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message.slice(0, 200) : "Falha no envio" };
+  }
+}
+
 export async function sendWhatsAppText(
   to: string,
   body: string,

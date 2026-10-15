@@ -9,8 +9,10 @@ import { confirmationMessage, formatMoney, receiptMessage, vehicleLabel } from "
 import { formatPlate } from "@/lib/plate";
 import { rankVehicles, type Candidate } from "@/lib/whatsapp/match";
 import { REPLIES, SECTION_LABEL } from "@/lib/whatsapp/replies";
-import { WA_RULES, buildActorContext } from "@/lib/whatsapp/prompt";
+import { WA_RULES, buildActorContext, buildSchemaContext } from "@/lib/whatsapp/prompt";
 import { PROPOSAL_SCHEMA, PROPOSAL_TOOLS, TOOL, WA_TOOLS } from "@/lib/whatsapp/tools";
+import { describeSchema, loadSchema, runQuery, type Schema } from "@/lib/whatsapp/data";
+import { loadMemory, remember } from "@/lib/whatsapp/memory";
 
 /**
  * O percurso completo de uma mensagem, com as dependências injectadas.
@@ -24,10 +26,13 @@ import { PROPOSAL_SCHEMA, PROPOSAL_TOOLS, TOOL, WA_TOOLS } from "@/lib/whatsapp/
 const MODEL = "claude-haiku-5-5";
 // O Haiku 5.5 pensa por defeito e o pensamento conta para o limite.
 const MAX_TOKENS = 1024;
-/** Uma resposta precisa de uma procura; 3 dá folga sem permitir um ciclo caro. */
-const MAX_TOOL_ROUNDS = 3;
-/** O WhatsApp não é sítio para parágrafos. */
-const MAX_REPLY = 600;
+/**
+ * Uma consulta pode precisar de duas ou três leituras (procurar, depois somar);
+ * 5 dá folga sem permitir um ciclo caro nem passar o tempo da função.
+ */
+const MAX_TOOL_ROUNDS = 5;
+/** Curto, mas uma lista de viaturas tem de caber (o WhatsApp aceita 4096). */
+const MAX_REPLY = 1500;
 const TIMEOUT_MS = 8000;
 /** Quantas candidatas se mostram quando há ambiguidade. */
 const MAX_CANDIDATES = 5;
@@ -56,6 +61,8 @@ export interface HandleDeps {
   /** `null` quando a chave da Anthropic não está configurada. */
   anthropic: Anthropic | null;
   now?: Date;
+  /** As tabelas que se podem consultar. Por defeito lidas da base (data.ts). */
+  schema?: () => Promise<Schema | null>;
 }
 
 export interface Inbound {
@@ -89,7 +96,11 @@ export function toActor(profile: {
   };
 }
 
-/** Uma pessoa sem Oficina nem Custos e margens não tem nada a fazer aqui. */
+/**
+ * Pode dar ordens de escrita (oficina, custos, horas)? Perguntar, qualquer
+ * colaborador reconhecido pode; escrever exige uma das duas secções, e cada
+ * acção volta a verificar a sua em actions.ts e no SQL.
+ */
 export function actorCanOrder(actor: Actor): boolean {
   return actor.secoes.includes("oficina") || actor.secoes.includes("financeiro");
 }
@@ -99,13 +110,23 @@ export async function handleInbound(
   actor: Actor,
   deps: HandleDeps,
 ): Promise<HandleResult> {
+  const result = await respond(msg, actor, deps);
+  // A memória guarda o que a pessoa escreveu e o que leu — nada mais.
+  if (result.reply && msg.type === "text" && msg.text.trim()) {
+    await remember(deps.db, msg.from, msg.text.trim(), result.reply);
+  }
+  return result;
+}
+
+async function respond(
+  msg: Inbound,
+  actor: Actor,
+  deps: HandleDeps,
+): Promise<HandleResult> {
   const now = deps.now ?? new Date();
 
   if (msg.type !== "text" || !msg.text.trim()) {
     return { reply: REPLIES.soTexto, wrote: false };
-  }
-  if (!actorCanOrder(actor)) {
-    return { reply: REPLIES.semSecao("Oficina ou Custos e margens"), wrote: false };
   }
 
   const pending = await openPending(deps.db, msg.from);
@@ -254,9 +275,17 @@ async function interpret(
 ): Promise<HandleResult> {
   if (!deps.anthropic) return { reply: REPLIES.semAssistente, wrote: false };
   const hoje = isoDay(now);
+  const schema = await (deps.schema ?? loadSchema)();
 
+  // Regras e esquema mudam raramente: ficam antes do ponto de cache. O contexto
+  // da pessoa (nome, data de hoje) muda e vai depois.
   const system: Anthropic.TextBlockParam[] = [
-    { type: "text", text: WA_RULES, cache_control: { type: "ephemeral" } },
+    { type: "text", text: WA_RULES },
+    {
+      type: "text",
+      text: buildSchemaContext(describeSchema(schema)),
+      cache_control: { type: "ephemeral" },
+    },
     {
       type: "text",
       text: buildActorContext({
@@ -270,7 +299,9 @@ async function interpret(
     },
   ];
 
+  // As mensagens anteriores (só texto) e depois a nova.
   const conversation: Anthropic.MessageParam[] = [
+    ...(await loadMemory(deps.db, msg.from, now)),
     { role: "user", content: msg.text },
   ];
 
@@ -312,6 +343,14 @@ async function interpret(
           if ("action" in outcome) proposal = outcome.action;
           else if ("refusal" in outcome) refusal = outcome.refusal;
           else results.push({ type: "tool_result", tool_use_id: use.id, ...outcome.result });
+          continue;
+        }
+        if (use.name === TOOL.query) {
+          results.push({
+            type: "tool_result",
+            tool_use_id: use.id,
+            ...(await runQuery(deps.db, use.input, schema)),
+          });
           continue;
         }
         if (frota === null) frota = await loadFleet(deps.db, actor.id);
