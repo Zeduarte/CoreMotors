@@ -1,5 +1,6 @@
 import "server-only";
 import { revalidatePath, revalidateTag } from "next/cache";
+import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 import { queueOlxSync } from "@/lib/olx/queue";
 import { PUBLIC_DATA_TAG } from "@/lib/public-cache";
 import type { HandleResult } from "@/lib/whatsapp/handle";
@@ -47,6 +48,9 @@ export async function afterWrite(changed: NonNullable<HandleResult["changed"]>):
         revalidatePath("/", "layout");
         break;
     }
+    // Uma viatura criada, publicada ou dada como pronta agenda avisos à
+    // equipa (migração 0036): seguem já, como depois de gravar no backoffice.
+    deliverNotificationsSoon();
   } catch (error) {
     console.error("whatsapp afterWrite:", error);
   }
