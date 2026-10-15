@@ -48,6 +48,13 @@ import { WA_RULES, buildActorContext, buildSchemaContext } from "@/lib/whatsapp/
 import { PROPOSAL_SCHEMA, PROPOSAL_TOOLS, TOOL, WA_TOOLS } from "@/lib/whatsapp/tools";
 import { describeSchema, loadSchema, runQuery, type Schema } from "@/lib/whatsapp/data";
 import { loadMemory, remember } from "@/lib/whatsapp/memory";
+import {
+  isSiteKind,
+  proposeSiteChange,
+  readSite,
+  siteFailureReply,
+  writeSiteChange,
+} from "@/lib/whatsapp/site";
 
 /**
  * O percurso completo de uma mensagem, com as dependências injectadas.
@@ -169,7 +176,7 @@ export function toActor(profile: {
  * verificar a sua em actions.ts e no SQL.
  */
 export function actorCanOrder(actor: Actor): boolean {
-  return ["oficina", "financeiro", "carros", "leads", "testemunhos"].some((s) =>
+  return ["oficina", "financeiro", "carros", "leads", "testemunhos", "pagina-inicial", "definicoes"].some((s) =>
     actor.secoes.includes(s),
   );
 }
@@ -280,6 +287,7 @@ const ON_EXISTING_VEHICLE = new Set<PendingAction["kind"]>([
  * A pessoa lê uma frase nossa, nunca o erro do SQL.
  */
 function failureReply(action: PendingAction, message: string): string {
+  if (isSiteKind(action.kind)) return siteFailureReply(message);
   if (/Termine a reserva/i.test(message)) return REPLIES.reservaAtiva;
   if (/Já está nesse estado/i.test(message)) return REPLIES.jaEstava;
   if (/A venda já está concluída/i.test(message))
@@ -419,6 +427,12 @@ function callWrite(db: HandleDeps["db"], actor: string, action: PendingAction) {
         testimonial: action.testimonialId,
         publish: action.publicar,
       });
+    case "update_homepage":
+    case "update_showroom":
+    case "update_site_settings":
+    case "update_badges":
+      // Volta a ler e a validar o formulário antes de gravar (site.ts).
+      return writeSiteChange(db, actor, action);
   }
 }
 
@@ -524,6 +538,14 @@ async function interpret(
         const needed = TOOL_SECTION[use.name];
         if (needed && !actor.secoes.includes(needed)) {
           refusal = REPLIES.semSecao(SECTION_LABEL[needed] ?? needed);
+          continue;
+        }
+        if (use.name === TOOL.siteRead) {
+          // A permissão depende da área pedida: verifica-a o site.ts, que
+          // recusa com as nossas palavras (como o TOOL_SECTION).
+          const lido = await readSite(deps.db, actor, use.input);
+          if ("refusal" in lido) refusal = lido.refusal;
+          else results.push({ type: "tool_result", tool_use_id: use.id, ...lido });
           continue;
         }
         if (PROPOSAL_TOOLS.includes(use.name)) {
@@ -822,6 +844,8 @@ async function runProposal(
         };
       return fromBuild(buildAssignLead(lead, staff, actor.secoes));
     }
+    case TOOL.siteChange:
+      return proposeSiteChange(deps.db, actor, data);
     case TOOL.testimonial: {
       const t = refs.testimonials.get(input.testemunho ?? "");
       if (!t)

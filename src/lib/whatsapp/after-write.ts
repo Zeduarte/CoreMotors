@@ -3,6 +3,14 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 import { queueOlxSync } from "@/lib/olx/queue";
 import { PUBLIC_DATA_TAG } from "@/lib/public-cache";
+import {
+  afterBadgesSaved,
+  afterBrandingSaved,
+  afterCompanySaved,
+  afterHomeSaved,
+  afterShowroomSaved,
+  afterWorkshopRateSaved,
+} from "@/lib/site-revalidate";
 import type { HandleResult } from "@/lib/whatsapp/handle";
 
 /**
@@ -46,6 +54,24 @@ export async function afterWrite(changed: NonNullable<HandleResult["changed"]>):
       case "set_testimonial":
         revalidateTag(PUBLIC_DATA_TAG);
         revalidatePath("/", "layout");
+        break;
+      // Página inicial e Definições: as MESMAS funções que as Server Actions
+      // chamam depois de gravar (site-revalidate.ts).
+      case "update_homepage":
+        afterHomeSaved();
+        break;
+      case "update_showroom":
+        afterShowroomSaved();
+        break;
+      case "update_badges":
+        afterBadgesSaved();
+        break;
+      case "update_site_settings":
+        // Uma proposta pode tocar na marca, nos contactos e no valor/hora de
+        // uma vez: limpa-se o que cada um desses formulários limpa.
+        afterBrandingSaved();
+        afterCompanySaved();
+        afterWorkshopRateSaved();
         break;
     }
     // Uma viatura criada, publicada ou dada como pronta agenda avisos à

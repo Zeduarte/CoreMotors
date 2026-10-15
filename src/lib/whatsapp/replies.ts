@@ -37,4 +37,6 @@ export const SECTION_LABEL: Record<string, string> = {
   carros: "Viaturas",
   leads: "Leads",
   testemunhos: "Testemunhos",
+  "pagina-inicial": "Página inicial",
+  definicoes: "Definições",
 };

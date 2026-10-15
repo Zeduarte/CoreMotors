@@ -356,6 +356,22 @@ export const workshopSchema = z.object({
 });
 export type WorkshopValues = z.infer<typeof workshopSchema>;
 
+// ---- Etiquetas dos cards (admin) ------------------------------------------
+// Partilhado pelo formulário (`saveBadges`) e pelo assistente de WhatsApp.
+export const badgesSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        id: z.string().trim().min(1).max(40).regex(/^[a-z0-9_-]+$/),
+        label: z.string().trim().min(1, "Cada etiqueta precisa de um texto").max(30, "Texto da etiqueta demasiado longo"),
+        color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Cor inválida"),
+        enabled: z.boolean(),
+      }),
+    )
+    .max(40),
+});
+export type BadgesValues = z.infer<typeof badgesSchema>;
+
 // ---- Integrações / credenciais das plataformas (admin) --------------------
 const channelCred = z
   .object({

@@ -2,11 +2,17 @@
 
 import { revalidateTag } from "next/cache";
 import { revalidatePublic } from "@/lib/public-cache";
-import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/admin-queries";
 import { mergeBadges } from "@/lib/badges";
 import {
+  afterBadgesSaved,
+  afterBrandingSaved,
+  afterCompanySaved,
+  afterWorkshopRateSaved,
+} from "@/lib/site-revalidate";
+import {
+  badgesSchema,
   siteSettingsSchema,
   marketingSchema,
   integrationsSchema,
@@ -24,19 +30,6 @@ async function requireAdmin(): Promise<boolean> {
   return profile?.role === "admin";
 }
 
-const badgeSchema = z.object({
-  items: z
-    .array(
-      z.object({
-        id: z.string().trim().min(1).max(40).regex(/^[a-z0-9_-]+$/),
-        label: z.string().trim().min(1, "Cada etiqueta precisa de um texto").max(30, "Texto da etiqueta demasiado longo"),
-        color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Cor inválida"),
-        enabled: z.boolean(),
-      }),
-    )
-    .max(40),
-});
-
 /**
  * Etiquetas dos cards: texto, cor e se aparecem; e as do stand. As
  * automáticas não se apagam (o `mergeBadges` repõe-nas). Apenas admin.
@@ -45,7 +38,7 @@ export async function saveBadges(input: unknown): Promise<SettingsResult> {
   if (!(await requireAdmin())) {
     return { ok: false, error: "Sem permissão. Apenas administradores." };
   }
-  const parsed = badgeSchema.safeParse(input);
+  const parsed = badgesSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
@@ -55,9 +48,7 @@ export async function saveBadges(input: unknown): Promise<SettingsResult> {
     .from("site_content")
     .upsert({ key: "badges", content: { items } }, { onConflict: "key" });
   if (error) return { ok: false, error: error.message };
-  // Os cards aparecem em todo o site público.
-  revalidatePublic("/", "layout");
-  revalidatePublic("/admin/definicoes");
+  afterBadgesSaved();
   return { ok: true };
 }
 
@@ -84,8 +75,7 @@ export async function saveWorkshopRate(input: unknown): Promise<SettingsResult> 
       : error.message;
     return { ok: false, error: hint };
   }
-  revalidatePublic("/admin/definicoes");
-  revalidatePublic("/admin/financeiro");
+  afterWorkshopRateSaved();
   return { ok: true };
 }
 
@@ -122,9 +112,7 @@ export async function saveSiteSettings(input: unknown): Promise<SettingsResult> 
   }
 
   // A marca aparece em todo o site → invalida a cache e revalida as páginas.
-  revalidateTag("branding");
-  revalidatePublic("/", "layout");
-  revalidatePublic("/admin", "layout");
+  afterBrandingSaved();
   return { ok: true };
 }
 
@@ -162,8 +150,7 @@ export async function saveCompany(input: unknown): Promise<SettingsResult> {
   }
 
   // Os contactos aparecem em todo o site → invalida a cache e revalida.
-  revalidateTag("branding");
-  revalidatePublic("/", "layout");
+  afterCompanySaved();
   return { ok: true };
 }
 

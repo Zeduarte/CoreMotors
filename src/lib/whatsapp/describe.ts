@@ -2,6 +2,7 @@ import { canonicalBrand } from "@/lib/brand-name";
 import { COST_LABELS } from "@/lib/operations";
 import { formatPlate } from "@/lib/plate";
 import type { PendingAction } from "@/lib/whatsapp/actions";
+import { SITE_FORM, type SiteChangeAction } from "@/lib/whatsapp/site";
 
 /**
  * As frases que o colaborador lê — e o formulário da imagem que as acompanha.
@@ -185,6 +186,11 @@ export function describeAction(action: PendingAction, tense: Tense): string {
         return futuro ? `Vai ser aprovado e publicado no site ${qual}` : `Aprovado e publicado no site ${qual}`;
       return futuro ? `Vai ser retirado do site ${qual}` : `Retirado do site ${qual}`;
     }
+    case "update_homepage":
+    case "update_showroom":
+    case "update_site_settings":
+    case "update_badges":
+      return describeSiteChange(action, futuro);
   }
 }
 
@@ -352,5 +358,38 @@ export function previewCard(action: PendingAction): PreviewCard {
           },
         ],
       };
+    case "update_homepage":
+    case "update_showroom":
+    case "update_site_settings":
+    case "update_badges":
+      return siteChangeCard(action);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Página inicial e Definições (site.ts)
+// ---------------------------------------------------------------------------
+
+const aspas = (v: string) => (v === "—" ? "— (vazio)" : `«${v}»`);
+
+/**
+ * Uma linha por campo, «antes → depois». O antes vai curto (é só para se
+ * reconhecer); o depois vai inteiro, porque é o que fica gravado.
+ */
+function describeSiteChange(action: SiteChangeAction, futuro: boolean): string {
+  const linhas = action.alteracoes.map(
+    (c) => `- ${c.rotulo}: ${aspas(excerpt(c.antes, 80))} → ${aspas(c.depois)}`,
+  );
+  const onde = SITE_FORM[action.kind];
+  return `${futuro ? "Vai ser alterado" : "Alterado"} em ${onde}:\n${linhas.join("\n")}`;
+}
+
+/** O formulário com SÓ os campos que mudam, cada um com o atual e o novo. */
+function siteChangeCard(action: SiteChangeAction): PreviewCard {
+  const n = action.alteracoes.length;
+  return {
+    title: SITE_FORM[action.kind],
+    subject: n === 1 ? "1 campo alterado" : `${n} campos alterados`,
+    fields: action.alteracoes.map((c) => ({ label: c.rotulo, value: c.depois, before: c.antes })),
+  };
 }
