@@ -124,7 +124,7 @@ export function Header({
                 alt={branding.companyName}
                 width={280}
                 height={70}
-                className="h-7 w-auto max-w-[42vw] object-contain md:h-9"
+                className="h-[22px] w-auto max-w-[36vw] object-contain md:h-7"
                 priority
               />
             ) : (
