@@ -14,7 +14,11 @@
   [build.environment]
     NEXT_PUBLIC_SUPABASE_URL = "https://hmmuhxfggwhvvvtzbdps.supabase.co"
     NEXT_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_SgrQ9eUf-AxPyVhurQU-jQ_Ff57sgw4"
-    NEXT_PUBLIC_SITE_URL = "https://supermotas.netlify.app"
+    # NEXT_PUBLIC_SITE_URL NÃO vai aqui: o que está neste ficheiro passa à
+    # frente das variáveis do painel do Netlify, e fixava o endereço antigo
+    # (supermotas.netlify.app) por cima do domínio próprio. Vem do painel
+    # (Environment variables) e, sem ele, do domínio principal que o Netlify
+    # dá ao site (`URL`) — ver next.config.mjs.
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

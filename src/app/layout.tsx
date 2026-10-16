@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { site } from "@/lib/site";
 import { getBranding } from "@/lib/queries";
 import { SiteRuntime } from "@/components/site/SiteRuntime";
+import { BrandIdentityProvider } from "@/components/layout/BrandIdentity";
 
 // next/font: auto-host, sem pedido a terceiros, sem layout shift. Exposto
 // como CSS var e consumido pelo Tailwind (font-sans).
@@ -58,7 +59,12 @@ export default async function RootLayout({
             __html: `:root{--accent:${branding.accent};--accent-soft:${branding.accentSoft};}`,
           }}
         />
-        {children}
+        {/* A marca para as páginas de erro, que correm no browser. */}
+        <BrandIdentityProvider
+          value={{ companyName: branding.companyName, logoUrl: branding.logoUrl }}
+        >
+          {children}
+        </BrandIdentityProvider>
         <SiteRuntime ga4Id={branding.ga4Id} pixelId={branding.pixelId} />
         <Toaster
           theme="dark"

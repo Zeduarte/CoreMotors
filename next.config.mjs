@@ -7,8 +7,14 @@
 const isExport = process.env.EXPORT === "true";
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
+// O endereço público do site (links partilhados, QR da ficha, sitemap,
+// canónicos). Primeiro o das variáveis do Netlify; sem ele, `URL`, o domínio
+// principal que o Netlify dá ao site no build (o domínio próprio, quando há).
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.URL || "";
+
 const nextConfig = {
   reactStrictMode: true,
+  env: { NEXT_PUBLIC_SITE_URL: siteUrl },
   ...(isExport ? { output: "export" } : {}),
   ...(basePath ? { basePath, assetPrefix: basePath } : {}),
   images: {
