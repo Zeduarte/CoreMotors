@@ -209,3 +209,22 @@ await test('the profile groups the new notices, shows leave notices only to who 
   for(const text of ['Contactos atribuídos a mim','Viaturas que saem da oficina','Pedidos de férias à espera'])assert.ok(!mecanico.includes(text),text);
  }finally{delete fixtures.notification_settings;delete fixtures.notification_preferences;}
 });
+
+await test('visit agenda lists the requests to confirm and the lead page shows the stock alert matches',async()=>{
+ role='admin';
+ const visit={id:'30000000-0000-4000-8000-000000000001',car_id:car,kind:'visit',name:'Maria Visita',email:'',phone:'912345678',car_label:'BMW 320 2020',status:'new',assigned_to:null,next_action:'Confirmar a visita ao stand',next_action_at:new Date().toISOString(),loss_reason:null,car_details:{whatsapp_opt_in_at:'2026-10-16T10:00:00Z'},visit_at:new Date(Date.now()+86400000).toISOString(),visit_status:'requested'};
+ const saved=fixtures.leads;
+ fixtures.leads=[visit];
+ try{
+  const html=await render('src/app/admin/(dashboard)/leads/agenda/page.tsx',{searchParams:Promise.resolve({})});
+  for(const text of ['Agenda de visitas','Maria Visita','Por confirmar','Confirmar','Realizada','Não veio','Nova visita','https://wa.me/351912345678'])assert.ok(html.includes(text),text);
+  const page=await render('src/app/admin/(dashboard)/leads/[id]/page.tsx',{params:Promise.resolve({id:visit.id})});
+  for(const text of ['Visita ao stand','Por confirmar','Confirmar visita','Enviar confirmação pelo WhatsApp','Mudar a visita'])assert.ok(page.includes(text),text);
+  fixtures.leads=[{...visit,kind:'alert',visit_at:null,visit_status:null,car_details:{criteria:{vehicle_type:'car',make:'BMW',max_price:30000},whatsapp_opt_in_at:'x'}}];
+  fixtures.stock_alert_matches=[{id:'m1',lead_id:visit.id,car_id:car,status:'manual',sent_at:null,error:null,created_at:'2026-10-16T10:00:00Z'}];
+  fixtures.cars=[{id:car,slug:'bmw-320',make:'BMW',model:'320',year:2020,mileage:40000,price:25000,price_on_request:false,status:'published',license_plate:'AA-00-AA'}];
+  const alert=await render('src/app/admin/(dashboard)/leads/[id]/page.tsx',{params:Promise.resolve({id:visit.id})});
+  for(const text of ['Alerta de stock','BMW · até 30','Por avisar (à mão)','Enviar pelo WhatsApp','Marcar como avisado','Sem visita marcada'])assert.ok(alert.replace(/\s/g,' ').includes(text),text);
+  assert.ok(!alert.includes('"vehicle_type"'),'os critérios não aparecem em JSON cru');
+ }finally{fixtures.leads=saved;delete fixtures.stock_alert_matches;fixtures.cars=[{id:car,make:'BMW',model:'320',license_plate:'AA-00-AA',price:25000,status:'published'}];}
+});

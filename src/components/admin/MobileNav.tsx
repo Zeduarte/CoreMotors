@@ -13,6 +13,7 @@ const NAV: { href: string; label: string; exact: boolean; section: Section }[] =
   { href: "/admin/carros/novo", label: "Nova viatura", exact: true, section: "carros" },
   { href: "/admin/pagina-inicial", label: "Página inicial", exact: false, section: "pagina-inicial" },
   { href: "/admin/leads", label: "Leads", exact: false, section: "leads" },
+  { href: "/admin/leads/agenda", label: "Agenda de visitas", exact: false, section: "leads" },
   { href: "/admin/testemunhos", label: "Testemunhos", exact: false, section: "testemunhos" },
   { href: "/admin/integracoes", label: "Integrações", exact: false, section: "integracoes" },
   { href: "/admin/anuncios", label: "Plataformas de anúncios", exact: false, section: "anuncios" },
@@ -61,7 +62,8 @@ export function MobileNav({
           {items.map((item) => {
             const active = item.exact
               ? pathname === item.href
-              : pathname.startsWith(item.href);
+              : pathname.startsWith(item.href) &&
+                !(item.href === "/admin/leads" && pathname.startsWith("/admin/leads/agenda"));
             return (
               <Link
                 key={item.href}

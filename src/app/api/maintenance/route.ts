@@ -7,6 +7,8 @@ import { processNotificationJobs } from "@/lib/notifications";
 import { refreshIfNeeded } from "@/lib/olx/client";
 import { refreshStats, syncPending } from "@/lib/olx/sync";
 import { pruneWaMedia } from "@/lib/whatsapp/photos";
+import { runStockAlerts } from "@/lib/stock-alert-run";
+import { runVisitReminders } from "@/lib/visit-run";
 export const runtime = "nodejs";
 export async function POST(request: Request) {
   const secret = process.env.MAINTENANCE_SECRET;
@@ -22,6 +24,9 @@ export async function POST(request: Request) {
   // Webhook dos contactos e avisos por WhatsApp à equipa (os que não saíram
   // logo a seguir à ação, os que falharam e os do assistente do WhatsApp).
   const result = await processNotificationJobs();
+  // Alertas de stock e lembretes das visitas aos clientes (0042). Nunca lançam.
+  await runStockAlerts(db);
+  await runVisitReminders(db);
   await db.rpc("prune_submission_limits");
   // Avisos por WhatsApp com mais de 30 dias (0036). Sem a migração, falha
   // em silêncio, como as outras limpezas.

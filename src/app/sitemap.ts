@@ -1,6 +1,8 @@
 import { getShowroomContent } from "@/lib/showroom-queries";
 import type { MetadataRoute } from "next";
-import { getAllSlugs } from "@/lib/queries";
+import { getAllSlugs, getVehicleList } from "@/lib/queries";
+import { seoPagesFor, seoPath, TYPE_PATH } from "@/lib/seo-pages";
+import { VEHICLE_TYPES } from "@/lib/vehicle-categories";
 import { site } from "@/lib/site";
 
 export const revalidate = 300;
@@ -37,5 +39,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  return [...staticRoutes, ...vehicleRoutes];
+  // Páginas por marca, categoria, preço e combustível — só as que têm stock.
+  const seoRoutes = (
+    await Promise.all(
+      VEHICLE_TYPES.map(async (type) => {
+        const stock = await getVehicleList(type);
+        if (!stock.length) return [];
+        return [`/${TYPE_PATH[type]}`, ...seoPagesFor(type, stock).map(({ page }) => seoPath(page))];
+      }),
+    )
+  )
+    .flat()
+    .map((path) => ({
+      url: `${site.url}${path}`,
+      lastModified: now,
+      changeFrequency: "daily" as const,
+      priority: 0.75,
+    }));
+
+  return [...staticRoutes, ...seoRoutes, ...vehicleRoutes];
 }

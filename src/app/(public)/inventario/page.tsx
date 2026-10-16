@@ -6,10 +6,11 @@ import Image from "next/image";
 import { mediaFor } from "@/lib/media";
 import { asset } from "@/lib/asset";
 import { formatPrice } from "@/lib/format";
-import { getVehicleList } from "@/lib/queries";
+import { getVehicles } from "@/lib/queries";
+import { inventoryWithOlx } from "@/lib/olx/search";
+import { filtersFromQuery, sortFromQuery } from "@/lib/vehicles";
 import { InventoryClient } from "@/components/inventory/InventoryClient";
-import { StockAlertForm } from "@/components/inventory/StockAlertForm";
-import type { FuelType, Transmission, VehicleFilters } from "@/types/vehicle";
+import { SeoLinks } from "@/components/seo/SeoLinks";
 
 export const revalidate = 60;
 
@@ -27,20 +28,19 @@ export default async function InventoryPage({
   const sp = await searchParams;
   const requested = inventoryVehicleType(sp.tipo);
   const vehicleType = await getPublicVehicleType();
-  if (requested && (requested !== vehicleType || !(await getVehicleSelection()))) redirect(`/api/vehicle-context?area=public&type=${requested}&target=%2Finventario`);
-  const vehicles = await getVehicleList(vehicleType);
+  if (requested && (requested !== vehicleType || !(await getVehicleSelection()))) {
+    // Muda o mundo e volta com a mesma pesquisa (sem o `tipo`).
+    const rest = new URLSearchParams(
+      Object.entries(sp).filter((e): e is [string, string] => e[0] !== "tipo" && typeof e[1] === "string"),
+    ).toString();
+    redirect(`/api/vehicle-context?area=public&type=${requested}&target=${encodeURIComponent(`/inventario${rest ? `?${rest}` : ""}`)}`);
+  }
+  // Stock leve para os cartões, com os valores dos campos do OLX pesquisáveis.
+  const { vehicles, fields: olxFields } = await inventoryWithOlx(await getVehicles(vehicleType), vehicleType);
 
-  // Filtros iniciais vindos do URL (ex.: da pesquisa rápida da homepage).
-  const initialFilters = {
-    vehicleType,
-    make: sp.make || null,
-    model: sp.model || null,
-    fuel: (sp.fuel as FuelType) || null,
-    transmission: (sp.transmission as Transmission) || null,
-    query: sp.q || null,
-    // ?categoria=Moto%204 — link direto para uma categoria.
-    body: (sp.categoria as VehicleFilters["body"]) || null,
-  };
+  // Filtros vindos do endereço: a pesquisa rápida da página inicial, um link
+  // partilhado ou o «voltar» da ficha (?marca=Yamaha&preco_max=8000…).
+  const initialFilters = { ...filtersFromQuery(sp), vehicleType };
 
   // Números do topo (só do que está à venda agora).
   const brands = new Set(vehicles.map((v) => v.make)).size;
@@ -108,11 +108,12 @@ export default async function InventoryPage({
         key={JSON.stringify(initialFilters)}
         vehicles={vehicles}
         initialFilters={initialFilters}
+        initialSort={sortFromQuery(sp)}
+        olxFields={olxFields}
       />
 
-      <section className="mt-20">
-        <StockAlertForm defaultQuery={sp.q ?? ""} />
-      </section>
+      {/* Pesquisas populares: páginas por marca, categoria e preço (Google). */}
+      <SeoLinks type={world} vehicles={vehicles} className="mt-20" />
     </div>
   );
 }

@@ -18,6 +18,7 @@ const NAV: {
   { href: "/admin/carros/novo", label: "Nova viatura", icon: "＋", exact: true, section: "carros" },
   { href: "/admin/pagina-inicial", label: "Página inicial", icon: "◧", exact: false, section: "pagina-inicial" },
   { href: "/admin/leads", label: "Leads", icon: "✉", exact: false, section: "leads" },
+  { href: "/admin/leads/agenda", label: "Agenda de visitas", icon: "▣", exact: false, section: "leads" },
   { href: "/admin/testemunhos", label: "Testemunhos", icon: "★", exact: false, section: "testemunhos" },
   { href: "/admin/integracoes", label: "Integrações", icon: "⇄", exact: false, section: "integracoes" },
   { href: "/admin/anuncios", label: "Plataformas de anúncios", icon: "⊞", exact: false, section: "anuncios" },
@@ -43,7 +44,9 @@ export function Sidebar({
   const items = NAV.filter((i) => sections.includes(i.section));
 
   const isActive = (href: string, exact: boolean) =>
-    exact ? pathname === href : pathname.startsWith(href);
+    exact
+      ? pathname === href
+      : pathname.startsWith(href) && !(href === "/admin/leads" && pathname.startsWith("/admin/leads/agenda"));
 
   return (
     <aside className="flex h-full flex-col gap-6 border-r border-white/10 bg-ink-soft p-5">

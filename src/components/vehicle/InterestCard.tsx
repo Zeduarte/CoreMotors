@@ -16,13 +16,15 @@ const formLoading = () => <div className="h-72 animate-pulse rounded-2xl bg-whit
 const InfoForm = dynamic(() => import("./InfoForm").then((m) => m.InfoForm), { ssr: false, loading: formLoading });
 const OfferForm = dynamic(() => import("./OfferForm").then((m) => m.OfferForm), { ssr: false, loading: formLoading });
 const ReserveForm = dynamic(() => import("./ReserveForm").then((m) => m.ReserveForm), { ssr: false, loading: formLoading });
+const VisitForm = dynamic(() => import("./VisitForm").then((m) => m.VisitForm), { ssr: false, loading: formLoading });
 
-type Form = "callback" | "offer" | "reserve";
+type Form = "callback" | "offer" | "reserve" | "visit";
 
 const FORM_TITLE: Record<Form, string> = {
   callback: "Pedir que lhe liguem",
   offer: "Fazer uma proposta",
   reserve: "Reservar viatura",
+  visit: "Marcar visita ao stand",
 };
 
 /**
@@ -46,6 +48,7 @@ export function InterestCard({
   recentViews,
   canReserve,
   depositAmount,
+  visit,
 }: {
   /** "Marca Modelo Ano", para as mensagens. */
   vehicleName: string;
@@ -62,6 +65,8 @@ export function InterestCard({
   recentViews: number | null;
   canReserve: boolean;
   depositAmount: number;
+  /** Marcação de visitas ligada: o nome e a morada do stand, para a agenda. */
+  visit?: { companyName: string; address: string } | null;
 }) {
   const sold = status === "sold";
   const reserved = status === "reserved";
@@ -196,6 +201,16 @@ export function InterestCard({
             )}
           </div>
         )}
+        {!sold && visit && vehicleId && (
+          <button
+            type="button"
+            onClick={() => setForm("visit")}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-full border border-white/15 px-2 py-2.5 text-sm font-semibold text-paper transition-colors hover:border-accent hover:text-accent"
+          >
+            <CalendarIcon />
+            Marcar visita ao stand
+          </button>
+        )}
       </div>
 
       <dialog
@@ -247,6 +262,15 @@ export function InterestCard({
                 }
               />
             )}
+            {form === "visit" && visit && vehicleId && (
+              <VisitForm
+                vehicleId={vehicleId}
+                vehicleName={vehicleName}
+                companyName={visit.companyName}
+                address={visit.address}
+                phoneHref={company.phoneHref}
+              />
+            )}
             {form === "reserve" && (
               <ReserveForm
                 vehicleName={shortName}
@@ -259,6 +283,15 @@ export function InterestCard({
         )}
       </dialog>
     </section>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
+      <path d="M8 2.5v4M16 2.5v4M3 9.5h18" />
+    </svg>
   );
 }
 

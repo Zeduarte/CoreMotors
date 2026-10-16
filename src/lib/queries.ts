@@ -146,7 +146,12 @@ export async function getVehicleBySlug(
   slug: string,
 ): Promise<Vehicle | undefined> {
   const type = await getPublicVehicleType();
-  return (await safely("getVehicleBySlug", () => fetchBySlug(type, slug), null)) ?? undefined;
+  const found = await safely("getVehicleBySlug", () => fetchBySlug(type, slug), null);
+  if (found) return found;
+  // Quem chega sem a escolha certa guardada (o Google, que não guarda
+  // cookies, ou um link partilhado de uma mota) vê a viatura na mesma.
+  const other: VehicleType = type === "car" ? "motorcycle" : "car";
+  return (await safely("getVehicleBySlug", () => fetchBySlug(other, slug), null)) ?? undefined;
 }
 
 /**

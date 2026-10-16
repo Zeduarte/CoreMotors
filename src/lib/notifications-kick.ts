@@ -2,6 +2,7 @@ import "server-only";
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processWhatsAppNotifications } from "@/lib/notifications";
+import { runStockAlerts } from "@/lib/stock-alert-run";
 
 /**
  * Envia já os avisos por WhatsApp que a ação acabou de agendar.
@@ -22,6 +23,8 @@ export function deliverNotificationsSoon(): void {
       try {
         const db = createAdminClient();
         if (db) await processWhatsAppNotifications(db, { budgetMs: 8000 });
+        // Uma viatura acabada de publicar pode ser a que um cliente espera.
+        if (db) await runStockAlerts(db);
       } catch (e) {
         console.error("Avisos por WhatsApp:", e);
       }

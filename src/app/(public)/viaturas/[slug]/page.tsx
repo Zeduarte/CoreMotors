@@ -30,6 +30,7 @@ import { getRecentViews } from "@/lib/vehicle-views";
 import { safely } from "@/lib/public-cache";
 import { site } from "@/lib/site";
 import { VehicleJsonLd } from "@/components/seo/VehicleJsonLd";
+import { addressLine, getVisitsEnabled } from "@/lib/visit-run";
 
 // ISR: páginas conhecidas são pré-geradas; novas viaturas publicadas depois do
 // build são renderizadas on-demand e cacheadas (dynamicParams = true, default).
@@ -82,10 +83,11 @@ export default async function VehiclePage({ params }: { params: Params }) {
   const vehicle = await getVehicleBySlug(slug);
   if (!vehicle) notFound();
 
-  const [branding, recentViews, showroom] = await Promise.all([
+  const [branding, recentViews, showroom, visitsEnabled] = await Promise.all([
     getBranding(),
     vehicle.id ? safely("getRecentViews", () => getRecentViews(vehicle.id!), null) : null,
     getShowroomContent(),
+    safely("getVisitsEnabled", () => getVisitsEnabled(), false),
   ]);
   const canReserve =
     branding.reservationEnabled && vehicle.status === "published";
@@ -126,7 +128,7 @@ export default async function VehiclePage({ params }: { params: Params }) {
       : null;
 
   // Viaturas relacionadas: prioriza a mesma marca, depois preenche com outras.
-  const all = await getVehicleList();
+  const all = await getVehicleList(vehicle.vehicleType ?? "car");
   const related = [
     ...all.filter((v) => v.slug !== vehicle.slug && v.make === vehicle.make),
     ...all.filter((v) => v.slug !== vehicle.slug && v.make !== vehicle.make),
@@ -243,6 +245,16 @@ export default async function VehiclePage({ params }: { params: Params }) {
                   recentViews={recentViews}
                   canReserve={canReserve}
                   depositAmount={branding.depositAmount}
+                  visit={
+                    visitsEnabled
+                      ? {
+                          companyName: place?.name ?? branding.companyName,
+                          address: place
+                            ? addressLine({ street: place.address, postalCode: place.postalCode, city: place.city })
+                            : addressLine(branding.company.address),
+                        }
+                      : null
+                  }
                 />
               </div>
             </aside>

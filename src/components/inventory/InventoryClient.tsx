@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Vehicle, VehicleFilters, SortKey } from "@/types/vehicle";
 import {
@@ -9,7 +9,16 @@ import {
   emptyFilters,
   distinctValues,
   distinctMakes,
+  filtersToQuery,
 } from "@/lib/vehicles";
+import type { SearchField } from "@/lib/olx/search";
+import dynamic from "next/dynamic";
+
+// O alerta fica no fim da página: descarrega-se depois de a lista aparecer.
+const StockAlertForm = dynamic(() => import("./StockAlertForm").then((m) => m.StockAlertForm), {
+  ssr: false,
+  loading: () => <div className="h-[34rem] animate-pulse rounded-3xl border border-white/10 bg-ink-soft" />,
+});
 import { sameBrand } from "@/lib/brand-name";
 import { Filters } from "./Filters";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
@@ -29,15 +38,34 @@ import { VehicleCard } from "@/components/vehicle/VehicleCard";
 export function InventoryClient({
   vehicles,
   initialFilters,
+  initialSort = "relevance",
+  olxFields = [],
 }: {
   vehicles: Vehicle[];
   initialFilters?: Partial<VehicleFilters>;
+  initialSort?: SortKey;
+  /** Filtros do OLX com opções no stock (vazio sem ligação ao OLX). */
+  olxFields?: SearchField[];
 }) {
   const [filters, setFilters] = useState<VehicleFilters>(() => ({
     ...emptyFilters(),
     ...initialFilters,
   }));
-  const [sort, setSort] = useState<SortKey>("relevance");
+  const [sort, setSort] = useState<SortKey>(initialSort);
+
+  // A pesquisa vai para o endereço (como no OLX): guarda-se, partilha-se e o
+  // «voltar» da ficha regressa a ela. `replaceState` não cria entradas novas
+  // no histórico a cada letra escrita.
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      const qs = filtersToQuery(filters, sort);
+      const url = `${window.location.pathname}${qs ? `?${qs}` : ""}`;
+      if (url !== `${window.location.pathname}${window.location.search}`) {
+        window.history.replaceState(window.history.state, "", url);
+      }
+    }, 300);
+    return () => window.clearTimeout(id);
+  }, [filters, sort]);
 
   const options = useMemo(
     () => ({
@@ -70,8 +98,12 @@ export function InventoryClient({
         acc[v.body] = (acc[v.body] ?? 0) + 1;
         return acc;
       }, {}),
+      colors: [...new Set(vehicles.map((v) => v.color.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt")),
+      doors: [...new Set(vehicles.map((v) => v.doors).filter((d) => d > 0))].sort((a, b) => a - b),
+      seats: [...new Set(vehicles.map((v) => v.seats).filter((d) => d > 0))].sort((a, b) => a - b),
+      olxFields,
     }),
-    [vehicles, filters.make],
+    [vehicles, filters.make, olxFields],
   );
 
   const results = useMemo(
@@ -98,10 +130,18 @@ export function InventoryClient({
       />
 
       {results.length === 0 ? (
-        <p className="rounded-2xl border border-white/10 bg-ink-soft p-12 text-center text-paper/60">
-          Nenhuma viatura corresponde aos filtros. Experimente alargar os
-          critérios.
-        </p>
+        <div className="rounded-2xl border border-white/10 bg-ink-soft p-10 text-center md:p-12">
+          <p className="text-paper/70">
+            Nenhuma viatura corresponde aos filtros. Experimente alargar os critérios
+            — ou deixe um alerta e avisamos quando entrar.
+          </p>
+          <a
+            href="#alerta"
+            className="mt-5 inline-flex rounded-full bg-accent px-6 py-3 text-sm font-semibold text-ink transition-transform hover:scale-[1.02]"
+          >
+            Criar alerta para esta pesquisa
+          </a>
+        </div>
       ) : (
         <motion.div
           layout
@@ -134,6 +174,24 @@ export function InventoryClient({
           </AnimatePresence>
         </motion.div>
       )}
+
+      {/* O alerta acompanha a pesquisa: quem filtrou e não encontrou tem os
+          critérios já preenchidos. */}
+      <section id="alerta" className="scroll-mt-28 pt-10">
+        <StockAlertForm
+          vehicleType={filters.vehicleType ?? "car"}
+          makes={options.makes}
+          defaults={{
+            make: filters.make,
+            model: filters.model,
+            body: filters.body,
+            fuel: filters.fuel,
+            max_price: filters.maxPrice,
+            min_year: filters.minYear,
+            max_km: filters.maxMileage,
+          }}
+        />
+      </section>
     </div>
   );
 }

@@ -21,6 +21,7 @@ export function toListVehicle(v: Vehicle): Vehicle {
     extras: undefined,
     highlights: [],
     video: null,
+    olxAttributes: undefined,
     images: v.images.slice(0, LIST_PHOTOS),
   };
 }

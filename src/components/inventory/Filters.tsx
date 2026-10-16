@@ -9,7 +9,9 @@ import type {
   SortKey,
 } from "@/types/vehicle";
 import { bodiesFor } from "@/lib/vehicle-categories";
+import { activeFilterCount } from "@/lib/vehicles";
 import { BodyPicker } from "@/components/ui/BodyPicker";
+import type { SearchField } from "@/lib/olx/search";
 
 interface FiltersProps {
   filters: VehicleFilters;
@@ -23,6 +25,11 @@ interface FiltersProps {
     bodies: BodyType[];
     /** Quantas viaturas há em cada categoria (os quadrados da pesquisa). */
     bodyCounts?: Record<string, number>;
+    colors?: string[];
+    doors?: number[];
+    seats?: number[];
+    /** Campos do OLX com opções no stock (ver `inventoryWithOlx`). */
+    olxFields?: SearchField[];
   };
   resultCount: number;
   onChange: (patch: Partial<VehicleFilters>) => void;
@@ -38,6 +45,15 @@ const QUICK_CHIPS: { label: string; patch: Partial<VehicleFilters> }[] = [
   { label: "SUV", patch: { body: "SUV" } },
   { label: "Até 30.000 km", patch: { maxMileage: 30000 } },
   { label: "Até 25.000 €", patch: { maxPrice: 25000 } },
+];
+
+/** Nas motas pesquisa-se pela carta: 125 cc (carta B ou A1) e A2 (até 35 kW ≈ 48 cv). */
+const MOTO_CHIPS: { label: string; patch: Partial<VehicleFilters> }[] = [
+  { label: "Até 125 cc (A1 / carta B)", patch: { maxDisplacement: 125 } },
+  { label: "Até 48 cv (A2)", patch: { maxPower: 48 } },
+  { label: "Até 5.000 €", patch: { maxPrice: 5000 } },
+  { label: "Até 10.000 €", patch: { maxPrice: 10000 } },
+  { label: "Até 20.000 km", patch: { maxMileage: 20000 } },
 ];
 
 const SORT_LABELS: Record<SortKey, string> = {
@@ -59,6 +75,14 @@ export function Filters({
   onReset,
 }: FiltersProps) {
   const [expanded, setExpanded] = useState(false);
+  const active = activeFilterCount(filters);
+  const isMoto = filters.vehicleType === "motorcycle";
+  const setOlx = (code: string, value: VehicleFilters["olx"][string] | null) => {
+    const next = { ...filters.olx };
+    if (value === null || value === "" || (typeof value === "object" && value.min == null && value.max == null)) delete next[code];
+    else next[code] = value;
+    onChange({ olx: next });
+  };
 
   return (
     <div className="rounded-2xl border border-white/10 bg-ink-soft p-5 md:p-6">
@@ -129,6 +153,11 @@ export function Filters({
           className="flex items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm text-paper/80 transition-colors hover:border-accent hover:text-accent"
         >
           {expanded ? "Menos filtros" : "Mais filtros"}
+          {active > 0 && (
+            <span className="grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-ink">
+              {active}
+            </span>
+          )}
           <svg
             width="14"
             height="14"
@@ -151,10 +180,7 @@ export function Filters({
         <div className="mt-5 border-t border-white/10 pt-5">
           {/* Atalhos rápidos */}
           <div className="mb-5 flex flex-wrap gap-2">
-            {QUICK_CHIPS.filter(
-              (chip) =>
-                filters.vehicleType !== "motorcycle" || !chip.patch.body,
-            ).map((chip) => (
+            {(isMoto ? MOTO_CHIPS : QUICK_CHIPS).map((chip) => (
               <button
                 key={chip.label}
                 type="button"
@@ -167,14 +193,6 @@ export function Filters({
           </div>
 
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-            <label className="flex items-center gap-2 text-sm text-paper">
-              <input
-                type="checkbox"
-                checked={filters.campaignOnly}
-                onChange={(e) => onChange({ campaignOnly: e.target.checked })}
-              />
-              Apenas em campanha
-            </label>
             <Field label="Combustível">
               <Select
                 value={filters.fuel ?? ""}
@@ -227,15 +245,127 @@ export function Filters({
             </Field>
             )}
 
+            {options.colors && options.colors.length > 1 && (
+              <Field label="Cor">
+                <Select value={filters.color ?? ""} onChange={(v) => onChange({ color: v || null })}>
+                  <option value="">Todas</option>
+                  {options.colors.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+            {!isMoto && options.doors && options.doors.length > 1 && (
+              <Field label="Portas">
+                <Select value={filters.doors?.toString() ?? ""} onChange={(v) => onChange({ doors: v ? Number(v) : null })}>
+                  <option value="">Todas</option>
+                  {options.doors.map((d) => (
+                    <option key={d} value={d}>
+                      {d} portas
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+            {options.seats && options.seats.length > 1 && (
+              <Field label="Lugares">
+                <Select value={filters.seats?.toString() ?? ""} onChange={(v) => onChange({ seats: v ? Number(v) : null })}>
+                  <option value="">Todos</option>
+                  {options.seats.map((d) => (
+                    <option key={d} value={d}>
+                      {d} {d === 1 ? "lugar" : "lugares"}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+
             {([
               ["Preço (€)","minPrice","maxPrice"],
               ["Ano","minYear","maxYear"],
               ["Quilómetros","minMileage","maxMileage"],
+              // Nas motas a cilindrada vem primeiro: é ela que diz a carta (A1, A2, A).
+              ...(isMoto
+                ? ([["Cilindrada (cm³)","minDisplacement","maxDisplacement"],["Potência (cv)","minPower","maxPower"]] as const)
+                : ([["Potência (cv)","minPower","maxPower"],["Cilindrada (cm³)","minDisplacement","maxDisplacement"]] as const)),
             ] as const).map(([label,min,max]) => <fieldset key={label} className="col-span-2 rounded-xl border border-white/10 p-3">
               <legend className="px-1 text-xs uppercase tracking-wider text-paper/60">{label}</legend>
               <div className="grid grid-cols-2 gap-3"><Field label={`${label} desde`}><NumberInput value={filters[min]} placeholder="Mínimo" onChange={v=>onChange({[min]:v})}/></Field><Field label={`${label} até`}><NumberInput value={filters[max]} placeholder="Máximo" onChange={v=>onChange({[max]:v})}/></Field></div>
             </fieldset>)}
           </div>
+
+          {/* Historial e origem, como no OLX. */}
+          <div className="mt-5 flex flex-wrap gap-2">
+            {([
+              ["nationalOnly", "Nacional"],
+              ["firstOwnerOnly", "1.º dono"],
+              ["serviceBookOnly", "Livro de revisões"],
+              ["warrantyOnly", "Com garantia"],
+              ["campaignOnly", "Em campanha"],
+            ] as const).map(([key, label]) => (
+              <label
+                key={key}
+                className={`flex cursor-pointer items-center gap-2 rounded-full border px-3.5 py-2 text-sm transition-colors ${
+                  filters[key]
+                    ? "border-accent bg-accent/15 text-accent"
+                    : "border-white/15 text-paper/75 hover:border-white/30"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={filters[key]}
+                  onChange={(e) => onChange({ [key]: e.target.checked })}
+                />
+                {filters[key] ? "✓ " : ""}
+                {label}
+              </label>
+            ))}
+          </div>
+
+          {/* Os restantes campos do OLX (os da categoria escolhida em
+              Plataformas de anúncios), só com opções que existem no stock. */}
+          {options.olxFields && options.olxFields.length > 0 && (
+            <div className="mt-5 border-t border-white/10 pt-5">
+              <p className="mb-3 text-xs font-medium uppercase tracking-wider text-paper/40">Mais características</p>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                {options.olxFields.map((f) => {
+                  const current = filters.olx[f.code];
+                  if (f.kind === "number") {
+                    const range = typeof current === "object" ? current : { min: null, max: null };
+                    const unit = f.unit ? ` (${f.unit})` : "";
+                    return (
+                      <fieldset key={f.code} className="col-span-2 rounded-xl border border-white/10 p-3">
+                        <legend className="px-1 text-xs uppercase tracking-wider text-paper/60">{f.label}{unit}</legend>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Field label={`${f.label} desde`}>
+                            <NumberInput value={range.min} placeholder="Mínimo" onChange={(v) => setOlx(f.code, { ...range, min: v })} />
+                          </Field>
+                          <Field label={`${f.label} até`}>
+                            <NumberInput value={range.max} placeholder="Máximo" onChange={(v) => setOlx(f.code, { ...range, max: v })} />
+                          </Field>
+                        </div>
+                      </fieldset>
+                    );
+                  }
+                  return (
+                    <Field key={f.code} label={f.label}>
+                      <Select value={typeof current === "string" ? current : ""} onChange={(v) => setOlx(f.code, v || null)}>
+                        <option value="">{f.kind === "multi" ? "Qualquer" : "Todos"}</option>
+                        {f.values.map((o) => (
+                          <option key={o.code} value={o.code}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

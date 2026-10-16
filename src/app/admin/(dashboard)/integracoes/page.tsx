@@ -10,15 +10,19 @@ import { FeedUrls } from "@/components/admin/FeedUrls";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
 import Link from "next/link";
 import { site } from "@/lib/site";
+import { CustomerSettingsForm } from "@/components/admin/CustomerSettingsForm";
+import { getCustomerSettings } from "@/lib/visit-run";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function IntegrationsPage() {
   await requireSection("integracoes");
 
-  const [settings, integrations] = await Promise.all([
+  const [settings, integrations, customer] = await Promise.all([
     getSiteSettings(),
     getIntegrations(),
+    createClient().then(getCustomerSettings),
   ]);
 
   const baseUrl =
@@ -56,6 +60,14 @@ export default async function IntegrationsPage() {
           </p>
         </Link>
         <WhatsAppPanel baseUrl={baseUrl} />
+        <CustomerSettingsForm
+          initial={{
+            visitsEnabled: customer.visitsEnabled,
+            schedule: customer.schedule,
+            customerWhatsApp: customer.customerWhatsApp,
+          }}
+          missing={customer.missing}
+        />
         <NotificationStatus />
       </div>
     </>

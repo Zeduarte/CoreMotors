@@ -157,6 +157,7 @@ const LEAD_LABEL: Record<string, string> = {
   trade_in: "pedido de venda / retoma",
   order: "encomenda de viatura",
   alert: "alerta de stock («avise-me quando entrar»)",
+  visit: "pedido de visita ao stand",
 };
 
 function leadLabel(payload: Payload): string {

@@ -8,6 +8,8 @@ import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 import { requireSection } from "@/lib/guard";
 import { z } from "zod";
 import { leadSchema } from "@/lib/schemas";
+import { criteriaLabel } from "@/lib/stock-alerts";
+import { alertCriteriaSchema } from "@/lib/stock-alert-schema";
 import type { LeadStatus } from "@/lib/supabase/database.types";
 
 export interface LeadActionState {
@@ -74,7 +76,33 @@ export async function submitLead(
       error: e instanceof Error ? e.message : "Tente novamente.",
     };
   }
-  const vehicleType = await getPublicVehicleType();
+  const formType = formData.get("vehicle_type");
+  // As páginas por marca (/motas/yamaha) dizem o tipo; o resto segue o mundo escolhido.
+  const vehicleType =
+    v.kind === "alert" && (formType === "car" || formType === "motorcycle")
+      ? formType
+      : await getPublicVehicleType();
+  let message = v.message || null;
+  if (v.kind === "alert") {
+    // O alerta guarda o que a pessoa procura, para ser avisada sozinha quando
+    // entrar uma viatura compatível (stock-alert-run.ts).
+    const criteria = alertCriteriaSchema.safeParse({
+      vehicle_type: vehicleType,
+      make: formData.get("alert_make"),
+      model: formData.get("alert_model"),
+      body: formData.get("alert_body"),
+      fuel: formData.get("alert_fuel"),
+      max_price: formData.get("alert_max_price"),
+      min_year: formData.get("alert_min_year"),
+      max_km: formData.get("alert_max_km"),
+    });
+    if (!criteria.success)
+      return { ok: false, error: criteria.error.issues[0]?.message ?? "Diga-nos o que procura." };
+    carDetails = { ...carDetails, criteria: criteria.data };
+    message = [criteriaLabel(criteria.data), v.message].filter(Boolean).join("\n\n");
+    if (formData.get("whatsapp_opt_in") === "yes" && v.phone)
+      carDetails.whatsapp_opt_in_at = new Date().toISOString();
+  }
   let carLabel = v.car_label || null;
   if (v.car_id) {
     const { data: car } = await supabase
@@ -109,7 +137,7 @@ export async function submitLead(
     // A coluna não aceita nulo: sem email fica vazio (o contacto é o telefone).
     email: v.email || "",
     phone: v.phone || null,
-    message: v.message || null,
+    message,
     preferred_date: v.preferred_date || null,
     car_details: {
       ...carDetails,

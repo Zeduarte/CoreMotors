@@ -129,6 +129,56 @@ Exemplos:
 | `{{1}}` | O aviso | `o acesso ao WhatsApp dado pela Meta expira a 12/12/2026; volte a ligar o número em «Trocar de número»` |
 | `{{2}}` | O link para a página certa do backoffice | `https://www.exemplo.pt/admin/integracoes` |
 
+## Mensagens aos clientes (alertas de stock e visitas)
+
+Além dos avisos à equipa, o site pode escrever aos **clientes** que o pediram no formulário:
+
+- **Alerta de stock** — quem criou um alerta («avisamos quando entrar») e marcou «Quero receber o aviso por WhatsApp» recebe o link quando é publicada uma viatura compatível (no máximo uma mensagem por dia; as outras seguem nos dias seguintes). A mensagem leva um link para cancelar o alerta.
+- **Visita ao stand** — quem marcou visita na ficha da viatura e aceitou a confirmação por WhatsApp recebe-a quando a equipa confirma na **Agenda de visitas**, e um lembrete na véspera.
+
+Liga-se em **Integrações → Visitas e mensagens aos clientes → Enviar mensagens automáticas aos clientes por WhatsApp**, depois de estes dois modelos estarem aprovados. Desligado, nada sai sozinho: a equipa vê na Agenda e no contacto o que há para avisar, com um botão que abre o WhatsApp dela com o texto já escrito.
+
+A Meta decide a categoria de cada modelo ao aprová-lo (a confirmação de uma visita é normalmente **Utility**; o aviso de stock pode ser classificado como **Marketing**, que tem outro preço por mensagem). Submeta-os como Utility; se a Meta mudar a categoria, continuam a funcionar.
+
+### 5. `engineline_alerta_stock` — viatura compatível com um alerta
+
+- Nome: `engineline_alerta_stock` (variável `WHATSAPP_TEMPLATE_ALERTA` para usar outro)
+- Idioma: `pt_PT`
+
+Corpo:
+
+```
+Olá {{1}}! Entrou na {{2}} uma viatura compatível com o alerta que criou no nosso site:
+
+{{3}}
+
+Veja as fotos e os detalhes em {{4}}
+
+Se já não está à procura, pode cancelar o alerta em {{5}} a qualquer momento.
+```
+
+Exemplos: `Maria` · `Supermotas` · `Yamaha MT-07 · 2021 · 12 000 km · 6 900 €` · `https://www.exemplo.pt/viaturas/yamaha-mt-07-2021` · `https://www.exemplo.pt/alertas/cancelar/3f2a9c1e`
+
+### 6. `engineline_visita` — confirmação e lembrete da visita
+
+- Nome: `engineline_visita` (variável `WHATSAPP_TEMPLATE_VISITA` para usar outro)
+- Idioma: `pt_PT`
+
+Corpo:
+
+```
+Olá {{1}}! A sua visita à {{2}} está marcada para {{3}}.
+
+Viatura: {{4}}
+Morada: {{5}}
+
+Se precisar de mudar a hora, responda a esta mensagem.
+```
+
+Exemplos: `Maria` · `Supermotas` · `terça-feira, 21 de outubro, às 10:30` · `Yamaha MT-07 · 2021` · `Av. da Liberdade 100, 1250-096 Lisboa`
+
+O link de cancelar o alerta é assinado com `ALERT_LINK_SECRET` (se não existir, usa a chave de serviço do Supabase). Não precisa de a definir; se a mudar, os links já enviados deixam de funcionar.
+
 ## Quem recebe o quê
 
 Cada colaborador recebe um aviso se **todas** estas condições se cumprirem:

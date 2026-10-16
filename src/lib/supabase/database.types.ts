@@ -63,7 +63,8 @@ export type LeadKind =
   | "order"
   | "reservation"
   | "offer"
-  | "alert";
+  | "alert"
+  | "visit";
 export type LeadStatus =
   | "new"
   | "contacted"
@@ -242,6 +243,10 @@ type CarMediaUpdate = Partial<CarMediaInsert>;
 // ---- leads -----------------------------------------------------------------
 type LeadsRow = {
   vehicle_type: "car" | "motorcycle" | null;
+  /** Visita ao stand (0042): dia e hora, estado e lembrete enviado. */
+  visit_at: string | null;
+  visit_status: VisitStatus | null;
+  visit_reminded_at: string | null;
   assigned_to: string | null;
   next_action: string | null;
   next_action_at: string | null;
@@ -264,6 +269,9 @@ type LeadsRow = {
 };
 type LeadsInsert = {
   vehicle_type?: "car" | "motorcycle" | null;
+  visit_at?: string | null;
+  visit_status?: VisitStatus | null;
+  visit_reminded_at?: string | null;
   assigned_to?: string | null;
   next_action?: string | null;
   next_action_at?: string | null;
@@ -657,6 +665,30 @@ export type OlxCategoryCacheRow = {
   fetched_at: string;
 };
 
+export type VisitStatus = "requested" | "confirmed" | "done" | "no_show" | "cancelled";
+
+/** Uma viatura publicada que corresponde a um alerta de stock (0042). */
+export type StockAlertMatchRow = {
+  id: string;
+  lead_id: string;
+  car_id: string;
+  status: "pending" | "sending" | "sent" | "manual" | "failed" | "cancelled";
+  attempts: number;
+  error: string | null;
+  wa_message_id: string | null;
+  sent_at: string | null;
+  created_at: string;
+};
+
+/** Visitas ao stand e mensagens aos clientes (0042). Uma linha só. */
+export type CustomerSettingsRow = {
+  id: number;
+  visits_enabled: boolean;
+  visit_schedule: Json;
+  customer_whatsapp: boolean;
+  updated_at: string;
+};
+
 /** Interruptor geral dos avisos por WhatsApp (0036). Uma linha só. */
 export type NotificationSettingsRow = {
   id: number;
@@ -794,6 +826,18 @@ export type Database = {
       reservations: Table<Reservation, "car_id" | "lead_id" | "expires_at">;
       audit_log: Table<AuditEntry>;
       notification_jobs: Table<NotificationJob>;
+      stock_alert_matches: {
+        Row: StockAlertMatchRow;
+        Insert: { lead_id: string; car_id: string } & Partial<StockAlertMatchRow>;
+        Update: Partial<StockAlertMatchRow>;
+        Relationships: [];
+      };
+      customer_settings: {
+        Row: CustomerSettingsRow;
+        Insert: Partial<CustomerSettingsRow>;
+        Update: Partial<CustomerSettingsRow>;
+        Relationships: [];
+      };
       notification_settings: {
         Row: NotificationSettingsRow;
         Insert: Partial<NotificationSettingsRow>;

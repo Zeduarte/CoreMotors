@@ -36,6 +36,10 @@ export async function GET(request: NextRequest) {
   const validTarget = target && (
     allowed.includes(target) ||
     (area === "public" && /^\/viaturas\/[a-z0-9-]+$/.test(target)) ||
+    // Páginas por marca e categoria (/motas/yamaha).
+    (area === "public" && /^\/(carros|motas)(\/[a-z0-9-]{1,80})?$/.test(target)) ||
+    // O stock com uma pesquisa (vinda das páginas por marca, por exemplo).
+    (area === "public" && /^\/inventario\?[A-Za-z0-9_%=&.+-]{1,500}$/.test(target)) ||
     (area === "admin" && /^\/admin\/carros\/[0-9a-f-]{36}$/.test(target))
   );
   const destination = validTarget ? target : area === "admin" ? "/admin/carros" : "/";

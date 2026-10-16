@@ -118,6 +118,10 @@ export interface Vehicle {
   serviceBook?: boolean;
   warrantyMonths?: number | null;
   lastInspection?: string | null;
+  /** Campos do OLX escolhidos na ficha (crus, só no servidor). */
+  olxAttributes?: Record<string, unknown>;
+  /** Valores finais dos campos do OLX pesquisáveis (listas do stock). */
+  olx?: Record<string, string | string[]>;
 }
 
 /** Payload dos filtros do inventário. */
@@ -138,6 +142,21 @@ export interface VehicleFilters {
   location: string | null;
   vehicleType: "car" | "motorcycle" | null;
   campaignOnly: boolean;
+  /** Potência (cv) e cilindrada (cm³), como no OLX. */
+  minPower: number | null;
+  maxPower: number | null;
+  minDisplacement: number | null;
+  maxDisplacement: number | null;
+  color: string | null;
+  doors: number | null;
+  seats: number | null;
+  /** Origem nacional, 1.º dono, livro de revisões, com garantia. */
+  nationalOnly: boolean;
+  firstOwnerOnly: boolean;
+  serviceBookOnly: boolean;
+  warrantyOnly: boolean;
+  /** Campos do OLX: um valor da lista, ou um intervalo para números. */
+  olx: Record<string, string | { min: number | null; max: number | null }>;
 }
 
 export type SortKey =

@@ -196,7 +196,10 @@ await test("public and admin categories stay independent across every vehicle li
  publicType="motorcycle";adminType="car";
  assert.deepEqual((await getRecentVehicles()).map(v=>v.id),[bike.id]);
  assert.deepEqual((await getFeaturedVehicles()).map(v=>v.id),[bike.id]);
- assert.equal(await getVehicleBySlug(car.slug),undefined);
+ // As listas seguem o mundo escolhido; a ficha abre por link direto em
+ // qualquer um (o Google não guarda a escolha, e um link partilhado de uma
+ // mota tem de abrir a quem está nos carros).
+ assert.equal((await getVehicleBySlug(car.slug)).id,car.id);
  assert.equal((await getVehicleBySlug(bike.slug)).id,bike.id);
  assert.deepEqual((await getAdminCars()).map(v=>v.id),[car.id]);
  assert.equal(await getAdminCarById(bike.id),null);
@@ -221,6 +224,28 @@ await test("selection endpoint stores only the requested area and rejects unsafe
  assert.equal(unsafe.cookies.get("engineline_admin_type").value,"car");
  const invalid=await GET(new NextRequest("https://example.test/api/vehicle-context?type=truck"));
  assert.equal(invalid.status,400);
+ // As páginas por marca e o stock com uma pesquisa voltam para onde estavam.
+ const go=async(target)=>(await GET(new NextRequest(`https://example.test/api/vehicle-context?type=motorcycle&area=public&target=${encodeURIComponent(target)}`))).headers.get("location");
+ assert.equal(await go("/motas/yamaha"),"/motas/yamaha");
+ assert.equal(await go("/inventario?marca=Yamaha&preco_max=8000"),"/inventario?marca=Yamaha&preco_max=8000");
+ for(const bad of ["//evil.test","/motas/../admin","/inventario?x=<script>","/carros/a/b"]) assert.equal(await go(bad),"/",bad);
+});
+
+await test("a stock alert keeps what the person is looking for, with the type of the page it came from",async()=>{
+ const {submitLead}=load("src/lib/actions/leads.ts");
+ publicType="car";
+ const f=new FormData();
+ for(const[k,v]of Object.entries({privacy_acknowledged:"yes",kind:"alert",vehicle_type:"motorcycle",name:"Cliente Alerta",phone:"912345678",alert_make:"yamaha",alert_max_price:"8 000",whatsapp_opt_in:"yes"}))f.set(k,v);
+ assert.equal((await submitLead({ok:false},f)).ok,true);
+ const lead=leadRows.at(-1);
+ assert.equal(lead.vehicle_type,"motorcycle","a página /motas diz o tipo, não o mundo guardado");
+ assert.deepEqual({make:lead.car_details.criteria.make,max:lead.car_details.criteria.max_price},{make:"Yamaha",max:8000});
+ assert.ok(lead.car_details.whatsapp_opt_in_at);
+ assert.match(lead.message,/Yamaha · até 8/);
+ f.set("alert_make","");f.set("alert_max_price","");
+ const empty=await submitLead({ok:false},f);
+ assert.equal(empty.ok,false);
+ assert.match(empty.error,/marca, a categoria ou o preço/);
 });
 
 await test("public enquiries inherit the chosen world and cannot bind to the other category",async()=>{

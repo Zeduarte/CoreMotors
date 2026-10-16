@@ -119,5 +119,6 @@ export function toVehicle(car: CarWithMedia): Vehicle {
     serviceBook: car.service_book,
     warrantyMonths: car.warranty_months,
     lastInspection: car.last_inspection,
+    olxAttributes: (car.olx_attributes as Record<string, unknown> | null) ?? {},
   };
 }

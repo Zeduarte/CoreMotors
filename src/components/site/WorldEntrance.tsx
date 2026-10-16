@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { VehicleType } from "@/lib/vehicle-categories";
 import { asset } from "@/lib/asset";
 import { mediaFor } from "@/lib/media";
@@ -16,7 +16,28 @@ export function WorldEntrance({ name, selected }: { name: string; selected: Vehi
   // homepage, e quem chegasse de um link partilhado (OLX, Google, WhatsApp)
   // perdia a viatura que foi ver.
   const pathname = usePathname();
-  const [entered, setEntered] = useState(Boolean(selected));
+  const router = useRouter();
+  // As páginas por marca e categoria (/motas/yamaha, /carros/suv) já dizem o
+  // mundo: quem chega do Google vê logo a página, sem ecrã de escolha por cima.
+  const urlWorld: VehicleType | null = /^\/carros(\/|$)/.test(pathname)
+    ? "car"
+    : /^\/motas(\/|$)/.test(pathname)
+      ? "motorcycle"
+      : null;
+  const [entered, setEntered] = useState(Boolean(selected) || Boolean(urlWorld));
+
+  // …e a escolha fica guardada, para o resto do site seguir o mesmo mundo.
+  useEffect(() => {
+    if (selected || !urlWorld) return;
+    fetch(`/api/vehicle-context?type=${urlWorld}&area=public&target=${encodeURIComponent(pathname)}`, {
+      redirect: "manual",
+      credentials: "same-origin",
+    })
+      .then(() => router.refresh())
+      .catch(() => {});
+    // Só à chegada.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [leaving, setLeaving] = useState<string | null>(null);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exiting = useRef(false);

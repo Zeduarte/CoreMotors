@@ -1284,4 +1284,34 @@ await test('0041: old notices of the new kinds are pruned too',async()=>{
  await db.query('update notification_settings set whatsapp_enabled=false');
 });
 
+await test('0042: visits need a date and a state, and stock alert matches are staff-only and never duplicated',async()=>{
+ await assert.rejects(db.query("insert into leads(name,email,visit_at) values('Sem estado','',now())"),/leads_visit_shape/);
+ await assert.rejects(db.query("insert into leads(name,email,visit_at,visit_status) values('Estado errado','',now(),'talvez')"),/leads_visit_status_check/);
+ const visit=(await db.query("insert into leads(kind,car_id,name,email,phone,visit_at,visit_status) values('visit',$1,'Visita','','912345678',now()+interval '1 day','requested') returning id",[car])).rows[0].id;
+ const alert=(await db.query("insert into leads(kind,name,email,car_details) values('alert','Alerta','a@example.test','{\"criteria\":{\"vehicle_type\":\"car\",\"make\":\"BMW\"}}') returning id")).rows[0].id;
+ await db.query('insert into stock_alert_matches(lead_id,car_id) values($1,$2)',[alert,car]);
+ await assert.rejects(db.query('insert into stock_alert_matches(lead_id,car_id) values($1,$2)',[alert,car]),/duplicate key|unique/i);
+ await asUser(null,async()=>{
+  await assert.rejects(db.query('select * from stock_alert_matches'),/permission denied/);
+  await assert.rejects(db.query('select * from customer_settings'),/permission denied/);
+ },'anon');
+ await asUser(seller,async()=>{
+  assert.equal((await db.query('select count(*)::int n from stock_alert_matches where lead_id=$1',[alert])).rows[0].n,1);
+  await db.query("update stock_alert_matches set status='sent',sent_at=now() where lead_id=$1",[alert]);
+  await assert.rejects(db.query("update stock_alert_matches set car_id=$2 where lead_id=$1",[alert,car2]),/permission denied/);
+  await db.query("update leads set visit_status='confirmed' where id=$1",[visit]);
+  // Só o administrador muda as definições das visitas e das mensagens aos clientes.
+  assert.equal((await db.query('update customer_settings set customer_whatsapp=true returning id')).rows.length,0);
+ });
+ await asUser(mechanic,async()=>{
+  assert.equal((await db.query('select count(*)::int n from stock_alert_matches')).rows[0].n,0,'sem acesso aos contactos');
+ });
+ await asUser(admin,async()=>{
+  assert.equal((await db.query('update customer_settings set visits_enabled=false returning id')).rows.length,1);
+ });
+ assert.equal((await db.query('select visit_status from leads where id=$1',[visit])).rows[0].visit_status,'confirmed');
+ await db.query('delete from leads where id = any($1)',[[visit,alert]]);
+ assert.equal((await db.query('select count(*)::int n from stock_alert_matches where lead_id=$1',[alert])).rows[0].n,0,'apagar o contacto apaga as correspondências');
+});
+
 await db.close();
