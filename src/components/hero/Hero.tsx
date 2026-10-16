@@ -69,19 +69,21 @@ export function Hero({
   return (
     <section
       ref={sectionRef}
-      className={`relative ${
+      // `-mt-16`: o topo sobe para trás da barra (que flutua num retângulo), e a
+      // imagem chega ao cimo do ecrã à volta dela.
+      className={`relative -mt-16 ${
         isVideo
           ? // No telemóvel menos "pista" de scroll no vídeo: a secção seguinte
             // aparece mais cedo.
             // Com a pesquisa, no telemóvel nem há pista: o hero tem só a
             // altura da imagem e o vídeo avança enquanto sai do ecrã.
             split
-            ? "h-[calc(100svh-4rem)] md:h-[140vh]"
+            ? "h-svh md:h-[140vh]"
             : "h-[120vh] md:h-[140vh]"
           : crossfade
             ? "h-[200vh]"
             : split
-              ? "h-[calc(100svh-4rem)] md:h-dvh"
+              ? "h-svh md:h-dvh"
               : "h-dvh"
       }`}
       aria-label="Viatura em destaque"
@@ -103,8 +105,10 @@ export function Hero({
             className={`absolute inset-0 ${
               split && raiseMediaOnMobile
                 ? // Altura pela largura (o motivo cabe de lado a lado) e topo
-                  // a pôr o motivo a ~42% da altura, sem deixar faixa em cima.
-                  "max-md:bottom-auto max-md:top-[min(0px,calc(42%-76vw))] max-md:h-[120vw] max-md:[mask-image:linear-gradient(to_bottom,#000_70%,transparent)]"
+                  // a pôr o motivo a ~42% da altura abaixo da barra (os 4rem
+                  // do topo ficam por trás dela; a foto entra a desvanecer, sem
+                  // linha dura por baixo da barra).
+                  "max-md:bottom-auto max-md:top-[calc(4rem+min(0px,calc(42%-1.68rem-76vw)))] max-md:h-[120vw] max-md:[mask-image:linear-gradient(to_bottom,transparent,#000_16%,#000_70%,transparent)]"
                 : ""
             }`}
           >
@@ -153,7 +157,7 @@ export function Hero({
         <div
           className={`container-px pointer-events-none relative z-10 text-center ${
             split
-              ? "max-md:flex max-md:flex-col max-md:pb-[5.75rem] max-md:pt-6"
+              ? "max-md:flex max-md:flex-col max-md:pb-[5.75rem] max-md:pt-[5.5rem]"
               : ""
           }`}
         >

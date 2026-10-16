@@ -85,13 +85,23 @@ export function Header({
     <header
       // Navegação por teclado a meio da página: fundo sólido para ler bem.
       onFocusCapture={() => window.scrollY > 24 && setSolid(true)}
-      className={`fixed inset-x-0 top-0 z-50 border-b transition-[background-color,border-color,backdrop-filter] duration-500 ease-premium [view-transition-name:site-header] ${
-        solid || open
-          ? "border-white/10 bg-ink/80 backdrop-blur-xl"
-          : "border-transparent bg-transparent backdrop-blur-none"
-      }`}
+      // A barra é um retângulo arredondado que flutua sobre a página, com
+      // margem dos lados (não ocupa o ecrã de ponta a ponta). O <header> em si
+      // é transparente e não apanha cliques: só o retângulo.
+      className="pointer-events-none fixed inset-x-0 top-0 z-50 [view-transition-name:site-header]"
     >
-      <nav className="container-px flex h-16 items-center justify-between md:h-20">
+      <div className="mx-auto w-full max-w-content px-3 pt-2 md:px-6 md:pt-3">
+      <div
+        className={`pointer-events-auto overflow-hidden rounded-[1.4rem] border backdrop-blur-xl transition-[background-color,border-color,box-shadow] duration-500 ease-premium md:rounded-[1.75rem] ${
+          open
+            ? // Menu aberto: opaco, para o que está por trás não se misturar com os links.
+              "border-white/10 bg-ink-soft shadow-2xl shadow-black/60"
+            : solid
+              ? "border-white/10 bg-ink-soft/90 shadow-xl shadow-black/40"
+              : "border-white/[0.08] bg-ink-soft/65 shadow-lg shadow-black/20"
+        }`}
+      >
+      <nav className="flex h-14 items-center justify-between pl-4 pr-2 md:h-16 md:pl-6 md:pr-3">
         <div className="flex items-center gap-3">
           {onVehiclePage && (
             <button
@@ -114,7 +124,7 @@ export function Header({
                 alt={branding.companyName}
                 width={280}
                 height={70}
-                className="h-11 w-auto max-w-[55vw] object-contain md:h-14"
+                className="h-9 w-auto max-w-[50vw] object-contain md:h-11"
                 priority
               />
             ) : (
@@ -233,7 +243,7 @@ export function Header({
             className="overflow-hidden md:hidden"
           >
             <motion.ul
-              className="container-px flex flex-col gap-1 py-4"
+              className="flex flex-col gap-1 border-t border-white/10 px-4 pb-4 pt-3"
               initial="closed"
               animate="open"
               exit="closed"
@@ -272,6 +282,8 @@ export function Header({
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
+      </div>
     </header>
   );
 }

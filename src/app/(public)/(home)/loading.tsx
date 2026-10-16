@@ -8,8 +8,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
  */
 export default function Loading() {
   return (
-    <div role="status" aria-label="A carregar" className="relative h-[calc(100svh-4rem)] bg-ink-soft md:h-dvh">
-      <div className="container-px flex h-full flex-col items-center justify-center gap-5 max-md:justify-between max-md:pb-[5.75rem] max-md:pt-6">
+    <div role="status" aria-label="A carregar" className="relative -mt-16 h-svh bg-ink-soft md:h-dvh">
+      <div className="container-px flex h-full flex-col items-center justify-center gap-5 max-md:justify-between max-md:pb-[5.75rem] max-md:pt-[5.5rem]">
         <div className="flex w-full flex-col items-center gap-4">
           <Skeleton className="h-3 w-40 rounded-full" />
           <Skeleton className="h-10 w-4/5 max-w-3xl rounded-xl md:h-20" />
