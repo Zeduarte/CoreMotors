@@ -211,6 +211,10 @@ A escolha Carros/Motas fica guardada em cookies independentes para o site públi
 
 Verificação local: `npm test`, `npm run typecheck`, `npm run lint` e `npm run build`. A aplicação da migração numa base de dados remota e a publicação do site são passos separados.
 
+## Ligar a conta OLX — Callback URL
+
+O botão «Ligar conta OLX» (`/admin/anuncios`) devolve o utilizador ao site através do **Callback URL registado na aplicação, no portal OLX Partner**. O código não envia `redirect_uri` (a firewall do OLX recusa-o com 403). Por isso o Callback URL tem de ser `https://<domínio>/api/olx/callback`. Se estiver registado `http://localhost`, o OLX volta a `localhost` no fim da autorização e o Chrome mostra `ERR_CONNECTION_REFUSED`. Para testar em local, registe `http://localhost:3000/api/olx/callback` e use `npm run dev`. `OLX_REDIRECT_URI` fica vazio, salvo se a aplicação tiver vários callbacks registados.
+
 ## Ligar o número do WhatsApp no backoffice — migração 0035
 
 Aplicar `supabase/migrations/0035_whatsapp_connection.sql`. Em **Integrações → Ordens por WhatsApp**, o botão «Ligar número do WhatsApp» abre a janela da Meta (Embedded Signup): entra-se com o Facebook da empresa, escolhe-se a conta do WhatsApp Business e o número, e o site faz o resto — troca a autorização por um token, confirma que o número pertence à conta, subscreve as mensagens e regista o número na Cloud API (o PIN de verificação em dois passos é mostrado uma vez). O token fica numa tabela só de servidor, como os do OLX.
