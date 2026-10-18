@@ -641,6 +641,21 @@ export type OlxConnectionRow = {
 };
 
 /** Número de WhatsApp da empresa ligado no backoffice. Só o servidor lê (tem o token). */
+/** Contacto externo do número da marca (0043): identifica-se pela empresa e pelo cargo. */
+export type WaContactRow = {
+  phone: string;
+  profile_name: string | null;
+  name: string | null;
+  company: string | null;
+  role: string | null;
+  step: "company" | "role" | "done";
+  first_message: string | null;
+  last_message: string | null;
+  messages: number;
+  created_at: string;
+  last_message_at: string;
+};
+
 export type WhatsAppConnectionRow = {
   id: number;
   waba_id: string;
@@ -768,6 +783,12 @@ export type Database = {
           image_wamid?: string | null;
           // 0039: as fotografias que chegam depois juntam-se à mesma proposta.
           payload?: Json; summary?: string; expires_at?: string };
+        Relationships: [];
+      };
+      wa_contacts: {
+        Row: WaContactRow;
+        Insert: Partial<WaContactRow> & { phone: string };
+        Update: Partial<WaContactRow>;
         Relationships: [];
       };
       wa_media: {

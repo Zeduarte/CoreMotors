@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { publicSubmissionClient } from "@/lib/public-submissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { whatsAppNumber, type WhatsAppNumber } from "@/lib/whatsapp/account";
+import { handleExternal } from "@/lib/whatsapp/contact";
 import { afterWrite } from "@/lib/whatsapp/after-write";
 import { deliverReply, recoverFailedImages } from "@/lib/whatsapp/delivery";
 import { handleInbound, toActor, type HandleResult } from "@/lib/whatsapp/handle";
@@ -170,15 +171,27 @@ async function processOne(
     return;
   }
 
-  // Quem é. Número desconhecido: silêncio para quem escreveu — não se confirma
-  // a um estranho que este número é um assistente. Para o administrador, fica
-  // escrito porquê.
+  // Quem é. Um colaborador (telefone de um perfil) fala com o assistente. Todos
+  // os outros são contactos da marca: ficam registados com a empresa e o cargo
+  // (contact.ts) e recebem só as frases fixas da apresentação — nunca o
+  // assistente, que escreve na base de dados.
   const { data: actorId } = await db.rpc("wa_actor_for_phone", { raw_phone: msg.from });
   if (!actorId) {
+    const reply = await handleExternal(db, {
+      from: msg.from,
+      text: msg.text,
+      type: msg.type,
+      ...(msg.profileName ? { profileName: msg.profileName } : {}),
+    });
+    if (!reply) {
+      await finish({ actor_id: null });
+      return;
+    }
+    const { sent } = await deliverReply(db, msg.from, reply, undefined, number);
     await finish({
       actor_id: null,
-      last_error:
-        "número sem perfil associado — confirme o telefone em O meu perfil (ou há dois perfis com o mesmo número)",
+      reply_sent_at: sent.ok ? new Date().toISOString() : null,
+      last_error: sent.ok ? null : `resposta não enviada: ${sent.error}`,
     });
     return;
   }

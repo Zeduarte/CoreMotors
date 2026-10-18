@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { effectiveSections } from "@/lib/permissions";
 import { embeddedSignup } from "@/lib/whatsapp/account";
+import { WhatsAppBrand } from "./WhatsAppBrand";
 import { WhatsAppConnect } from "./WhatsAppConnect";
 import { WhatsAppSimulator } from "./WhatsAppSimulator";
 
@@ -55,6 +56,12 @@ export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
           .maybeSingle(),
       ])
     : [{ data: null }, { data: null }];
+  // Contactos externos do número da marca: quem escreve sem ser colaborador.
+  const { data: contactos } = await db
+    .from("wa_contacts")
+    .select("phone,name,company,role,step,last_message,last_message_at")
+    .order("last_message_at", { ascending: false })
+    .limit(15);
   const ligadoPor = ligacao?.connected_by
     ? perfis?.find((p) => p.id === ligacao.connected_by)?.full_name?.trim()
     : null;
@@ -139,6 +146,9 @@ export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
           <div className="mt-3">
             <WhatsAppConnect signup={signup} connected={!!ligacao} />
           </div>
+          <div className="mt-3">
+            <WhatsAppBrand disabled={!ligacao && !numeroNasVariaveis} />
+          </div>
           {!signup && (
             <p className="mt-2 text-xs text-paper/50">
               Para ligar o número aqui, sem copiar tokens para o Netlify, crie as variáveis{" "}
@@ -170,6 +180,36 @@ export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
             ANTHROPIC_API_KEY.
           </p>
         </div>
+      </div>
+
+      {/* Quem escreve para o número sem ser colaborador */}
+      <div>
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-paper/50">
+          Contactos do número da Core Motors
+        </h3>
+        <p className="mt-1 text-xs text-paper/50">
+          O número é de toda a gente. Quem não é colaborador é identificado pela
+          empresa e pelo cargo: o WhatsApp pergunta-os na primeira conversa.
+        </p>
+        <ul className="mt-3 space-y-2 text-sm">
+          {(contactos ?? []).length === 0 && (
+            <li className="text-paper/50">Ainda ninguém escreveu.</li>
+          )}
+          {(contactos ?? []).map((c) => (
+            <li key={c.phone} className="border-b border-white/10 py-2">
+              <p className="text-paper">
+                {c.name?.trim() || c.phone}
+                {c.company ? ` · ${c.company}` : ""}
+                {c.role ? ` · ${c.role}` : ""}
+                {c.step !== "done" && <span className="ml-2 text-xs text-amber-300">a identificar</span>}
+              </p>
+              <p className="text-xs text-paper/50">
+                +{c.phone} · {new Date(c.last_message_at).toLocaleString("pt-PT")}
+                {c.last_message ? ` · «${c.last_message.slice(0, 80)}»` : ""}
+              </p>
+            </li>
+          ))}
+        </ul>
       </div>
 
       {/* Quem pode dar ordens */}

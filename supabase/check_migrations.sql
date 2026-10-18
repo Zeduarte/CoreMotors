@@ -114,6 +114,8 @@ from (values
     exists (select 1 from pg_proc where proname = 'queue_whatsapp_leave_upcoming')),
   ('0042_alerts_visits',
     to_regclass('public.customer_settings') is not null
-    and to_regclass('public.stock_alert_matches') is not null)
+    and to_regclass('public.stock_alert_matches') is not null),
+  ('0043_wa_contacts',
+    to_regclass('public.wa_contacts') is not null)
 ) as m(migracao, aplicada)
 order by migracao;

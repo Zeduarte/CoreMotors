@@ -446,7 +446,7 @@ const webhook=(from,media)=>{
  return new Request('https://stand.example.pt/api/whatsapp',{method:'POST',body:raw,headers:{'x-hub-signature-256':sig}});
 };
 
-await test('the webhook ignores photos from unknown numbers and answers known staff once',async()=>{
+await test('the webhook does not process photos from unknown numbers, greets them as contacts, and answers known staff once',async()=>{
  rotaDb=fakeDb();
  rotaDb._t.whatsapp_connection.push({id:1,phone_number_id:'222',access_token:TOKEN});
  rotaDb._t.profiles.push({id:chefe.id,full_name:'Ana',role:'admin',phone:TELEFONE,allowed_sections:null,allowed_vehicle_types:null});
@@ -455,9 +455,13 @@ await test('the webhook ignores photos from unknown numbers and answers known st
  const r=await POST(webhook('351999999999',estranha));
  assert.equal(r.status,200);
  assert.equal(meta.calls.some(c=>c.includes(estranha.id)),false,'nada descarregado');
- assert.equal(meta.sent.length,0,'nem resposta, nem vistos');
+ // Já não é silêncio: o número é da marca, e um estranho é um contacto.
+ assert.equal(meta.sent.length,1,'só a apresentação');
+ assert.equal(meta.sent[0].to,'351999999999');
+ assert.match(meta.sent[0].text.body,/Core Motors.*empresa/);
  assert.equal(rotaDb._t.wa_media.length,0);
- assert.match(rotaDb._t.wa_messages[0].last_error,/sem perfil/);
+ assert.equal(rotaDb._t.wa_pending_actions.length,0);
+ assert.equal(rotaDb._t.wa_contacts[0].step,'company');
 
  const boa=naMeta(await foto(),{caption:'bmw 320 preto'});
  const ok=await POST(webhook(TELEFONE,boa));
@@ -469,6 +473,39 @@ await test('the webhook ignores photos from unknown numbers and answers known st
  assert.match(imagem.image.link,/^https:\/\/stand\.example\.pt\/api\/whatsapp\/preview\//);
  assert.match(espacos(imagem.image.caption),/Vai ser juntada 1 fotografia à viatura BMW 320/);
  assert.equal(rotaDb._t.wa_pending_actions[0].image_wamid,imagem?`wamid.out${meta.sent.indexOf(imagem)+1}`:null);
+});
+
+// ---- Contactos externos: empresa e cargo ---------------------------------------
+const texto=(from,body,name)=>{
+ const raw=JSON.stringify({entry:[{changes:[{value:{metadata:{phone_number_id:'222'},
+  ...(name?{contacts:[{wa_id:from,profile:{name}}]}:{}),
+  messages:[{id:`wamid.in.${randomUUID()}`,from,type:'text',text:{body}}]}}]}]});
+ const sig='sha256='+createHmac('sha256',process.env.WHATSAPP_APP_SECRET).update(raw,'utf8').digest('hex');
+ return new Request('https://stand.example.pt/api/whatsapp',{method:'POST',body:raw,headers:{'x-hub-signature-256':sig}});
+};
+
+await test('an outside contact is always identified by company and role, then left to the team',async()=>{
+ rotaDb=fakeDb();
+ rotaDb._t.whatsapp_connection.push({id:1,phone_number_id:'222',access_token:TOKEN});
+ meta.calls.length=0;meta.sent.length=0;
+ const N='351933333333';
+ await POST(texto(N,'Boa tarde, queria saber preços','Rui Costa'));
+ assert.match(meta.sent.at(-1).text.body,/nome da sua empresa/);
+ assert.equal(rotaDb._t.wa_contacts[0].name,'Rui Costa');
+ assert.equal(rotaDb._t.wa_contacts[0].first_message,'Boa tarde, queria saber preços');
+ await POST(texto(N,'  Auto\nRibeiro   Lda '));
+ assert.match(meta.sent.at(-1).text.body,/cargo na Auto Ribeiro Lda/);
+ await POST(texto(N,'Diretor comercial'));
+ assert.match(meta.sent.at(-1).text.body,/registado/);
+ const c=rotaDb._t.wa_contacts[0];
+ assert.deepEqual([c.company,c.role,c.step],['Auto Ribeiro Lda','Diretor comercial','done']);
+ // Depois de apresentado, regista-se e não se responde sozinho.
+ const antes=meta.sent.length;
+ await POST(texto(N,'Pode ligar-me amanhã?'));
+ assert.equal(meta.sent.length,antes);
+ assert.equal(rotaDb._t.wa_contacts[0].last_message,'Pode ligar-me amanhã?');
+ assert.equal(rotaDb._t.wa_contacts[0].messages,4);
+ assert.equal(rotaDb._t.wa_pending_actions.length,0,'nunca chega ao assistente');
 });
 
 server.close();

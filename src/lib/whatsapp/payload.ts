@@ -15,6 +15,8 @@ export interface InboundMessage {
   /** Só preenchido quando `type === "text"`. */
   text: string;
   phoneNumberId: string;
+  /** O nome do perfil de WhatsApp de quem escreveu, se a Meta o entregar. */
+  profileName?: string;
   /**
    * Uma fotografia: `image`, ou `document` cujo tipo é de imagem (quem a manda
    * «como documento», para não perder qualidade). O ficheiro em si é
@@ -84,6 +86,13 @@ export function extractMessages(payload: unknown): InboundMessage[] {
     for (const change of asArray(asRecord(entry).changes)) {
       const value = asRecord(asRecord(change).value);
       const phoneNumberId = String(asRecord(value.metadata).phone_number_id ?? "");
+      // Nome do perfil por número (wa_id), para o contacto externo.
+      const names = new Map<string, string>();
+      for (const c of asArray(value.contacts)) {
+        const contact = asRecord(c);
+        const name = asRecord(contact.profile).name;
+        if (typeof contact.wa_id === "string" && typeof name === "string") names.set(contact.wa_id, name);
+      }
       for (const raw of asArray(value.messages)) {
         const m = asRecord(raw);
         const wamId = typeof m.id === "string" ? m.id : "";
@@ -98,6 +107,7 @@ export function extractMessages(payload: unknown): InboundMessage[] {
           type,
           text: type === "text" && typeof body === "string" ? body : "",
           phoneNumberId,
+          ...(names.get(from) ? { profileName: names.get(from) } : {}),
           ...(media ? { media } : {}),
         });
       }
