@@ -2,6 +2,9 @@
   "name": "engineline",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "description": "Stand de automóveis premium — Next.js 15, GSAP, Lenis, Framer Motion",
   "scripts": {
     "predev": "node scripts/media-manifest.mjs",

@@ -1,4 +1,5 @@
 import { site } from "@/lib/site";
+import { safeJsonLd } from "@/lib/json-ld";
 import { normalizeWhatsApp, type Branding } from "@/lib/branding";
 
 /**
@@ -48,7 +49,7 @@ export function DealerJsonLd({ branding }: { branding: Branding }) {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
     />
   );
 }
