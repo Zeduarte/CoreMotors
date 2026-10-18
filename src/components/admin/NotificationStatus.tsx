@@ -5,6 +5,7 @@ import {
   requeueWhatsAppNotification,
   saveWhatsAppNotificationSettings,
   sendWhatsAppTestNotification,
+  createWhatsAppTemplates,
 } from "@/lib/actions/notifications";
 import { notificationEvent, type TemplateFamily } from "@/lib/notification-events";
 import { NOTIFICATION_TEMPLATES, templateLanguage, templateName } from "@/lib/whatsapp/send-template";
@@ -74,6 +75,9 @@ export async function NotificationStatus() {
     <p className="font-semibold text-accent">{templateName(f)}</p>
     <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-paper/70">{NOTIFICATION_TEMPLATES[f].body}</pre>
    </li>)}</ul>
+   <ActionForm action={createWhatsAppTemplates} label="Criar os modelos na Meta" success="Modelos enviados para aprovação da Meta." className="space-y-2">
+    <p className="text-xs text-paper/50">Submete à Meta, de uma vez, os seis modelos (quatro avisos à equipa e dois aos clientes), com o nome e o texto exatos. A Meta aprova em minutos ou horas; depois use o teste abaixo. Os que já existem são ignorados.</p>
+   </ActionForm>
    <ActionForm action={sendWhatsAppTestNotification} label="Enviar teste para o meu telefone" success="Teste enviado: veja o seu WhatsApp." className="space-y-2">
     <p className="text-xs text-paper/50">Envia os quatro modelos, com valores de exemplo, para o telefone do seu perfil — mesmo com os avisos desligados. Se a Meta recusar algum, o motivo aparece aqui.</p>
    </ActionForm>

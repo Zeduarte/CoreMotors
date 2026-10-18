@@ -11,6 +11,7 @@ import { effectiveSections } from "@/lib/permissions";
 import { normalizeWhatsApp } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { createMessageTemplates } from "@/lib/whatsapp/templates-create";
 import { whatsAppNumber } from "@/lib/whatsapp/account";
 import {
   NOTIFICATION_TEMPLATES,
@@ -117,6 +118,23 @@ export async function sendWhatsAppTestNotification(): Promise<Result> {
   }
   if (falhas.length) return { ok: false, error: `A Meta recusou ${falhas.length} de 4 modelos — ${falhas.join(" · ")}` };
   return { ok: true };
+}
+
+/**
+ * Submete à Meta os modelos de mensagem (templates.ts), com a conta do WhatsApp
+ * Business guardada ao ligar o número. Só administradores.
+ */
+export async function createWhatsAppTemplates(): Promise<Result> {
+  const me = await requireAdmin();
+  if (!me) return { ok: false, error: "Apenas administradores." };
+  const db = createAdminClient();
+  const number = await whatsAppNumber(db);
+  const { data } = db
+    ? await db.from("whatsapp_connection").select("waba_id").eq("id", 1).maybeSingle()
+    : { data: null };
+  const result = await createMessageTemplates(number, data?.waba_id ?? null);
+  revalidatePath("/admin/integracoes");
+  return result.ok ? { ok: true } : { ok: false, error: [result.error, ...result.lines].filter(Boolean).join(" · ") };
 }
 
 /** Volta a pôr na fila um aviso que falhou ou cujo envio ficou por confirmar. */

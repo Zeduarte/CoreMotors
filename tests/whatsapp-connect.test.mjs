@@ -15,7 +15,7 @@ const require=createRequire(import.meta.url);
 // ---- Meta simulada ----------------------------------------------------------
 const TOKEN='EAAG-token-da-empresa';
 const EXPIRA=Math.floor(Date.UTC(2026,11,12)/1000);
-const meta={calls:[],sent:[],registered:[],subscribed:[],registerFails:false,debugFails:false,
+const meta={templates:[],existing:new Set(),calls:[],sent:[],registered:[],subscribed:[],registerFails:false,debugFails:false,
  numbers:{'111':[{id:'222',display_phone_number:'+351 912 345 678',verified_name:'engineLine',platform_type:'NOT_APPLICABLE'}]}};
 const server=http.createServer(async(req,res)=>{
  let raw='';for await(const c of req)raw+=c;
@@ -46,6 +46,11 @@ const server=http.createServer(async(req,res)=>{
  if(m&&req.method==='POST'){
   if(meta.registerFails)return send(400,{error:{message:'(#133005) Two step verification PIN Mismatch'}});
   meta.registered.push({id:m[1],...body});return send(200,{success:true});
+ }
+ m=url.pathname.match(/^\/v25\.0\/(\d+)\/message_templates$/);
+ if(m&&req.method==='POST'){
+  if(meta.existing.has(body.name))return send(400,{error:{message:'Message template already exists in this language',code:100}});
+  meta.templates.push({waba:m[1],...body});return send(200,{id:'1',status:'PENDING',category:'UTILITY'});
  }
  m=url.pathname.match(/^\/v25\.0\/(\d+)\/messages$/);
  if(m&&req.method==='POST'){
@@ -340,6 +345,32 @@ await test('disconnecting forgets the number here',async()=>{
  assert.deepEqual(await disconnectAccount(db),{ok:true});
  assert.equal(db._t.whatsapp_connection.length,0);
  assert.equal(await whatsAppNumber(db),null);
+});
+
+const {createMessageTemplates}=load('src/lib/whatsapp/templates-create.ts');
+await test('creating the templates submits all six as Utility in pt_PT, and skips the ones that exist',async()=>{
+ reset();meta.templates.length=0;meta.existing.clear();
+ const numero={phoneNumberId:'222',accessToken:TOKEN,source:'backoffice'};
+ const r=await createMessageTemplates(numero,'111');
+ assert.equal(r.ok,true);
+ assert.deepEqual(meta.templates.map(t=>t.name),['engineline_lead','engineline_viatura','engineline_testemunho','engineline_aviso','engineline_alerta_stock','engineline_visita']);
+ for(const t of meta.templates){
+  assert.equal(t.waba,'111');assert.equal(t.category,'UTILITY');assert.equal(t.language,'pt_PT');
+  const [body]=t.components;assert.equal(body.type,'BODY');
+  const vars=(body.text.match(/\{\{\d+\}\}/g)??[]).length;
+  assert.equal(body.example.body_text[0].length,vars,`${t.name}: um exemplo por variável`);
+ }
+ // Uma segunda vez, tudo já existe: nem falha, nem duplica.
+ for(const t of meta.templates)meta.existing.add(t.name);
+ meta.templates.length=0;
+ const outra=await createMessageTemplates(numero,'111');
+ assert.equal(outra.ok,true);assert.equal(meta.templates.length,0);
+ assert.match(outra.lines[0],/já existia/);
+ // Sem a conta ou sem o token, diz-se o que falta e não se pede nada à Meta.
+ meta.calls.length=0;
+ assert.equal((await createMessageTemplates(numero,null)).ok,false);
+ assert.equal((await createMessageTemplates({...numero,accessToken:null},'111')).ok,false);
+ assert.equal(meta.calls.length,0);
 });
 
 server.close();
