@@ -17,10 +17,12 @@ export async function POST(request: Request) {
   if (!secret || Buffer.byteLength(token) !== Buffer.byteLength(expected) || !timingSafeEqual(Buffer.from(token),Buffer.from(expected))) return NextResponse.json({error:"Unauthorized"},{status:401});
   const db = createAdminClient();
   if (!db) return NextResponse.json({error:"Unavailable"},{status:503});
-  const {error} = await db.rpc("expire_reservations");
+  const {data: expired, error} = await db.rpc("expire_reservations");
   if (error) return NextResponse.json({error:"Maintenance failed"},{status:503});
-  // Reservas expiradas voltam a "publicada": o site tem de o mostrar já.
-  revalidateTag(PUBLIC_DATA_TAG);
+  // Reservas expiradas voltam a "publicada": o site tem de o mostrar já. Só
+  // quando alguma expirou — limpar sempre apagava as páginas guardadas na CDN
+  // de 15 em 15 minutos, e a visita seguinte esperava pela função.
+  if (expired) revalidateTag(PUBLIC_DATA_TAG);
   // Webhook dos contactos e avisos por WhatsApp à equipa (os que não saíram
   // logo a seguir à ação, os que falharam e os do assistente do WhatsApp).
   const result = await processNotificationJobs();
