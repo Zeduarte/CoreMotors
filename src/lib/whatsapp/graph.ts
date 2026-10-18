@@ -55,11 +55,19 @@ export async function graphRequest<T>(
       redirect: "error",
     });
     const data = (await response.json().catch(() => null)) as
-      | (T & { error?: { message?: string } })
+      | (T & { error?: { message?: string; error_subcode?: number; error_user_msg?: string } })
       | null;
     if (!response.ok) {
       const message = data?.error?.message;
-      return { ok: false, error: message ? message.slice(0, 200) : `HTTP ${response.status}` };
+      if (!message) return { ok: false, error: `HTTP ${response.status}` };
+      // Em erros genéricos («Invalid parameter») o motivo real vem no
+      // subcódigo e na mensagem para o utilizador, não em `message`.
+      const subcode = data?.error?.error_subcode;
+      const userMsg = data?.error?.error_user_msg;
+      const detail = [subcode ? `subcódigo ${subcode}` : "", userMsg ? userMsg.slice(0, 200) : ""]
+        .filter(Boolean)
+        .join(": ");
+      return { ok: false, error: message.slice(0, 200) + (detail ? ` [${detail}]` : "") };
     }
     return { ok: true, data: (data ?? {}) as T };
   } catch (e) {
