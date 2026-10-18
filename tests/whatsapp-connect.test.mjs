@@ -50,6 +50,7 @@ const server=http.createServer(async(req,res)=>{
  m=url.pathname.match(/^\/v25\.0\/(\d+)\/message_templates$/);
  if(m&&req.method==='POST'){
   if(meta.existing.has(body.name))return send(400,{error:{message:'Message template already exists in this language',code:100}});
+  if(meta.dupSub?.has(body.name))return send(400,{error:{message:'Invalid parameter',code:100,error_subcode:meta.dupSub.get(body.name),error_user_msg:'There is already Portuguese (POR) content for this template.'}});
   meta.templates.push({waba:m[1],...body});return send(200,{id:'1',status:'PENDING',category:'UTILITY'});
  }
  m=url.pathname.match(/^\/v25\.0\/(\d+)\/messages$/);
@@ -371,6 +372,17 @@ await test('creating the templates submits all six as Utility in pt_PT, and skip
  assert.equal((await createMessageTemplates(numero,null)).ok,false);
  assert.equal((await createMessageTemplates({...numero,accessToken:null},'111')).ok,false);
  assert.equal(meta.calls.length,0);
+});
+
+await test('a template Meta reports as already there (subcodes 2388024/2388026) is not a failure',async()=>{
+ reset();meta.templates.length=0;meta.existing.clear();
+ meta.dupSub=new Map([['engineline_lead',2388024],['engineline_viatura',2388026]]);
+ const numero={phoneNumberId:'222',accessToken:TOKEN,source:'backoffice'};
+ const r=await createMessageTemplates(numero,'111');
+ meta.dupSub=undefined;
+ assert.equal(r.ok,true);
+ assert.match(r.lines[0],/engineline_lead: já existia/);assert.match(r.lines[1],/engineline_viatura: já existia/);
+ assert.equal(meta.templates.length,4);
 });
 
 server.close();

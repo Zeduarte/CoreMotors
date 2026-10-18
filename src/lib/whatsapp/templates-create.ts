@@ -66,7 +66,10 @@ export async function createMessageTemplates(
       },
     });
     if (r.ok) lines.push(`${name}: enviado para aprovação.`);
-    else if (/already exist|já existe/i.test(r.error)) lines.push(`${name}: já existia.`);
+    // A Meta responde «Invalid parameter» com um subcódigo quando o modelo já existe:
+    // 2388024 (já há conteúdo nesse idioma) e 2388026 (existe com outra categoria,
+    // por exemplo reclassificado como Marketing). Não são falhas.
+    else if (/already exist|já existe|subcódigo (2388024|2388026)\b/i.test(r.error)) lines.push(`${name}: já existia.`);
     else {
       lines.push(`${name}: recusado (${r.error}).`);
       falhas.push(name);
