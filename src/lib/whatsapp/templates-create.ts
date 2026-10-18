@@ -42,11 +42,13 @@ export async function createMessageTemplates(
   if (!number?.accessToken) {
     return { ok: false, error: "Ligue primeiro o número do WhatsApp em Integrações.", lines };
   }
-  // Só há conta quando o número foi ligado no backoffice (Embedded Signup).
+  // O ID da conta vem da ligação feita no backoffice (Embedded Signup) ou da
+  // variável WHATSAPP_BUSINESS_ACCOUNT_ID do Netlify.
   if (!wabaId || !/^[0-9]+$/.test(wabaId)) {
     return {
       ok: false,
-      error: "Falta a conta do WhatsApp Business. Ligue o número em Integrações («Trocar de número») para o site a conhecer.",
+      error:
+        "Falta o ID da conta do WhatsApp Business. Defina WHATSAPP_BUSINESS_ACCOUNT_ID no Netlify (WhatsApp Manager → Definições da conta) e faça um novo deploy, ou ligue o número em Integrações («Trocar de número»).",
       lines,
     };
   }

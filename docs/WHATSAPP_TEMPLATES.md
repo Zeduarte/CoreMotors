@@ -4,6 +4,10 @@ Quando acontece algo no backoffice — um contacto do site, uma proposta de pre�
 
 Estas mensagens são a empresa a iniciar a conversa. Fora da janela de 24 horas que se abre quando a pessoa escreve, a Meta **só aceita modelos (templates) aprovados**. Por isso, antes de ligar os avisos, o administrador de cada stand tem de criar estes quatro modelos na conta do WhatsApp Business **do número ligado ao site** (cada stand tem a sua conta; os modelos não passam de uma conta para outra).
 
+## O jeito rápido: o botão do backoffice
+
+Em **Integrações → Avisos por WhatsApp**, o botão **Criar os modelos na Meta** submete de uma vez os seis modelos descritos abaixo (categoria Utility, `pt_PT`, texto e exemplos exatos); os que já existem são ignorados. Precisa do ID da conta do WhatsApp Business: vem da ligação feita em Integrações («Trocar de número») ou, se o número só estiver nas variáveis do Netlify, da variável `WHATSAPP_BUSINESS_ACCOUNT_ID` (WhatsApp Manager → Definições da conta). Se preferir, crie-os à mão como a seguir.
+
 ## Como criar cada modelo
 
 1. Abra o [WhatsApp Manager](https://business.facebook.com/wa/manage/message-templates/) da conta do número ligado em Integrações → **Modelos de mensagem** → **Criar modelo**.

@@ -132,7 +132,10 @@ export async function createWhatsAppTemplates(): Promise<Result> {
   const { data } = db
     ? await db.from("whatsapp_connection").select("waba_id").eq("id", 1).maybeSingle()
     : { data: null };
-  const result = await createMessageTemplates(number, data?.waba_id ?? null);
+  // A conta vem da ligação feita no backoffice; num site que só usa as variáveis
+  // do Netlify, vem de WHATSAPP_BUSINESS_ACCOUNT_ID.
+  const wabaId = data?.waba_id ?? (process.env.WHATSAPP_BUSINESS_ACCOUNT_ID?.trim() || null);
+  const result = await createMessageTemplates(number, wabaId);
   revalidatePath("/admin/integracoes");
   return result.ok ? { ok: true } : { ok: false, error: [result.error, ...result.lines].filter(Boolean).join(" · ") };
 }
