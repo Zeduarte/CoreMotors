@@ -184,6 +184,24 @@ function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/**
+ * As variáveis do aviso de contacto: o tipo de pedido e todos os dados do
+ * cliente, para quem recebe saber do que se trata sem abrir o backoffice.
+ * O telemóvel, o email, a mensagem e a data pretendida não vão no aviso
+ * guardado: juntam-se ao enviar (enrichLeadDetails, em notifications.ts).
+ */
+function leadParams(label: string, payload: Payload): string[] {
+  const wanted = date(payload.preferred_date);
+  return [
+    templateParam(wanted ? `${label} para ${wanted}` : label, 160),
+    templateParam(payload.name, 60),
+    templateParam(text(payload.phone) || "não indicado", 30),
+    templateParam(text(payload.email) || "não indicado", 80),
+    templateParam(text(payload.car_label) || "sem viatura associada", 80),
+    templateParam(text(payload.message) || "sem mensagem", 300),
+  ];
+}
+
 /** A ficha da viatura: o id vem no aviso (0041) ou é o próprio registo (0036). */
 function carPath(payload: Payload, subject: string): string {
   return `/admin/carros/${text(payload.car_id) || subject}`;
@@ -257,20 +275,7 @@ export function buildNotification(
     case "lead_trade_in":
     case "lead_order":
     case "lead_alert":
-      return {
-        family: "lead",
-        params: [
-          templateParam(leadLabel(payload)),
-          templateParam(payload.name, 60),
-          templateParam(
-            typeof payload.car_label === "string" && payload.car_label.trim()
-              ? payload.car_label
-              : "sem viatura associada",
-            80,
-          ),
-          templateParam(link(baseUrl, `/admin/leads/${subject}`), 300),
-        ],
-      };
+      return { family: "lead", params: leadParams(leadLabel(payload), payload) };
     case "testimonial_pending": {
       const rating = Number(payload.rating);
       return {
@@ -304,12 +309,7 @@ export function buildNotification(
     case "lead_assigned":
       return {
         family: "lead",
-        params: [
-          templateParam(`contacto atribuído a si (${leadLabel(payload)})`),
-          templateParam(payload.name, 60),
-          templateParam(text(payload.car_label) || "sem viatura associada", 80),
-          templateParam(link(baseUrl, leadPath(payload, subject)), 300),
-        ],
+        params: leadParams(`contacto atribuído a si (${leadLabel(payload)})`, payload),
       };
     case "lead_outcome": {
       const name = text(payload.name) || "um cliente";

@@ -33,16 +33,19 @@ export interface TemplateDefinition {
 
 export const NOTIFICATION_TEMPLATES: Record<TemplateFamily, TemplateDefinition> = {
   lead: {
-    name: "engineline_lead",
+    // «engineline_lead» (com link) ficou na Meta; este leva os dados do contacto.
+    name: "engineline_contacto",
     env: "WHATSAPP_TEMPLATE_LEAD",
     body:
-      "Novo pedido no backoffice: {{1}}.\n\nCliente: {{2}}\nViatura: {{3}}\n\n" +
-      "Abra o pedido em {{4}} para responder ao cliente.",
+      "Novo pedido no backoffice: {{1}}.\n\nCliente: {{2}}\nTelemóvel: {{3}}\nEmail: {{4}}\n" +
+      "Viatura: {{5}}\nMensagem: {{6}}\n\nResponda ao cliente o mais depressa possível.",
     example: [
       "proposta de preço de 18 500 €",
       "Maria Silva",
+      "+351 912 345 678",
+      "maria.silva@exemplo.pt",
       "BMW 320d Touring",
-      "https://www.exemplo.pt/admin/leads/3f2a9c1e-5b7d-4e8a-9c2f-1a2b3c4d5e6f",
+      "Gostava de ver a viatura no sábado de manhã.",
     ],
   },
   viatura: {

@@ -81,10 +81,12 @@ const asServer=(sql,params)=>pg.transaction(async tx=>{await tx.exec('set local 
 const wrap=async(fn)=>{try{return {data:await fn(),error:null};}catch(e){return {data:null,error:{message:e.message,code:e.code}};}};
 const adapter={
  from(table){
-  const filters=[];let columns='*';
+  const filters=[];let columns='*';let inFilter=null;
   const api={
    select(c){columns=c;return api;},
    eq(c,v){filters.push([c,v]);return api;},
+   in(c,vs){inFilter=[c,vs];return api;},
+   then(ok,fail){return wrap(async()=>(await asServer(`select ${columns} from public.${table} where ${inFilter[0]}=any($1::uuid[])`,[inFilter[1]])).rows).then(ok,fail);},
    maybeSingle(){return wrap(async()=>{
     const where=filters.map(([c],i)=>`${c}=$${i+1}`).join(' and ');
     return (await asServer(`select ${columns} from public.${table}${where?` where ${where}`:''} limit 1`,filters.map(f=>f[1]))).rows[0]??null;
@@ -114,8 +116,8 @@ const SITE='https://stand.example.pt';
 const run=(options={})=>processWhatsAppNotifications(adapter,{baseUrl:SITE,...options});
 /** Um contacto do site, gravado como o servidor o grava. */
 const newLead=async(fields)=>(await pg.query(
- `insert into leads(name,email,kind,vehicle_type,car_label,car_details) values($1,'cliente@example.test',$2,$3,$4,$5) returning id`,
- [fields.name??'Maria Silva',fields.kind??'contact',fields.vtype??'car',fields.car_label??null,fields.details??{}])).rows[0].id;
+ `insert into leads(name,email,kind,vehicle_type,car_label,car_details,phone,message) values($1,'cliente@example.test',$2,$3,$4,$5,$6,$7) returning id`,
+ [fields.name??'Maria Silva',fields.kind??'contact',fields.vtype??'car',fields.car_label??null,fields.details??{},fields.phone??null,fields.message??null])).rows[0].id;
 const jobsOf=async(subject)=>(await pg.query("select * from notification_jobs where channel='whatsapp' and subject_id=$1 order by recipient_id",[subject])).rows;
 const dueNow=()=>pg.query("update notification_jobs set next_attempt_at=now() where channel='whatsapp' and delivered_at is null");
 
@@ -152,7 +154,7 @@ await test('each notice fills its template with exactly the variables the templa
    assert.ok(p.length>0,e.key);
    assert.doesNotMatch(p,/[\n\t]| {5}/,'a Meta recusa estas variáveis');
   }
-  assert.match(msg.params.at(-1),/^https:\/\/stand\.example\.pt\/admin\//,'o último é o link para o backoffice');
+  if(msg.family!=='lead')assert.match(msg.params.at(-1),/^https:\/\/stand\.example\.pt\/admin\//,'o último é o link para o backoffice');
  }
  assert.equal(buildNotification('aviso_que_nao_existe','x',{},SITE),null);
  // A Meta recusa modelos que comecem ou acabem numa variável.
@@ -226,7 +228,7 @@ await test('no answer from Meta in time is reported as uncertain, not as a failu
 await test('a lead is saved even when WhatsApp fails, and the notice goes out on the next run',async()=>{
  meta.sent.length=0;
  meta.fail=()=>({status:503,error:{message:'Service temporarily unavailable',code:2}});
- const id=await newLead({kind:'offer',car_label:'BMW 320d',details:{offer_amount:18500}});
+ const id=await newLead({kind:'offer',car_label:'BMW 320d',details:{offer_amount:18500},phone:'912 345 678',message:'Posso ver a viatura\nno sábado?'});
  const falhou=await run();
  assert.deepEqual({ok:falhou.ok,sent:falhou.sent,failed:falhou.failed},{ok:true,sent:0,failed:2});
  assert.equal((await pg.query('select name from leads where id=$1',[id])).rows[0].name,'Maria Silva','o contacto está gravado');
@@ -240,11 +242,13 @@ await test('a lead is saved even when WhatsApp fails, and the notice goes out on
  assert.equal(ok.sent,2);
  assert.deepEqual(meta.sent.map(m=>m.to).sort(),['351912000001','351912000002'],'administrador e vendedor; o mecânico não tem Leads e o outro só motas');
  for(const m of meta.sent){
-  assert.equal(m.template.name,'engineline_lead');assert.equal(m.template.language.code,'pt_PT');
-  const [o,cliente,viatura,link]=m.template.components[0].parameters.map(p=>p.text);
+  assert.equal(m.template.name,'engineline_contacto');assert.equal(m.template.language.code,'pt_PT');
+  const [o,cliente,telemovel,email,viatura,mensagem]=m.template.components[0].parameters.map(p=>p.text);
   assert.match(o,/^proposta de preço de 18\s500\s€$/u);
   assert.equal(cliente,'Maria Silva');assert.equal(viatura,'BMW 320d');
-  assert.equal(link,`${SITE}/admin/leads/${id}`);
+  assert.equal(telemovel,'912 345 678','o telemóvel do cliente vai no aviso');
+  assert.equal(email,'cliente@example.test');
+  assert.equal(mensagem,'Posso ver a viatura no sábado?','a mensagem vai numa só linha');
  }
  for(const job of await jobsOf(id)){assert.ok(job.delivered_at);assert.match(job.wa_message_id,/^wamid\./);}
  // E não volta a sair: nem noutra volta, nem se o mesmo acontecimento for agendado outra vez.
@@ -374,8 +378,8 @@ await test('a lead assigned to someone reaches them even with new-lead notices s
   await asStaff(admin,'update leads set assigned_to=$2 where id=$1',[id,vendedor]);
   assert.equal((await run()).sent,1);
   const [m]=meta.sent;
-  assert.equal(m.to,'351912000002');assert.equal(m.template.name,'engineline_lead');
-  assert.deepEqual(paramsOf(m),['contacto atribuído a si (pedido de contacto)','João Cliente','BMW 320d',SITE+'/admin/leads/'+id]);
+  assert.equal(m.to,'351912000002');assert.equal(m.template.name,'engineline_contacto');
+  assert.deepEqual(paramsOf(m),['contacto atribuído a si (pedido de contacto)','João Cliente','não indicado','cliente@example.test','BMW 320d','sem mensagem']);
   // Dado como perdido por outra pessoa: o responsável fica a saber porquê.
   meta.sent.length=0;
   await asStaff(admin,"update leads set status='lost',loss_reason='Comprou noutro stand' where id=$1",[id]);

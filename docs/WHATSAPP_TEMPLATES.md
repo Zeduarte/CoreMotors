@@ -22,11 +22,15 @@ Quando os quatro estiverem **Ativos**, vá a **Integrações → Avisos por What
 
 Se a Meta recusar um nome (por exemplo, porque já existiu um modelo apagado com esse nome há menos de 30 dias), crie-o com outro nome e indique-o na variável de ambiente correspondente, no Netlify. O texto e as variáveis têm de ser os mesmos.
 
-## 1. `engineline_lead` — pedidos do site
+## 1. `engineline_contacto` — pedidos do site
 
 Usado para todos os contactos que chegam pelo site: pedido de contacto, de financiamento, de test drive, proposta de preço, pedido de reserva com sinal, pedido de venda ou retoma, encomenda de viatura e alerta de stock («avise-me quando entrar»). E quando um colega atribui um contacto a alguém: `{{1}}` fica, por exemplo, `contacto atribuído a si (proposta de preço de 18 500 €)`.
 
-- Nome: `engineline_lead` (variável `WHATSAPP_TEMPLATE_LEAD` para usar outro)
+O aviso leva **todos os dados do cliente** (telemóvel, email, mensagem), para quem o recebe saber do que se trata sem abrir o backoffice. Os dados são lidos do contacto no momento do envio. Se faltar algum, a mensagem diz «não indicado» ou «sem mensagem».
+
+O modelo anterior, `engineline_lead`, tinha um link em vez dos dados. Pode continuar na Meta; o site já não o usa.
+
+- Nome: `engineline_contacto` (variável `WHATSAPP_TEMPLATE_LEAD` para usar outro)
 - Categoria: Utility · Idioma: `pt_PT`
 
 Corpo:
@@ -35,19 +39,24 @@ Corpo:
 Novo pedido no backoffice: {{1}}.
 
 Cliente: {{2}}
-Viatura: {{3}}
+Telemóvel: {{3}}
+Email: {{4}}
+Viatura: {{5}}
+Mensagem: {{6}}
 
-Abra o pedido em {{4}} para responder ao cliente.
+Responda ao cliente o mais depressa possível.
 ```
 
 Exemplos:
 
 | Variável | O que é | Exemplo |
 |---|---|---|
-| `{{1}}` | O tipo de pedido | `proposta de preço de 18 500 €` |
+| `{{1}}` | O tipo de pedido (com a data pretendida, nos test drives) | `proposta de preço de 18 500 €` |
 | `{{2}}` | O nome do cliente | `Maria Silva` |
-| `{{3}}` | A viatura, ou «sem viatura associada» | `BMW 320d Touring` |
-| `{{4}}` | O link para o contacto no backoffice | `https://www.exemplo.pt/admin/leads/3f2a9c1e-5b7d-4e8a-9c2f-1a2b3c4d5e6f` |
+| `{{3}}` | O telemóvel do cliente, ou «não indicado» | `+351 912 345 678` |
+| `{{4}}` | O email do cliente | `maria.silva@exemplo.pt` |
+| `{{5}}` | A viatura, ou «sem viatura associada» | `BMW 320d Touring` |
+| `{{6}}` | A mensagem do cliente (até 300 caracteres, numa só linha), ou «sem mensagem» | `Gostava de ver a viatura no sábado de manhã.` |
 
 ## 2. `engineline_viatura` — viaturas
 
@@ -195,8 +204,8 @@ Cada colaborador recebe um aviso se **todas** estas condições se cumprirem:
 
 | Aviso | Quem recebe | Por defeito | Modelo |
 |---|---|---|---|
-| Contacto do site (cada tipo de pedido) | Leads | ligado | `engineline_lead` |
-| Contacto atribuído | o responsável escolhido (Leads) — mesmo com os contactos novos desligados | ligado | `engineline_lead` |
+| Contacto do site (cada tipo de pedido) | Leads | ligado | `engineline_contacto` |
+| Contacto atribuído | o responsável escolhido (Leads) — mesmo com os contactos novos desligados | ligado | `engineline_contacto` |
 | Contacto ganho ou perdido por um colega | o responsável do contacto (Leads) | ligado | `engineline_viatura` |
 | Viatura reservada por um colega | Leads | ligado | `engineline_viatura` |
 | Viatura vendida | Leads | ligado | `engineline_viatura` |
@@ -218,7 +227,7 @@ As condições voltam a ser verificadas no momento do envio: quem perdeu o acess
 
 | Variável | Por defeito | Para quê |
 |---|---|---|
-| `WHATSAPP_TEMPLATE_LEAD` | `engineline_lead` | Nome do modelo dos pedidos do site |
+| `WHATSAPP_TEMPLATE_LEAD` | `engineline_contacto` | Nome do modelo dos pedidos do site |
 | `WHATSAPP_TEMPLATE_VIATURA` | `engineline_viatura` | Nome do modelo das viaturas |
 | `WHATSAPP_TEMPLATE_TESTEMUNHO` | `engineline_testemunho` | Nome do modelo dos testemunhos |
 | `WHATSAPP_TEMPLATE_AVISO` | `engineline_aviso` | Nome do modelo dos avisos gerais |

@@ -170,7 +170,7 @@ await test('Integrations shows the templates to submit and the latest notices wi
  ];
  try{
   const html=await renderComponent('src/components/admin/NotificationStatus.tsx','NotificationStatus');
-  for(const name of ['engineline_lead','engineline_viatura','engineline_testemunho','engineline_aviso'])assert.ok(html.includes(name),name);
+  for(const name of ['engineline_contacto','engineline_viatura','engineline_testemunho','engineline_aviso'])assert.ok(html.includes(name),name);
   assert.ok(html.includes('pt_PT'));assert.ok(html.includes('Enviar teste para o meu telefone'));
   assert.ok(html.includes('Vendedor Um'));assert.ok(html.includes('Propostas de preço'));
   assert.ok(html.includes('Enviado'));

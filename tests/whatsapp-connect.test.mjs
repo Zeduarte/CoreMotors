@@ -354,7 +354,7 @@ await test('creating the templates submits all six as Utility in pt_PT, and skip
  const numero={phoneNumberId:'222',accessToken:TOKEN,source:'backoffice'};
  const r=await createMessageTemplates(numero,'111');
  assert.equal(r.ok,true);
- assert.deepEqual(meta.templates.map(t=>t.name),['engineline_lead','engineline_viatura','engineline_testemunho','engineline_aviso','engineline_alerta_stock','engineline_visita']);
+ assert.deepEqual(meta.templates.map(t=>t.name),['engineline_contacto','engineline_viatura','engineline_testemunho','engineline_aviso','engineline_alerta_stock','engineline_visita']);
  for(const t of meta.templates){
   assert.equal(t.waba,'111');assert.equal(t.category,'UTILITY');assert.equal(t.language,'pt_PT');
   const [body]=t.components;assert.equal(body.type,'BODY');
@@ -376,12 +376,12 @@ await test('creating the templates submits all six as Utility in pt_PT, and skip
 
 await test('a template Meta reports as already there (subcodes 2388024/2388026) is not a failure',async()=>{
  reset();meta.templates.length=0;meta.existing.clear();
- meta.dupSub=new Map([['engineline_lead',2388024],['engineline_viatura',2388026]]);
+ meta.dupSub=new Map([['engineline_contacto',2388024],['engineline_viatura',2388026]]);
  const numero={phoneNumberId:'222',accessToken:TOKEN,source:'backoffice'};
  const r=await createMessageTemplates(numero,'111');
  meta.dupSub=undefined;
  assert.equal(r.ok,true);
- assert.match(r.lines[0],/engineline_lead: já existia/);assert.match(r.lines[1],/engineline_viatura: já existia/);
+ assert.match(r.lines[0],/engineline_contacto: já existia/);assert.match(r.lines[1],/engineline_viatura: já existia/);
  assert.equal(meta.templates.length,4);
 });
 

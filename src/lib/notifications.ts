@@ -130,6 +130,47 @@ export function planDeliveries(jobs: ClaimedNotification[], baseUrl: string): De
   return out;
 }
 
+/**
+ * O aviso de contacto leva os dados do cliente (telemóvel, email, mensagem,
+ * data pretendida). Não vão no aviso guardado — lê-se o contacto ao enviar, o
+ * que também mostra a versão atual. Se o contacto já não existir ou a leitura
+ * falhar, o aviso sai na mesma, com «não indicado».
+ */
+const LEAD_EVENTS = new Set([
+  "lead_contact", "lead_test_drive", "lead_offer", "lead_reservation",
+  "lead_trade_in", "lead_order", "lead_alert", "lead_assigned",
+]);
+
+export async function enrichLeadDetails(db: Db, jobs: ClaimedNotification[]): Promise<void> {
+  const idOf = (job: ClaimedNotification) => {
+    const fromPayload = job.details?.lead_id;
+    return typeof fromPayload === "string" && fromPayload ? fromPayload : job.subject;
+  };
+  const wanted = jobs.filter((job) => LEAD_EVENTS.has(job.event_kind));
+  const ids = [...new Set(wanted.map(idOf))].filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (ids.length === 0) return;
+  let data;
+  try {
+    const res = await db.from("leads").select("id,phone,email,message,preferred_date").in("id", ids);
+    if (res.error || !res.data) return;
+    data = res.data;
+  } catch {
+    return; // um aviso nunca deixa de sair por não se ter conseguido ler o contacto
+  }
+  const byId = new Map(data.map((lead) => [lead.id, lead]));
+  for (const job of wanted) {
+    const lead = byId.get(idOf(job));
+    if (!lead) continue;
+    job.details = {
+      ...(job.details ?? {}),
+      phone: lead.phone,
+      email: lead.email,
+      message: lead.message,
+      preferred_date: lead.preferred_date,
+    };
+  }
+}
+
 /** A base de dados ainda não tem a migração 0036. */
 function missingMigration(error: { code?: string; message?: string }): boolean {
   return (
@@ -202,6 +243,7 @@ export async function processWhatsAppNotifications(
     const jobs: ClaimedNotification[] = data ?? [];
     if (jobs.length === 0) break;
 
+    await enrichLeadDetails(db, jobs);
     await inPool(planDeliveries(jobs, baseUrl), 5, async (delivery) => {
       const finish = (outcome: string, detail?: string | null, messageId?: string | null) =>
         Promise.all(
