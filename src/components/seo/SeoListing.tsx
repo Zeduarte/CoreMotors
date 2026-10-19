@@ -7,6 +7,7 @@ import { mediaFor } from "@/lib/media";
 import { asset } from "@/lib/asset";
 import { formatPrice } from "@/lib/format";
 import { site } from "@/lib/site";
+import { safeJsonLd } from "@/lib/json-ld";
 import { distinctMakes, filtersToQuery } from "@/lib/vehicles";
 import type { VehicleType } from "@/lib/vehicle-categories";
 import { resolveSeoPage, seoIntro, seoPath, TYPE_PATH, usedLabel, type SeoPage } from "@/lib/seo-pages";
@@ -82,7 +83,7 @@ function JsonLd({ type, page, vehicles }: { type: VehicleType; page: SeoPage | n
     <script
       type="application/ld+json"
       // eslint-disable-next-line react/no-danger
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, "\\u003c") }}
+      dangerouslySetInnerHTML={{ __html: safeJsonLd(data) }}
     />
   );
 }

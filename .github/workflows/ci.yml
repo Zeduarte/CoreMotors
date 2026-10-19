@@ -31,7 +31,7 @@ jobs:
       - name: Build
         # Valores placeholder — o build não contacta o Supabase (as leituras
         # tratam falhas de rede e devolvem vazio). Em produção, as variáveis
-        # reais vêm do ambiente da Vercel.
+        # reais vêm do ambiente do Netlify.
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
