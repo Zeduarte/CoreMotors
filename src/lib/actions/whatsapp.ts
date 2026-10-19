@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireSection } from "@/lib/guard";
 import { site } from "@/lib/site";
-import { publicMediaUrl } from "@/lib/storage";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { connectAccount, disconnectAccount, type ConnectResult } from "@/lib/whatsapp/account";
 import { afterWrite } from "@/lib/whatsapp/after-write";
@@ -138,8 +137,8 @@ export async function syncWhatsAppProfile(): Promise<ProfileResult> {
   await requireSection("integracoes");
   const db = createAdminClient();
   if (!db) return { ok: false, error: "A chave de serviço do Supabase não está configurada.", done: [] };
-  const { data } = await db.from("site_settings").select("logo_url").eq("id", 1).maybeSingle();
-  const path = (data as { logo_url?: string | null } | null)?.logo_url ?? null;
-  const logoUrl = path ? publicMediaUrl(path) : null;
-  return syncBusinessProfile(await whatsAppNumber(db), logoUrl);
+  // A imagem do perfil é fixa: public/whatsapp-profile.png, só se muda no código.
+  // Não vem de Definições → Marca, que é o logótipo do site e a equipa pode alterar.
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || site.url;
+  return syncBusinessProfile(await whatsAppNumber(db), `${siteUrl}/whatsapp-profile.png`);
 }
