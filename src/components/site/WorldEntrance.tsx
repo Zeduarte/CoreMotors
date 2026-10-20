@@ -24,7 +24,10 @@ export function WorldEntrance({ name, selected }: { name: string; selected: Vehi
     : /^\/motas(\/|$)/.test(pathname)
       ? "motorcycle"
       : null;
-  const [entered, setEntered] = useState(Boolean(selected) || Boolean(urlWorld));
+  // A ficha de uma viatura também já diz o mundo (o tipo da própria viatura,
+  // gravado por `VehicleWorldSync`): quem abre um link partilhado não escolhe.
+  const onVehicle = /^\/viaturas\/[^/]+/.test(pathname);
+  const [entered, setEntered] = useState(Boolean(selected) || Boolean(urlWorld) || onVehicle);
 
   // …e a escolha fica guardada, para o resto do site seguir o mesmo mundo.
   useEffect(() => {

@@ -36,7 +36,7 @@ export default async function PublicLayout({
   ]);
 
   return (
-    <VehicleWorld key={type} type={type}><BadgesProvider badges={badges}><LenisProvider>
+    <VehicleWorld key={type} type={type} chosen={selection !== null}><BadgesProvider badges={badges}><LenisProvider>
       {/* O provider envolve o conteúdo: a barra fixa da ficha de viatura
           precisa de abrir o mesmo painel de conversa que o botão flutuante. */}
       <ChatProvider enabled={!!process.env.ANTHROPIC_API_KEY}>
