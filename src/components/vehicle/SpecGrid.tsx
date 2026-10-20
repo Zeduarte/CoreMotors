@@ -49,7 +49,7 @@ export function SpecGrid({ vehicle }: { vehicle: Vehicle }) {
   return (
     <section
       aria-labelledby="caracteristicas"
-      className="xl:flex-1 xl:rounded-3xl xl:bg-ink-soft xl:p-5"
+      className="xl:rounded-3xl xl:bg-ink-soft xl:p-5"
     >
       <h2
         id="caracteristicas"

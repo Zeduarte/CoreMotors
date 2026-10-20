@@ -139,11 +139,14 @@ export default async function VehiclePage({ params }: { params: Params }) {
       <VehicleJsonLd vehicle={vehicle} sellerName={branding.companyName} />
       <ViewTracker carId={vehicle.id} slug={vehicle.slug} />
 
-      <article className="md:pt-8">
-        <div className="container-px">
+      <article className="md:pt-8 xl:pt-0">
+        {/* Telemóvel/tablet: coluna única (o cartão do preço fica fixo por baixo
+            do cabeçalho enquanto se lê a ficha toda, separadores incluídos).
+            Computador: a ficha ocupa a largura toda. */}
+        <div className="container-px flex flex-col gap-5 xl:block xl:max-w-none xl:px-0">
           {(vehicle.status === "reserved" || vehicle.status === "sold") && (
             <div
-              className={`mb-5 mt-4 rounded-xl px-4 py-3 text-sm font-medium md:mt-0 ${
+              className={`mt-4 rounded-xl px-4 py-3 text-sm font-medium md:mt-0 xl:mx-6 xl:mt-4 ${
                 vehicle.status === "sold"
                   ? "bg-red-500/15 text-red-300"
                   : "bg-amber-500/15 text-amber-300"
@@ -156,14 +159,15 @@ export default async function VehiclePage({ params }: { params: Params }) {
           )}
 
           {/* Primeiro ecrã.
-                - Computador (xl): título por cima; fotos à esquerda (miniaturas
-                  em coluna) e, à direita, o preço com o "Interessado?"
-                  (WhatsApp primeiro) e as características. A foto estica até à
-                  altura da coluna da direita e o último cartão desta estica até
-                  ao fundo da foto: as duas acabam alinhadas.
+                - Computador (xl): ocupa o ecrã todo por baixo do cabeçalho,
+                  de ponta a ponta. Título por cima; fotos à esquerda
+                  (miniaturas em coluna) a encher a altura que sobra e, à
+                  direita, a barra lateral com o preço, o "Interessado?"
+                  (WhatsApp primeiro) e as características: é a única que faz
+                  scroll dentro deste ecrã. O resto da página rola normalmente.
                 - Telemóvel/tablet: fotos primeiro, de ponta a ponta, depois o
                   título, o preço/contacto e as características. */}
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_25rem] xl:gap-x-6 xl:gap-y-5 2xl:grid-cols-[minmax(0,1fr)_28rem]">
+          <div className="contents xl:grid xl:h-[calc(100dvh-4rem-4.5rem)] xl:min-h-[36rem] xl:grid-cols-[minmax(0,1fr)_25rem] xl:grid-rows-[auto_minmax(0,1fr)] xl:gap-x-6 xl:gap-y-4 xl:px-6 xl:pb-4 xl:pt-4 2xl:grid-cols-[minmax(0,1fr)_28rem]">
             <header className="order-2 flex min-w-0 flex-col gap-3 md:flex-row md:items-end md:justify-between xl:order-none xl:col-span-2">
               <div className="min-w-0">
                 <p className="eyebrow mb-1.5">
@@ -209,7 +213,7 @@ export default async function VehiclePage({ params }: { params: Params }) {
               </div>
             </header>
 
-            <div className="order-1 min-w-0 xl:order-none">
+            <div className="order-1 min-w-0 xl:order-none xl:min-h-0">
               <Gallery
                 slug={vehicle.slug}
                 images={vehicle.images}
@@ -220,18 +224,21 @@ export default async function VehiclePage({ params }: { params: Params }) {
             {/* Telemóvel: primeiro os dados (preço e características), depois o
                 "Interessado?". Computador: o cartão do contacto em cima e as
                 características a esticar até ao fundo da foto. */}
-            <aside className="order-3 flex min-w-0 flex-col gap-4 xl:order-none xl:gap-3">
-              <div className="rounded-3xl bg-ink-soft p-5 xl:hidden">
+            <aside
+              data-lenis-prevent
+              className="contents min-w-0 xl:flex xl:min-h-0 xl:flex-col xl:gap-3 xl:overflow-y-auto xl:overscroll-contain xl:pr-1 xl:[scrollbar-width:thin]"
+            >
+              <div className="sticky top-[4.75rem] z-30 order-3 rounded-3xl bg-ink-soft p-5 shadow-lg shadow-black/40 md:top-20 xl:hidden">
                 <PriceSummary
                   price={<VehiclePrice vehicle={vehicle} />}
                   warrantyMonths={vehicle.warrantyMonths}
                   views={visibleViews(recentViews, vehicle.status ?? "published")}
                 />
               </div>
-              <div className="flex flex-col xl:order-last xl:flex-1">
+              <div className="order-3 flex flex-col xl:order-last xl:shrink-0">
                 <SpecGrid vehicle={vehicle} />
               </div>
-              <div className="xl:order-first">
+              <div className="order-3 xl:order-first xl:shrink-0">
                 <InterestCard
                   vehicleName={`${vehicle.make} ${vehicle.model} ${vehicle.year}`}
                   shortName={`${vehicle.make} ${vehicle.model}`}
@@ -260,7 +267,7 @@ export default async function VehiclePage({ params }: { params: Params }) {
             </aside>
           </div>
 
-          <div className="mt-10 xl:mt-12">
+          <div className="order-4 mt-5 xl:mx-auto xl:mt-12 xl:max-w-content xl:px-8">
             <VehicleTabs
               description={vehicle.description}
               equipment={
