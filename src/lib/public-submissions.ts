@@ -27,6 +27,21 @@ const QUOTAS: Record<SubmissionKind, [number, number, number]> = {
   whatsapp: [500, 500, 40],
 };
 
+let warnedMissingIp = false;
+/**
+ * Sem IP fiável o limite por IP não existe (ficam só o global e o por
+ * identidade). Em produção avisa uma vez por processo; não muda o comportamento.
+ */
+function warnMissingClientIp(header: string | undefined) {
+  if (warnedMissingIp || process.env.NODE_ENV !== "production") return;
+  warnedMissingIp = true;
+  console.warn(
+    header
+      ? `[public-submissions] O header "${header}" (TRUSTED_CLIENT_IP_HEADER) não veio no pedido: sem limite por IP.`
+      : "[public-submissions] TRUSTED_CLIENT_IP_HEADER não está definido: sem limite por IP nas submissões públicas. Recomendado em produção (Netlify: x-nf-client-connection-ip).",
+  );
+}
+
 /** Only the server can write public submissions; RLS denies direct anonymous inserts. */
 export async function publicSubmissionClient(
   kind: SubmissionKind,
@@ -41,6 +56,7 @@ export async function publicSubmissionClient(
   // Only trust an explicitly configured ingress header that the hosting proxy overwrites.
   const header = process.env.TRUSTED_CLIENT_IP_HEADER;
   const ip = header ? h.get(header)?.split(",")[0]?.trim() : null;
+  if (!ip) warnMissingClientIp(header);
   const secret =
     process.env.SUBMISSION_HASH_SECRET ||
     process.env.SUPABASE_SERVICE_ROLE_KEY!;

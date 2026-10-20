@@ -1,5 +1,6 @@
 import type { Vehicle } from "@/types/vehicle";
 import { site } from "@/lib/site";
+import { safeJsonLd } from "@/lib/json-ld";
 
 /**
  * JSON-LD do tipo schema.org/Vehicle para rich results de SEO.
@@ -66,8 +67,8 @@ export function VehicleJsonLd({
   return (
     <script
       type="application/ld+json"
-      // JSON serializado — seguro porque os dados são nossos (não input do user).
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      // `safeJsonLd` escapa `<`, `>`, `&` e U+2028/9: a descrição vem do backoffice.
+      dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
     />
   );
 }

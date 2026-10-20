@@ -1,4 +1,4 @@
-# engineLine
+# CoreMotors
 
 Website de um stand de automóveis premium em Portugal, com **backoffice
 completo** e inventário dinâmico. As animações ligadas ao scroll (estilo Apple)
@@ -17,16 +17,18 @@ dados real (Supabase).
 | Validação         | Zod + React Hook Form                            |
 | Gráficos          | Recharts                                          |
 | Toasts            | Sonner                                            |
-| Deploy            | **Vercel** (SSR + ISR)                            |
+| Deploy            | **Netlify** (SSR + CDN + funções agendadas)       |
 
 ## Arquitetura e decisão de hosting
 
-O site era estático (GitHub Pages). Um backoffice precisa de **autenticação,
-Server Actions e dados dinâmicos**, que o Pages não suporta. Migrámos o deploy
-para a **Vercel**, mantendo o GitHub como repositório:
+Um backoffice precisa de **autenticação, Server Actions e dados dinâmicos**,
+por isso o site corre em SSR no **Netlify** (ver `netlify.toml`), com a base de
+dados e a autenticação no **Supabase**:
 
-- **Site público** — Server Components com **ISR** (`revalidate = 60`). Novas
-  viaturas publicadas aparecem sem rebuild manual.
+- **Site público** — Server Components com cache na CDN do Netlify
+  (`Netlify-CDN-Cache-Control`, configurado em `next.config.mjs`). Alterações
+  feitas no backoffice invalidam a cache por etiquetas (`revalidateTag` /
+  `revalidatePath`), sem rebuild manual.
 - **Backoffice** (`/admin`) — Server Actions + middleware de sessão. Rotas
   protegidas, renderização dinâmica.
 - **Segurança** — imposta na base de dados por **Row Level Security (RLS)**:
@@ -135,27 +137,22 @@ src/
 middleware.ts                Refresh de sessão + guard de /admin
 ```
 
-## Deploy (Vercel)
+## Deploy (Netlify)
 
-**Caminho recomendado — integração Git nativa:**
-
-1. [vercel.com](https://vercel.com) → **Add New… → Project** → importe o repo do
-   GitHub.
-2. Framework detetado: **Next.js** (sem configuração especial).
-3. **Settings → Environment Variables** → adicione as mesmas variáveis do
-   `.env.local` (para Production e Preview).
-4. Deploy. Cada push para `main` publica automaticamente; PRs geram Preview
-   Deployments.
-
-**Alternativa — GitHub Actions:** o workflow `.github/workflows/deploy.yml`
-faz deploy via Vercel CLI. Requer os secrets `VERCEL_TOKEN`, `VERCEL_ORG_ID`,
-`VERCEL_PROJECT_ID`.
+1. [netlify.com](https://www.netlify.com) → **Add new site → Import an existing
+   project** → escolha o repo do GitHub.
+2. O build usa `netlify.toml` (Next.js detetado pelo runtime do Netlify; as
+   funções agendadas ficam em `netlify/functions`).
+3. **Site configuration → Environment variables** → adicione as variáveis do
+   `.env.example` (Production e Deploy Previews).
+4. Deploy. Cada push para `main` publica automaticamente; PRs geram Deploy
+   Previews.
 
 O workflow `.github/workflows/ci.yml` corre lint + typecheck + build em cada
 push/PR.
 
 > **Supabase Auth:** em **Authentication → URL Configuration**, adicione o
-> domínio da Vercel (produção e previews) aos _Redirect URLs_ / _Site URL_.
+> domínio do Netlify (produção e previews) aos _Redirect URLs_ / _Site URL_.
 
 ## Checklist de testes (validação funcional)
 
@@ -221,7 +218,7 @@ Aplicar `supabase/migrations/0035_whatsapp_connection.sql`. Em **Integrações �
 
 ### Vários clientes, uma app da Meta
 
-O engineLine instala-se um site por cliente, e **todos usam a mesma app da Meta — a do fornecedor**. As quatro variáveis da app (`WHATSAPP_APP_ID`, `WHATSAPP_CONFIG_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`) são iguais em todos os sites; o que muda é o número, que cada cliente liga no seu backoffice. Como uma app só tem um endereço de webhook, ao ligar o número o site pede à Meta que as mensagens dessa conta sejam entregues no seu próprio `/api/whatsapp` (`override_callback_uri`). A Meta valida esse endereço na hora, por isso o site tem de estar publicado em HTTPS e com o `WHATSAPP_VERIFY_TOKEN` certo antes de se carregar no botão.
+O CoreMotors instala-se um site por cliente, e **todos usam a mesma app da Meta — a do fornecedor**. As quatro variáveis da app (`WHATSAPP_APP_ID`, `WHATSAPP_CONFIG_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`) são iguais em todos os sites; o que muda é o número, que cada cliente liga no seu backoffice. Como uma app só tem um endereço de webhook, ao ligar o número o site pede à Meta que as mensagens dessa conta sejam entregues no seu próprio `/api/whatsapp` (`override_callback_uri`). A Meta valida esse endereço na hora, por isso o site tem de estar publicado em HTTPS e com o `WHATSAPP_VERIFY_TOKEN` certo antes de se carregar no botão.
 
 Configuração da app da Meta, uma vez para todos os clientes:
 
