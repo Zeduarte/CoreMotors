@@ -18,9 +18,9 @@ const SWIPE = 40;
  *   altura toda da linha (acompanha o preço e as características à direita).
  * - Telemóvel: foto de ponta a ponta e miniaturas numa fila por baixo.
  *
- * A foto ocupa sempre a moldura toda, de canto a canto (`object-cover`), sem
- * margens nem barras. Fotos quadradas ou ao alto são cortadas nos extremos; a
- * foto inteira vê-se no lightbox.
+ * A foto aparece sempre inteira (`object-contain`): fotos quadradas ou ao alto
+ * deixavam de ser cortadas em cima e em baixo. O espaço que sobra é preenchido
+ * pela própria foto, desfocada, para não ficarem barras pretas.
  *
  * A imagem principal partilha o nome de View Transition do `VehicleCard`
  * (`vehicle-<slug>`): a foto clicada cresce do cartão até aqui, e volta ao
@@ -111,13 +111,22 @@ export function Gallery({
               className="absolute inset-0"
               exit={{ opacity: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } }}
             >
+              {/* A própria foto, desfocada, preenche as margens. */}
+              <Image
+                src={current.src}
+                alt=""
+                aria-hidden
+                fill
+                sizes="(max-width: 1280px) 100vw, 60vw"
+                className="scale-110 object-cover opacity-50 blur-2xl"
+              />
               <FadeImage
                 src={current.src}
                 alt={current.alt}
                 fill
                 priority
                 sizes="(max-width: 1280px) 100vw, 60vw"
-                className="object-cover"
+                className="object-contain"
               />
             </motion.div>
           </AnimatePresence>
