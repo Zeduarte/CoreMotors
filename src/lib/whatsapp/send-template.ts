@@ -49,33 +49,27 @@ export const NOTIFICATION_TEMPLATES: Record<TemplateFamily, TemplateDefinition> 
     ],
   },
   viatura: {
-    name: "engineline_viatura",
+    // «engineline_viatura» (com link) ficou na Meta; este já não o leva.
+    name: "engineline_novidade",
     env: "WHATSAPP_TEMPLATE_VIATURA",
-    body:
-      "Novidade nas viaturas do backoffice: {{1}}.\n\nViatura: {{2}}\n\n" +
-      "Veja os detalhes em {{3}} quando puder.",
-    example: [
-      "viatura publicada no site",
-      "Honda CB500F · AA-00-BB",
-      "https://www.exemplo.pt/admin/carros/7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f",
-    ],
+    body: "Novidade nas viaturas do backoffice: {{1}}.\n\nViatura: {{2}}\n\nTrate disto no backoffice quando puder.",
+    example: ["viatura publicada no site", "Honda CB500F · AA-00-BB"],
   },
   testemunho: {
-    name: "engineline_testemunho",
+    // «engineline_testemunho» (com link) ficou na Meta; este já não o leva.
+    name: "engineline_testemunho_novo",
     env: "WHATSAPP_TEMPLATE_TESTEMUNHO",
     body:
       "Chegou um testemunho novo pelo site, à espera de aprovação.\n\nAutor: {{1}}\nClassificação: {{2}} em 5\n\n" +
-      "Aprove-o ou recuse-o em {{3}}: só aparece no site depois de aprovado.",
-    example: ["João Pereira", "5", "https://www.exemplo.pt/admin/testemunhos"],
+      "Aprove-o ou recuse-o no backoffice: só aparece no site depois de aprovado.",
+    example: ["João Pereira", "5"],
   },
   aviso: {
-    name: "engineline_aviso",
+    // «engineline_aviso» (com link) ficou na Meta; este já não o leva.
+    name: "engineline_aviso_geral",
     env: "WHATSAPP_TEMPLATE_AVISO",
-    body: "Aviso do backoffice: {{1}}.\n\nPara evitar interrupções, trate disto em {{2}} logo que possível.",
-    example: [
-      "o acesso ao WhatsApp dado pela Meta expira a 12/12/2026; volte a ligar o número em «Trocar de número»",
-      "https://www.exemplo.pt/admin/integracoes",
-    ],
+    body: "Aviso do backoffice: {{1}}.\n\nTrate disto no backoffice logo que possível.",
+    example: ["o acesso ao WhatsApp dado pela Meta expira a 12/12/2026; volte a ligar o número em «Trocar de número»"],
   },
 };
 

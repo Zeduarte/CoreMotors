@@ -98,7 +98,7 @@ interface Delivery {
  * para a mesma pessoa (publicar viaturas em lote) vão numa mensagem só: vinte
  * mensagens seguidas são ruído, e quem as recebe deixa de as ler.
  */
-export function planDeliveries(jobs: ClaimedNotification[], baseUrl: string): Delivery[] {
+export function planDeliveries(jobs: ClaimedNotification[]): Delivery[] {
   const groups = new Map<string, ClaimedNotification[]>();
   for (const job of jobs) {
     const key = `${job.to_phone ?? ""}|${job.event_kind}`;
@@ -114,7 +114,7 @@ export function planDeliveries(jobs: ClaimedNotification[], baseUrl: string): De
         jobs: group,
         event: first.event_kind,
         to: first.to_phone,
-        message: buildDigest(first.event_kind, group.map((j) => j.details ?? {}), baseUrl),
+        message: buildDigest(first.event_kind, group.map((j) => j.details ?? {})),
       });
       continue;
     }
@@ -123,7 +123,7 @@ export function planDeliveries(jobs: ClaimedNotification[], baseUrl: string): De
         jobs: [job],
         event: job.event_kind,
         to: job.to_phone,
-        message: buildNotification(job.event_kind, job.subject, job.details ?? {}, baseUrl),
+        message: buildNotification(job.event_kind, job.subject, job.details ?? {}),
       });
     }
   }
@@ -205,7 +205,7 @@ async function inPool<T>(items: T[], limit: number, task: (item: T) => Promise<v
  */
 export async function processWhatsAppNotifications(
   db: Db,
-  options: { budgetMs?: number; batch?: number; baseUrl?: string } = {},
+  options: { budgetMs?: number; batch?: number } = {},
 ): Promise<WhatsAppRun> {
   const started = Date.now();
   const budgetMs = options.budgetMs ?? 10_000;
@@ -225,7 +225,6 @@ export async function processWhatsAppNotifications(
 
   const number = await whatsAppNumber(db);
   if (!number?.accessToken) return { ...run, skipped: "WhatsApp não configurado." };
-  const baseUrl = (options.baseUrl ?? backofficeBaseUrl()).replace(/\/$/, "");
 
   // Antes de reclamar, para o aviso sair já nesta volta. Se falhar, os outros
   // avisos seguem na mesma.
@@ -244,7 +243,7 @@ export async function processWhatsAppNotifications(
     if (jobs.length === 0) break;
 
     await enrichLeadDetails(db, jobs);
-    await inPool(planDeliveries(jobs, baseUrl), 5, async (delivery) => {
+    await inPool(planDeliveries(jobs), 5, async (delivery) => {
       const finish = (outcome: string, detail?: string | null, messageId?: string | null) =>
         Promise.all(
           delivery.jobs.map((job) =>

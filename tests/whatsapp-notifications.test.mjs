@@ -113,7 +113,7 @@ await pg.query("insert into whatsapp_connection(waba_id,phone_number_id,access_t
 await pg.query('update notification_settings set whatsapp_enabled=true');
 
 const SITE='https://stand.example.pt';
-const run=(options={})=>processWhatsAppNotifications(adapter,{baseUrl:SITE,...options});
+const run=(options={})=>processWhatsAppNotifications(adapter,{...options});
 /** Um contacto do site, gravado como o servidor o grava. */
 const newLead=async(fields)=>(await pg.query(
  `insert into leads(name,email,kind,vehicle_type,car_label,car_details,phone,message) values($1,'cliente@example.test',$2,$3,$4,$5,$6,$7) returning id`,
@@ -145,7 +145,7 @@ await test('each notice fills its template with exactly the variables the templa
  const payload={kind:'offer',name:'Maria',car_label:'BMW 320d',offer_amount:18500,make:'Honda',model:'PCX',plate:'AA-00-BB',
   rating:5,expires_at:'2026-12-12T10:00:00Z',deposit:500,lead_id:'3f2a9c1e-5b7d-4e8a-9c2f-1a2b3c4d5e6f'};
  for(const e of NOTIFICATION_EVENTS){
-  const msg=buildNotification(e.key,'7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f',payload,SITE);
+  const msg=buildNotification(e.key,'7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f',payload);
   assert.ok(msg,e.key);assert.equal(msg.family,e.family,e.key);
   const placeholders=[...NOTIFICATION_TEMPLATES[msg.family].body.matchAll(/\{\{(\d+)\}\}/g)].map(m=>Number(m[1]));
   assert.deepEqual(placeholders,placeholders.map((_,i)=>i+1),'variáveis seguidas, a começar em 1');
@@ -154,9 +154,9 @@ await test('each notice fills its template with exactly the variables the templa
    assert.ok(p.length>0,e.key);
    assert.doesNotMatch(p,/[\n\t]| {5}/,'a Meta recusa estas variáveis');
   }
-  if(msg.family!=='lead')assert.match(msg.params.at(-1),/^https:\/\/stand\.example\.pt\/admin\//,'o último é o link para o backoffice');
+  assert.doesNotMatch(msg.params.join(' '),/https?:\/\//,'nenhum aviso leva links');
  }
- assert.equal(buildNotification('aviso_que_nao_existe','x',{},SITE),null);
+ assert.equal(buildNotification('aviso_que_nao_existe','x',{}),null);
  // A Meta recusa modelos que comecem ou acabem numa variável.
  for(const t of Object.values(NOTIFICATION_TEMPLATES)){
   assert.doesNotMatch(t.body,/^\{\{|\}\}$/);
@@ -304,20 +304,20 @@ await test('publishing many vehicles at once sends one message per person',async
  assert.equal(r.sent,8,'quatro viaturas, duas pessoas');
  assert.equal(meta.sent.length,2,'mas uma mensagem por pessoa');
  for(const m of meta.sent){
-  assert.equal(m.template.name,'engineline_viatura');
-  const [o,viaturas,link]=m.template.components[0].parameters.map(p=>p.text);
+  assert.equal(m.template.name,'engineline_novidade');
+  const [o,viaturas]=m.template.components[0].parameters.map(p=>p.text);
   assert.equal(o,'4 viaturas publicadas no site');
-  assert.match(viaturas,/ e mais 1$/);assert.equal(link,`${SITE}/admin/carros`);
+  assert.match(viaturas,/ e mais 1$/);assert.equal(m.template.components[0].parameters.length,2);
  }
  const jobs=(await pg.query("select delivered_at,wa_message_id from notification_jobs where subject_id = any($1)",[rows.map(x=>x.id)])).rows;
  assert.equal(jobs.length,8);assert.ok(jobs.every(j=>j.delivered_at&&j.wa_message_id));
- // Uma viatura sozinha leva o seu próprio aviso, com o link da ficha.
+ // Uma viatura sozinha leva o seu próprio aviso, sem link.
  meta.sent.length=0;
  const [{id}]=(await pg.query(`insert into cars(slug,make,model,year,fuel,transmission,body,status,price,vehicle_type,doors,license_plate)
   values('sozinha','Honda','PCX',2021,'Gasolina','Automática','Scooter','published',3500,'motorcycle',0,'AA-00-BB') returning id`)).rows;
  assert.equal((await run()).sent,3);
  for(const m of meta.sent)assert.deepEqual(m.template.components[0].parameters.map(p=>p.text),
-  ['viatura publicada no site','Honda PCX · AA-00-BB',`${SITE}/admin/carros/${id}`]);
+  ['viatura publicada no site','Honda PCX · AA-00-BB']);
 });
 
 await test('switched off, or without a connected number, nothing is sent',async()=>{
@@ -357,9 +357,9 @@ await test('a motorbike that leaves the workshop is announced as ready at the st
  await flush();
  await asStaff(mecanico,'select mark_vehicle_prepared($1)',[id]);
  assert.equal((await run()).sent,3,'administrador e os dois vendedores (um só de motas); o mecânico fez a ação');
- assert.deepEqual([...new Set(meta.sent.map(m=>m.template.name))],['engineline_viatura']);
+ assert.deepEqual([...new Set(meta.sent.map(m=>m.template.name))],['engineline_novidade']);
  for(const m of meta.sent)assert.deepEqual(paramsOf(m),
-  ['a mota Honda CB650R saiu da oficina e está pronta no stand','Honda CB650R · AA-11-BB',SITE+'/admin/carros/'+id]);
+  ['a mota Honda CB650R saiu da oficina e está pronta no stand','Honda CB650R · AA-11-BB']);
  // Volta à oficina e sai outra vez: é outra vez novidade.
  meta.sent.length=0;
  await asStaff(admin,'select return_vehicle_to_workshop($1)',[id]);
@@ -385,7 +385,7 @@ await test('a lead assigned to someone reaches them even with new-lead notices s
   await asStaff(admin,"update leads set status='lost',loss_reason='Comprou noutro stand' where id=$1",[id]);
   assert.equal((await run()).sent,1);
   assert.deepEqual(paramsOf(meta.sent[0]),
-   ['o contacto de João Cliente, atribuído a si, foi dado como perdido (motivo: Comprou noutro stand)','BMW 320d',SITE+'/admin/leads/'+id]);
+   ['o contacto de João Cliente, atribuído a si, foi dado como perdido (motivo: Comprou noutro stand)','BMW 320d']);
  }finally{await pg.query('delete from notification_preferences where profile_id=$1',[vendedor]);}
 });
 
@@ -400,7 +400,7 @@ await test('a sale and a cancelled reservation reach the sales team; a price cha
  await flush();
  await asStaff(admin,'select release_reservation($1)',[reserva]);
  assert.equal((await run()).sent,1);
- assert.deepEqual(paramsOf(meta.sent[0]),['reserva de Ana Reserva cancelada; a viatura voltou a estar disponível','Audi A3 · CC-44-DD',SITE+'/admin/carros/'+car]);
+ assert.deepEqual(paramsOf(meta.sent[0]),['reserva de Ana Reserva cancelada; a viatura voltou a estar disponível','Audi A3 · CC-44-DD']);
  // O preço vem desligado por defeito: só quem o ligou recebe.
  meta.sent.length=0;
  await pg.query("insert into notification_preferences(profile_id,event,enabled) values($1,'vehicle_price_changed',true)",[vendedor]);
@@ -414,7 +414,7 @@ await test('a sale and a cancelled reservation reach the sales team; a price cha
  meta.sent.length=0;
  await asStaff(admin,"update cars set status='sold' where id=$1",[car]);
  assert.equal((await run()).sent,1);
- assert.deepEqual(paramsOf(meta.sent[0]),['viatura vendida, já não está disponível','Audi A3 · CC-44-DD',SITE+'/admin/carros/'+car]);
+ assert.deepEqual(paramsOf(meta.sent[0]),['viatura vendida, já não está disponível','Audi A3 · CC-44-DD']);
 });
 
 await test('leave: the request reaches who decides, the decision the requester, the week before the whole team',async()=>{
@@ -424,13 +424,13 @@ await test('leave: the request reaches who decides, the decision the requester, 
  // Segunda a quarta (2 a 4 de dezembro de 2030), pedidos pela vendedora.
  await asStaff(vendedor,"insert into leave_days(profile_id,day,status) values ($1,'2030-12-02','pending'),($1,'2030-12-03','pending'),($1,'2030-12-04','pending')",[vendedor]);
  assert.equal((await run()).sent,1,'só o administrador decide as férias de um vendedor');
- assert.equal(meta.sent[0].to,'351912000001');assert.equal(meta.sent[0].template.name,'engineline_aviso');
- assert.deepEqual(paramsOf(meta.sent[0]),['Rita Vendedora pediu férias de 2 a 4 de dezembro (3 dias) e aguarda a sua decisão',SITE+'/admin/perfil/pedidos']);
+ assert.equal(meta.sent[0].to,'351912000001');assert.equal(meta.sent[0].template.name,'engineline_aviso_geral');
+ assert.deepEqual(paramsOf(meta.sent[0]),['Rita Vendedora pediu férias de 2 a 4 de dezembro (3 dias) e aguarda a sua decisão']);
  meta.sent.length=0;
  await asStaff(admin,"update leave_days set status='approved',decided_by=$2,decided_at=now() where profile_id=$1 and status='pending'",[vendedor,admin]);
  assert.equal((await run()).sent,1);
  assert.equal(meta.sent[0].to,'351912000002');
- assert.deepEqual(paramsOf(meta.sent[0]),['o seu pedido de férias de 2 a 4 de dezembro (3 dias) foi aprovado por Ana Admin',SITE+'/admin/perfil/ferias']);
+ assert.deepEqual(paramsOf(meta.sent[0]),['o seu pedido de férias de 2 a 4 de dezembro (3 dias) foi aprovado por Ana Admin']);
  // Na semana anterior, às 10h de Lisboa, a equipa fica a saber — uma vez.
  meta.sent.length=0;
  const upcoming=async(at)=>(await asServer('select public.queue_whatsapp_leave_upcoming($1) n',[at])).rows[0].n;
@@ -438,7 +438,7 @@ await test('leave: the request reaches who decides, the decision the requester, 
  assert.equal(await upcoming('2030-11-28T10:00:00Z'),0,'uma vez por período');
  assert.equal((await run()).sent,3);
  assert.deepEqual(meta.sent.map(m=>m.to).sort(),['351912000001','351912000003','351912000005'],'todos menos a própria');
- for(const m of meta.sent)assert.deepEqual(paramsOf(m),['Rita Vendedora vai estar de férias de 2 a 4 de dezembro (3 dias)',SITE+'/admin/perfil/colegas']);
+ for(const m of meta.sent)assert.deepEqual(paramsOf(m),['Rita Vendedora vai estar de férias de 2 a 4 de dezembro (3 dias)']);
 });
 
 server.close();
