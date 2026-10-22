@@ -58,7 +58,7 @@ Exemplos:
 | `{{5}}` | A viatura, ou «sem viatura associada» | `BMW 320d Touring` |
 | `{{6}}` | A mensagem do cliente (até 300 caracteres, numa só linha), ou «sem mensagem» | `Gostava de ver a viatura no sábado de manhã.` |
 
-## 2. `engineline_viatura` — viaturas
+## 2. `engineline_novidade` — viaturas
 
 Usado quando uma viatura entra na oficina (incluindo as registadas pelo assistente do WhatsApp), é criada em Viaturas, sai da oficina, é publicada no site pela primeira vez, é reservada por um colega, fica outra vez disponível (reserva cancelada ou expirada), é vendida, ou muda de preço. E quando um contacto atribuído a alguém é dado como ganho ou perdido por um colega. Quando várias viaturas chegam de uma vez para a mesma pessoa (publicar em lote), vai uma mensagem só, com o número de viaturas.
 
@@ -70,7 +70,9 @@ Exemplos de `{{1}}`:
 - `preço alterado de 18 900 € para 17 900 €`
 - `o contacto de Maria Silva, atribuído a si, foi dado como perdido (motivo: comprou noutro stand)` — aqui, `{{2}}` é a viatura do contacto, ou «sem viatura associada».
 
-- Nome: `engineline_viatura` (variável `WHATSAPP_TEMPLATE_VIATURA` para usar outro)
+O modelo anterior, `engineline_viatura`, tinha um link para o backoffice. Pode continuar na Meta; o site já não o usa.
+
+- Nome: `engineline_novidade` (variável `WHATSAPP_TEMPLATE_VIATURA` para usar outro)
 - Categoria: Utility · Idioma: `pt_PT`
 
 Corpo:
@@ -80,7 +82,7 @@ Novidade nas viaturas do backoffice: {{1}}.
 
 Viatura: {{2}}
 
-Veja os detalhes em {{3}} quando puder.
+Trate disto no backoffice quando puder.
 ```
 
 Exemplos:
@@ -89,13 +91,14 @@ Exemplos:
 |---|---|---|
 | `{{1}}` | O que aconteceu | `viatura publicada no site` |
 | `{{2}}` | A viatura (e a matrícula, se houver) | `Honda CB500F · AA-00-BB` |
-| `{{3}}` | O link para a ficha no backoffice | `https://www.exemplo.pt/admin/carros/7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f` |
 
-## 3. `engineline_testemunho` — testemunhos por aprovar
+## 3. `engineline_testemunho_novo` — testemunhos por aprovar
 
 Usado quando um visitante deixa um testemunho no site. Só aparece no site depois de alguém com o separador Testemunhos o aprovar.
 
-- Nome: `engineline_testemunho` (variável `WHATSAPP_TEMPLATE_TESTEMUNHO` para usar outro)
+O modelo anterior, `engineline_testemunho`, tinha um link. Pode continuar na Meta; o site já não o usa.
+
+- Nome: `engineline_testemunho_novo` (variável `WHATSAPP_TEMPLATE_TESTEMUNHO` para usar outro)
 - Categoria: Utility · Idioma: `pt_PT`
 
 Corpo:
@@ -106,7 +109,7 @@ Chegou um testemunho novo pelo site, à espera de aprovação.
 Autor: {{1}}
 Classificação: {{2}} em 5
 
-Aprove-o ou recuse-o em {{3}}: só aparece no site depois de aprovado.
+Aprove-o ou recuse-o no backoffice: só aparece no site depois de aprovado.
 ```
 
 Exemplos:
@@ -115,16 +118,17 @@ Exemplos:
 |---|---|---|
 | `{{1}}` | Quem escreveu | `João Pereira` |
 | `{{2}}` | As estrelas, de 1 a 5 | `5` |
-| `{{3}}` | O link para os testemunhos no backoffice | `https://www.exemplo.pt/admin/testemunhos` |
 
-## 4. `engineline_aviso` — avisos gerais
+## 4. `engineline_aviso_geral` — avisos gerais
 
 Usado para avisos sobre o próprio backoffice:
 
 - o acesso ao WhatsApp dado pela Meta dura 60 dias e, quando expira, o WhatsApp todo pára (respostas do assistente e avisos). Uma semana antes, quem tem o separador Integrações recebe este aviso;
-- férias: um pedido à espera de decisão (`Rita Costa pediu férias de 2 a 6 de dezembro (5 dias) e aguarda a sua decisão`), a decisão (`o seu pedido de férias de 2 a 6 de dezembro (5 dias) foi aprovado por Ana Lopes`) e um colega que vai de férias nos próximos 7 dias (`Rita Costa vai estar de férias de 2 a 6 de dezembro (5 dias)`). O link é a página certa da área pessoal (Pedidos, Férias ou Férias colegas).
+- férias: um pedido à espera de decisão (`Rita Costa pediu férias de 2 a 6 de dezembro (5 dias) e aguarda a sua decisão`), a decisão (`o seu pedido de férias de 2 a 6 de dezembro (5 dias) foi aprovado por Ana Lopes`) e um colega que vai de férias nos próximos 7 dias (`Rita Costa vai estar de férias de 2 a 6 de dezembro (5 dias)`).
 
-- Nome: `engineline_aviso` (variável `WHATSAPP_TEMPLATE_AVISO` para usar outro)
+O modelo anterior, `engineline_aviso`, tinha um link. Pode continuar na Meta; o site já não o usa.
+
+- Nome: `engineline_aviso_geral` (variável `WHATSAPP_TEMPLATE_AVISO` para usar outro)
 - Categoria: Utility · Idioma: `pt_PT`
 
 Corpo:
@@ -132,7 +136,7 @@ Corpo:
 ```
 Aviso do backoffice: {{1}}.
 
-Para evitar interrupções, trate disto em {{2}} logo que possível.
+Trate disto no backoffice logo que possível.
 ```
 
 Exemplos:
@@ -140,7 +144,6 @@ Exemplos:
 | Variável | O que é | Exemplo |
 |---|---|---|
 | `{{1}}` | O aviso | `o acesso ao WhatsApp dado pela Meta expira a 12/12/2026; volte a ligar o número em «Trocar de número»` |
-| `{{2}}` | O link para a página certa do backoffice | `https://www.exemplo.pt/admin/integracoes` |
 
 ## Mensagens aos clientes (alertas de stock e visitas)
 
@@ -206,20 +209,20 @@ Cada colaborador recebe um aviso se **todas** estas condições se cumprirem:
 |---|---|---|---|
 | Contacto do site (cada tipo de pedido) | Leads | ligado | `engineline_contacto` |
 | Contacto atribuído | o responsável escolhido (Leads) — mesmo com os contactos novos desligados | ligado | `engineline_contacto` |
-| Contacto ganho ou perdido por um colega | o responsável do contacto (Leads) | ligado | `engineline_viatura` |
-| Viatura reservada por um colega | Leads | ligado | `engineline_viatura` |
-| Viatura vendida | Leads | ligado | `engineline_viatura` |
-| Reserva cancelada ou expirada | Leads | ligado | `engineline_viatura` |
-| Testemunho por aprovar | Testemunhos | ligado | `engineline_testemunho` |
-| Viatura nova na oficina | Oficina | ligado | `engineline_viatura` |
-| Viatura criada em Viaturas | Viaturas | ligado | `engineline_viatura` |
-| Viatura sai da oficina (cada vez que sai) | Viaturas | ligado | `engineline_viatura` |
-| Viatura publicada no site (a primeira vez) | Viaturas | ligado | `engineline_viatura` |
-| Preço alterado numa viatura publicada ou reservada | Viaturas | **desligado** | `engineline_viatura` |
-| Pedido de férias | quem pode decidir as férias dessa pessoa: o administrador; o chefe, para vendedores e mecânicos | ligado | `engineline_aviso` |
-| Pedido de férias aprovado ou recusado | quem pediu | ligado | `engineline_aviso` |
-| Colega vai de férias nos próximos 7 dias | toda a equipa, menos o próprio (só férias aprovadas; uma vez por período; enviado entre as 9h e as 20h) | ligado | `engineline_aviso` |
-| Acesso ao WhatsApp a expirar | Integrações | ligado | `engineline_aviso` |
+| Contacto ganho ou perdido por um colega | o responsável do contacto (Leads) | ligado | `engineline_novidade` |
+| Viatura reservada por um colega | Leads | ligado | `engineline_novidade` |
+| Viatura vendida | Leads | ligado | `engineline_novidade` |
+| Reserva cancelada ou expirada | Leads | ligado | `engineline_novidade` |
+| Testemunho por aprovar | Testemunhos | ligado | `engineline_testemunho_novo` |
+| Viatura nova na oficina | Oficina | ligado | `engineline_novidade` |
+| Viatura criada em Viaturas | Viaturas | ligado | `engineline_novidade` |
+| Viatura sai da oficina (cada vez que sai) | Viaturas | ligado | `engineline_novidade` |
+| Viatura publicada no site (a primeira vez) | Viaturas | ligado | `engineline_novidade` |
+| Preço alterado numa viatura publicada ou reservada | Viaturas | **desligado** | `engineline_novidade` |
+| Pedido de férias | quem pode decidir as férias dessa pessoa: o administrador; o chefe, para vendedores e mecânicos | ligado | `engineline_aviso_geral` |
+| Pedido de férias aprovado ou recusado | quem pediu | ligado | `engineline_aviso_geral` |
+| Colega vai de férias nos próximos 7 dias | toda a equipa, menos o próprio (só férias aprovadas; uma vez por período; enviado entre as 9h e as 20h) | ligado | `engineline_aviso_geral` |
+| Acesso ao WhatsApp a expirar | Integrações | ligado | `engineline_aviso_geral` |
 
 As condições voltam a ser verificadas no momento do envio: quem perdeu o acesso entretanto já não recebe, e um aviso que deixou de ser verdade (o pedido de férias já foi decidido, o contacto foi atribuído a outra pessoa, as férias foram desmarcadas) não sai. O mesmo acontecimento nunca chega duas vezes à mesma pessoa.
 
@@ -228,9 +231,9 @@ As condições voltam a ser verificadas no momento do envio: quem perdeu o acess
 | Variável | Por defeito | Para quê |
 |---|---|---|
 | `WHATSAPP_TEMPLATE_LEAD` | `engineline_contacto` | Nome do modelo dos pedidos do site |
-| `WHATSAPP_TEMPLATE_VIATURA` | `engineline_viatura` | Nome do modelo das viaturas |
-| `WHATSAPP_TEMPLATE_TESTEMUNHO` | `engineline_testemunho` | Nome do modelo dos testemunhos |
-| `WHATSAPP_TEMPLATE_AVISO` | `engineline_aviso` | Nome do modelo dos avisos gerais |
+| `WHATSAPP_TEMPLATE_VIATURA` | `engineline_novidade` | Nome do modelo das viaturas |
+| `WHATSAPP_TEMPLATE_TESTEMUNHO` | `engineline_testemunho_novo` | Nome do modelo dos testemunhos |
+| `WHATSAPP_TEMPLATE_AVISO` | `engineline_aviso_geral` | Nome do modelo dos avisos gerais |
 | `WHATSAPP_TEMPLATE_LANGUAGE` | `pt_PT` | Idioma em que os modelos foram aprovados |
 
 O endereço dos links é o `NEXT_PUBLIC_SITE_URL` do site.

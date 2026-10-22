@@ -202,16 +202,6 @@ function leadParams(label: string, payload: Payload): string[] {
   ];
 }
 
-/** A ficha da viatura: o id vem no aviso (0041) ou é o próprio registo (0036). */
-function carPath(payload: Payload, subject: string): string {
-  return `/admin/carros/${text(payload.car_id) || subject}`;
-}
-
-/** O contacto: o id vem no aviso (0041) ou é o próprio registo (0036). */
-function leadPath(payload: Payload, subject: string): string {
-  return `/admin/leads/${text(payload.lead_id) || subject}`;
-}
-
 /**
  * «a mota Honda CB650R saiu da oficina e está pronta no stand». O nome sem a
  * matrícula: a matrícula vai na linha da viatura.
@@ -251,10 +241,6 @@ function withPeriod(base: string, payload: Payload): string {
   return period ? `${base} ${period}` : base;
 }
 
-function link(baseUrl: string, path: string): string {
-  return `${baseUrl.replace(/\/$/, "")}${path}`;
-}
-
 /**
  * As variáveis do modelo para um aviso. `null` = aviso desconhecido (um
  * registo antigo de uma versão que já não existe): não se envia.
@@ -263,7 +249,6 @@ export function buildNotification(
   event: string,
   subject: string,
   payload: Payload,
-  baseUrl: string,
 ): NotificationMessage | null {
   const info = notificationEvent(event);
   if (!info) return null;
@@ -283,7 +268,6 @@ export function buildNotification(
         params: [
           templateParam(payload.name, 60),
           templateParam(Number.isInteger(rating) && rating >= 1 && rating <= 5 ? rating : "—"),
-          templateParam(link(baseUrl, "/admin/testemunhos"), 300),
         ],
       };
     }
@@ -296,13 +280,11 @@ export function buildNotification(
       ]
         .filter(Boolean)
         .join(", ");
-      const lead = typeof payload.lead_id === "string" ? payload.lead_id : "";
       return {
         family: "viatura",
         params: [
           templateParam(label),
           templateParam(vehicleLabel(payload), 80),
-          templateParam(link(baseUrl, lead ? `/admin/leads/${lead}` : "/admin/leads"), 300),
         ],
       };
     }
@@ -323,7 +305,6 @@ export function buildNotification(
         params: [
           templateParam(`o contacto de ${templateParam(name, 60)}, atribuído a si, ${what}`, 160),
           templateParam(text(payload.car_label) || "sem viatura associada", 80),
-          templateParam(link(baseUrl, leadPath(payload, subject)), 300),
         ],
       };
     }
@@ -333,7 +314,6 @@ export function buildNotification(
         params: [
           templateParam("viatura vendida, já não está disponível"),
           templateParam(vehicleLabel(payload), 80),
-          templateParam(link(baseUrl, carPath(payload, subject)), 300),
         ],
       };
     case "reservation_ended": {
@@ -347,7 +327,6 @@ export function buildNotification(
             160,
           ),
           templateParam(vehicleLabel(payload), 80),
-          templateParam(link(baseUrl, carPath(payload, subject)), 300),
         ],
       };
     }
@@ -359,7 +338,6 @@ export function buildNotification(
             `preço alterado de ${money(payload.old_price) ?? "sob consulta"} para ${money(payload.new_price) ?? "sob consulta"}`,
           ),
           templateParam(vehicleLabel(payload), 80),
-          templateParam(link(baseUrl, carPath(payload, subject)), 300),
         ],
       };
     case "vehicle_prepared":
@@ -368,7 +346,6 @@ export function buildNotification(
         params: [
           templateParam(leftWorkshop(payload), 160),
           templateParam(vehicleLabel(payload), 80),
-          templateParam(link(baseUrl, carPath(payload, subject)), 300),
         ],
       };
     case "leave_requested":
@@ -379,7 +356,6 @@ export function buildNotification(
             `${withPeriod(`${templateParam(text(payload.name) || "Um colaborador", 60)} pediu férias`, payload)} e aguarda a sua decisão`,
             200,
           ),
-          templateParam(link(baseUrl, "/admin/perfil/pedidos"), 300),
         ],
       };
     case "leave_decided": {
@@ -392,7 +368,6 @@ export function buildNotification(
             `${withPeriod("o seu pedido de férias", payload)} foi ${decision}${by ? ` por ${templateParam(by, 60)}` : ""}`,
             200,
           ),
-          templateParam(link(baseUrl, "/admin/perfil/ferias"), 300),
         ],
       };
     }
@@ -404,7 +379,6 @@ export function buildNotification(
             withPeriod(`${templateParam(text(payload.name) || "Um colega", 60)} vai estar de férias`, payload),
             200,
           ),
-          templateParam(link(baseUrl, "/admin/perfil/colegas"), 300),
         ],
       };
     case "vehicle_workshop":
@@ -415,10 +389,6 @@ export function buildNotification(
         params: [
           templateParam(VEHICLE_LABEL[info.key]),
           templateParam(vehicleLabel(payload), 80),
-          templateParam(
-            link(baseUrl, info.key === "vehicle_workshop" ? `/admin/oficina/${subject}` : `/admin/carros/${subject}`),
-            300,
-          ),
         ],
       };
     case "whatsapp_expiring": {
@@ -430,7 +400,6 @@ export function buildNotification(
             `o acesso ao WhatsApp dado pela Meta expira${until ? ` a ${until}` : " em breve"}; volte a ligar o número em «Trocar de número»`,
             200,
           ),
-          templateParam(link(baseUrl, "/admin/integracoes"), 300),
         ],
       };
     }
@@ -442,11 +411,11 @@ export function buildNotification(
  * Avisos que podem chegar aos montes de uma vez (publicar 20 viaturas numa ação
  * em lote): a partir de três para a mesma pessoa, vai uma mensagem só.
  */
-const DIGEST: Record<string, { label: (n: number) => string; path: string }> = {
-  vehicle_workshop: { label: (n) => `${n} viaturas novas na oficina`, path: "/admin/oficina" },
-  vehicle_created: { label: (n) => `${n} viaturas novas criadas em Viaturas`, path: "/admin/carros" },
-  vehicle_prepared: { label: (n) => `${n} viaturas saíram da oficina e estão prontas no stand`, path: "/admin/carros" },
-  vehicle_published: { label: (n) => `${n} viaturas publicadas no site`, path: "/admin/carros" },
+const DIGEST: Record<string, { label: (n: number) => string }> = {
+  vehicle_workshop: { label: (n) => `${n} viaturas novas na oficina` },
+  vehicle_created: { label: (n) => `${n} viaturas novas criadas em Viaturas` },
+  vehicle_prepared: { label: (n) => `${n} viaturas saíram da oficina e estão prontas no stand` },
+  vehicle_published: { label: (n) => `${n} viaturas publicadas no site` },
 };
 export const DIGEST_FROM = 3;
 
@@ -454,7 +423,7 @@ export function canDigest(event: string): boolean {
   return event in DIGEST;
 }
 
-export function buildDigest(event: string, payloads: Payload[], baseUrl: string): NotificationMessage | null {
+export function buildDigest(event: string, payloads: Payload[]): NotificationMessage | null {
   const digest = DIGEST[event];
   if (!digest || payloads.length === 0) return null;
   const names = payloads.slice(0, 3).map((p) => vehicleLabel({ ...p, plate: null }));
@@ -464,7 +433,6 @@ export function buildDigest(event: string, payloads: Payload[], baseUrl: string)
     params: [
       templateParam(digest.label(payloads.length)),
       templateParam(`${names.join(", ")}${rest > 0 ? ` e mais ${rest}` : ""}`, 160),
-      templateParam(link(baseUrl, digest.path), 300),
     ],
   };
 }
