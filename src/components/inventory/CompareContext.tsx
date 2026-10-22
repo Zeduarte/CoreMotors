@@ -25,7 +25,7 @@ const Ctx = createContext<CompareCtx | null>(null);
 
 /** Estado global (persistido em localStorage) das viaturas a comparar. */
 export function CompareProvider({ children }: { children: React.ReactNode }) {
-  const KEY = `engineline:compare:${useVehicleWorld()}`;
+  const KEY = `coremotors:compare:${useVehicleWorld()}`;
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [slugs, setSlugs] = useState<string[]>([]);
 

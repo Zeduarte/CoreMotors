@@ -1,4 +1,4 @@
-/* engineLine — Service Worker DESATIVADO (kill switch).
+/* CoreMotors — Service Worker DESATIVADO (kill switch).
  *
  * O SW anterior fazia cache dos chunks (_next/static) e servia versões antigas,
  * que apontavam para IDs de Server Actions já inexistentes ("Server Action not

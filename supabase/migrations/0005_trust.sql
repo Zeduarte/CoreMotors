@@ -1,5 +1,5 @@
 -- ============================================================================
--- engineLine — Confiança & transparência (Fase 2)
+-- CoreMotors — Confiança & transparência (Fase 2)
 -- Campos de transparência nas viaturas, visibilidade de reservados/vendidos,
 -- e tabela de testemunhos. Correr no SQL Editor DEPOIS de 0001–0004.
 -- ============================================================================

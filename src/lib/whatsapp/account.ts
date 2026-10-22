@@ -18,7 +18,7 @@ import { graphRequest, graphVersion } from "./graph";
  * número pertence mesmo à conta (os IDs vêm do browser, o token não mente),
  * subscrevem-se as mensagens da conta e regista-se o número na Cloud API.
  *
- * O engineLine é instalado um site por cliente, e todos usam a MESMA app da
+ * O CoreMotors é instalado um site por cliente, e todos usam a MESMA app da
  * Meta (a do fornecedor). Uma app só tem um endereço de webhook, por isso a
  * subscrição de cada conta leva o endereço do site do cliente
  * (`override_callback_uri`): as mensagens do número de cada stand chegam ao

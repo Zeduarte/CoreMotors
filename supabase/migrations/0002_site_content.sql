@@ -1,5 +1,5 @@
 -- ============================================================================
--- engineLine — Conteúdo editável de páginas (ex.: página inicial)
+-- CoreMotors — Conteúdo editável de páginas (ex.: página inicial)
 -- Tabela key→jsonb, leitura pública, escrita só staff. Correr no SQL Editor.
 -- ============================================================================
 

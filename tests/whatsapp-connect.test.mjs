@@ -16,7 +16,7 @@ const require=createRequire(import.meta.url);
 const TOKEN='EAAG-token-da-empresa';
 const EXPIRA=Math.floor(Date.UTC(2026,11,12)/1000);
 const meta={templates:[],existing:new Set(),calls:[],sent:[],registered:[],subscribed:[],registerFails:false,debugFails:false,
- numbers:{'111':[{id:'222',display_phone_number:'+351 912 345 678',verified_name:'engineLine',platform_type:'NOT_APPLICABLE'}]}};
+ numbers:{'111':[{id:'222',display_phone_number:'+351 912 345 678',verified_name:'CoreMotors',platform_type:'NOT_APPLICABLE'}]}};
 const server=http.createServer(async(req,res)=>{
  let raw='';for await(const c of req)raw+=c;
  const body=raw?JSON.parse(raw):null;
@@ -119,7 +119,7 @@ await test('connecting stores the chosen number and never hands the token back',
  reset();const db=makeDb();
  const r=await connectAccount(db,escolha,ADMIN,SITE);
  assert.equal(r.ok,true,r.error);
- assert.equal(r.number,'+351 912 345 678');assert.equal(r.name,'engineLine');
+ assert.equal(r.number,'+351 912 345 678');assert.equal(r.name,'CoreMotors');
  assert.match(r.pin,/^\d{6}$/,'PIN de seis algarismos');
  assert.doesNotMatch(JSON.stringify(r),new RegExp(TOKEN),'o token não sai do servidor');
  const row=db._t.whatsapp_connection[0];

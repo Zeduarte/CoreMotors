@@ -124,7 +124,7 @@ const cache=new Map();
 function withExt(base){for(const ext of ['.ts','.tsx','/index.ts'])if(existsSync(base+ext))return base+ext;throw new Error(`não resolvido: ${base}`);}
 const STUBS={
  'server-only':{},
- '@/lib/queries':{getBranding:async()=>({companyName:'engineLine',company:{phone:'+351 916 193 337',geo:standGeo}})},
+ '@/lib/queries':{getBranding:async()=>({companyName:'CoreMotors',company:{phone:'+351 916 193 337',geo:standGeo}})},
 };
 function load(path){
  if(cache.has(path))return cache.get(path);

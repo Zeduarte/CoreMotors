@@ -1,5 +1,5 @@
 -- ============================================================================
--- engineLine — Schema inicial (Supabase / Postgres)
+-- CoreMotors — Schema inicial (Supabase / Postgres)
 -- Tabelas: profiles, cars, car_media, leads
 -- Inclui: enums, índices, RLS, triggers de updated_at, trigger de novo utilizador
 -- Correr no SQL Editor do Supabase (ou via `supabase db push`).

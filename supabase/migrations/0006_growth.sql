@@ -1,5 +1,5 @@
 -- ============================================================================
--- engineLine — Crescimento (Fases 3 & 4)
+-- CoreMotors — Crescimento (Fases 3 & 4)
 --   • Estatísticas de visitas às viaturas (car_views) — dashboard analítica
 --   • Reservas com sinal (novo tipo de lead + definições de sinal)
 --   • Exportação multi-canal (canais por viatura + credenciais das plataformas)

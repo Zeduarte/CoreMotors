@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
   );
   const destination = validTarget ? target : area === "admin" ? "/admin/carros" : "/";
   const response = localRedirect(destination, 303);
-  response.cookies.set(`engineline_${area}_type`, type, {
+  response.cookies.set(`coremotors_${area}_type`, type, {
     httpOnly: true,
     sameSite: "lax",
     secure: request.nextUrl.protocol === "https:",

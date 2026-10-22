@@ -1,5 +1,5 @@
 -- ============================================================================
--- engineLine — Seed opcional
+-- CoreMotors — Seed opcional
 -- Migra o inventário de exemplo (antigo `data/vehicles.ts`) para a base de dados.
 -- As imagens apontam para o Unsplash (URLs absolutos → guardados tal como estão
 -- em `car_media.storage_path`; o site resolve-os diretamente). Substitua por

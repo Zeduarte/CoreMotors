@@ -1,5 +1,5 @@
 -- ============================================================================
--- engineLine — Permissões (admin vs vendedor) + Branding do site
+-- CoreMotors — Permissões (admin vs vendedor) + Branding do site
 -- Correr no SQL Editor DEPOIS de 0001 e 0002.
 -- ============================================================================
 
@@ -37,7 +37,7 @@ create policy "profiles: admin delete"
 -- ============================================================================
 create table if not exists public.site_settings (
   id           smallint primary key default 1,
-  company_name text not null default 'engineLine',
+  company_name text not null default 'CoreMotors',
   logo_url     text,
   tagline      text,
   accent       text not null default '#E8B15A',
@@ -51,7 +51,7 @@ alter table public.site_settings add column if not exists accent text not null d
 alter table public.site_settings add column if not exists accent_soft text not null default '#C8934A';
 
 insert into public.site_settings (id, company_name)
-values (1, 'engineLine')
+values (1, 'CoreMotors')
 on conflict (id) do nothing;
 
 drop trigger if exists trg_site_settings_updated_at on public.site_settings;

@@ -72,7 +72,7 @@ export function VisitForm({
       title: `Visita ao stand — ${vehicleName}`,
       location: `${companyName}, ${address}`,
       description: `Visita para ver o ${vehicleName}. A confirmar pela ${companyName}.`,
-      uid: `${state.at}-${vehicleId}@engineline`,
+      uid: `${state.at}-${vehicleId}@coremotors`,
     });
     return `data:text/calendar;charset=utf-8,${encodeURIComponent(body)}`;
   }, [state, availability, vehicleName, companyName, address, vehicleId]);

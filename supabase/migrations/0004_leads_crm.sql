@@ -1,5 +1,5 @@
 -- ============================================================================
--- engineLine — CRM de leads (Fase 1)
+-- CoreMotors — CRM de leads (Fase 1)
 -- Novos tipos de lead (retoma, encomenda), estados de pipeline, notas e
 -- detalhes do carro do cliente. Correr no SQL Editor DEPOIS de 0001–0003.
 --

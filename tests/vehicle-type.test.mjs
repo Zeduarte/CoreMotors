@@ -95,7 +95,7 @@ function load(file) {
   const mod = { exports: {} };
   const custom = (id) => {
     if (id === "server-only") return {};
-    if (id === "next/headers") return {cookies:async()=>({get:key=>({value:key === "engineline_admin_type" ? adminType : publicType})})};
+    if (id === "next/headers") return {cookies:async()=>({get:key=>({value:key === "coremotors_admin_type" ? adminType : publicType})})};
     if (id === "next/cache")
       return { revalidatePath() {}, revalidateTag() {}, unstable_cache: (f) => f };
     if (id === "@/lib/guard")
@@ -216,12 +216,12 @@ await test("selection endpoint stores only the requested area and rejects unsafe
  const result=await GET(new NextRequest("https://example.test/api/vehicle-context?type=motorcycle&area=public&target=%2Finventario"));
  assert.equal(result.status,303);
  assert.equal(result.headers.get("location"),"/inventario");
- assert.equal(result.cookies.get("engineline_public_type").value,"motorcycle");
- assert.equal(result.cookies.get("engineline_admin_type"),undefined);
+ assert.equal(result.cookies.get("coremotors_public_type").value,"motorcycle");
+ assert.equal(result.cookies.get("coremotors_admin_type"),undefined);
  assert.match(result.headers.get("set-cookie"),/HttpOnly/);
  const unsafe=await GET(new NextRequest("https://example.test/api/vehicle-context?type=car&area=admin&target=https://evil.test"));
  assert.equal(unsafe.headers.get("location"),"/admin/carros");
- assert.equal(unsafe.cookies.get("engineline_admin_type").value,"car");
+ assert.equal(unsafe.cookies.get("coremotors_admin_type").value,"car");
  const invalid=await GET(new NextRequest("https://example.test/api/vehicle-context?type=truck"));
  assert.equal(invalid.status,400);
  // As páginas por marca e o stock com uma pesquisa voltam para onde estavam.

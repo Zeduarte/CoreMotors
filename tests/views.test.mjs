@@ -9,7 +9,7 @@ new Function('module', 'exports', outputText)(mod, mod.exports);
 const { viewSkipReason, isBot } = mod.exports;
 
 const chrome = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36';
-const real = { userAgent: chrome, host: 'supermotas.com', nodeEnv: 'production', cookieNames: ['engineline_public_type'] };
+const real = { userAgent: chrome, host: 'supermotas.com', nodeEnv: 'production', cookieNames: ['coremotors_public_type'] };
 
 test('a real visitor on the live site is counted', () => {
   assert.equal(viewSkipReason(real), null);

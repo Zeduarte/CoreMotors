@@ -41,7 +41,7 @@ const publicCdnHeaders = [
   {
     key: "Netlify-Vary",
     value:
-      "cookie=engineline_public_type,header=RSC|Next-Router-State-Tree|Next-Router-Prefetch|Next-Router-Segment-Prefetch",
+      "cookie=coremotors_public_type,header=RSC|Next-Router-State-Tree|Next-Router-Prefetch|Next-Router-Segment-Prefetch",
   },
   // `public-data` e `branding`: as etiquetas de src/lib/public-cache.ts e de
   // getBranding; `_N_T_/layout`: revalidatePath("/", "layout").

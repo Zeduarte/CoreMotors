@@ -205,7 +205,7 @@ export function visitIcs(input: { at: string; minutes: number; title: string; lo
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//engineline//visitas//PT",
+    "PRODID:-//coremotors//visitas//PT",
     "BEGIN:VEVENT",
     `UID:${input.uid}`,
     `DTSTAMP:${fmt(new Date())}`,

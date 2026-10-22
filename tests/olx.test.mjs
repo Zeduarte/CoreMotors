@@ -156,7 +156,7 @@ await test('car fields map to OLX attributes by label, never by guess',()=>{
 const Ad=load('src/lib/olx/advert.ts');
 const car={...facts,id:'11111111-1111-4111-8111-111111111111',variant:null,price:18500,priceOnRequest:false,
  description:'Muito estimado, revisões na marca.',tagline:null,extras:['GPS','Bluetooth']};
-const ctx={categoryId:181,attributeDefs:defs,cityId:1,contactName:'engineLine',contactPhone:'916193337',
+const ctx={categoryId:181,attributeDefs:defs,cityId:1,contactName:'CoreMotors',contactPhone:'916193337',
  images:['https://x/1.jpg','https://x/2.jpg','https://x/3.jpg'],photosLimit:2};
 await test('an advert is built only when OLX would accept it',()=>{
  const r=Ad.buildAdvert(car,ctx);
