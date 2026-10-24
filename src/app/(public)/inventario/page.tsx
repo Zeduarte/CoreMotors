@@ -55,56 +55,58 @@ export default async function InventoryPage({
 
   return (
     <div className="container-px pb-24 pt-6 md:pt-10">
-      {/* Topo do stock: a foto do mundo (carros/motas) a desvanecer para o
-          fundo, com o título à esquerda e os números do stock. */}
-      <header className="relative mb-8 overflow-hidden rounded-3xl border border-white/10 bg-ink-soft">
-        <div className="absolute inset-0 md:left-[35%]">
-          <Image
-            src={asset(mediaFor(world).entrada)}
-            alt=""
-            fill
-            priority
-            sizes="(max-width: 768px) 100vw, 1100px"
-            className="object-cover object-center opacity-75"
-          />
-        </div>
-        <div
-          aria-hidden
-          className="absolute inset-0 bg-gradient-to-t from-ink-soft via-ink-soft/85 to-ink-soft/30 md:bg-gradient-to-r md:from-ink-soft md:from-35% md:via-ink-soft/70 md:via-55% md:to-transparent"
-        />
-        <div className="relative flex flex-col gap-6 p-5 pt-20 md:min-h-[19rem] md:flex-row md:items-end md:justify-between md:gap-8 md:p-10">
-          <div className="max-w-xl">
-            <p className="eyebrow mb-4">Stock</p>
-            <h1 className="text-headline font-semibold text-paper">
-              {vehicleType === "car"
-                ? "Carros disponíveis"
-                : vehicleType === "motorcycle"
-                  ? "Motas disponíveis"
-                  : "Todas as viaturas disponíveis"}
-            </h1>
-            <p className="mt-3 text-base font-light text-paper/70 md:mt-4 md:text-lg">
-              Selecionadas, revistas e prontas para entrega. Use os filtros para encontrar a sua.
-            </p>
-          </div>
-          {/* Telemóvel: marcadores numa linha ("4 viaturas", "desde 7450 €");
-              computador: caixas com o rótulo por cima do número. */}
-          <dl className="flex flex-wrap gap-2 md:gap-3">
-            {stats.map((s) => (
-              <div
-                key={s.label}
-                className={`flex items-baseline gap-1.5 rounded-full ${s.labelFirst ? "" : "flex-row-reverse justify-end"} border border-white/10 bg-ink/60 px-3.5 py-2 backdrop-blur-md md:min-w-[8.5rem] md:flex-col md:items-start md:gap-1 md:rounded-2xl md:px-5 md:py-4`}
-              >
-                <dt className="text-sm text-paper/60 md:text-[11px] md:uppercase md:tracking-[0.18em] md:text-paper/50">
-                  {s.label}
-                </dt>
-                <dd className="whitespace-nowrap text-sm font-semibold text-paper md:text-2xl">{s.value}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      </header>
-
       <InventoryClient
+        header={
+          // Topo do stock: a foto do mundo (carros/motas) a desvanecer para o
+          // fundo, com o título à esquerda e os números do stock. Vai dentro
+          // do mesmo cartão dos filtros.
+          <header className="relative overflow-hidden rounded-t-3xl">
+            <div className="absolute inset-0 md:left-[35%]">
+              <Image
+                src={asset(mediaFor(world).entrada)}
+                alt=""
+                fill
+                priority
+                sizes="(max-width: 768px) 100vw, 1100px"
+                className="object-cover object-center opacity-75"
+              />
+            </div>
+            <div
+              aria-hidden
+              className="absolute inset-0 bg-gradient-to-t from-ink-soft via-ink-soft/85 to-ink-soft/30 md:bg-gradient-to-r md:from-ink-soft md:from-35% md:via-ink-soft/70 md:via-55% md:to-transparent"
+            />
+            <div className="relative flex flex-col gap-6 p-5 pt-20 md:min-h-[19rem] md:flex-row md:items-end md:justify-between md:gap-8 md:p-10">
+              <div className="max-w-xl">
+                <p className="eyebrow mb-4">Stock</p>
+                <h1 className="text-headline font-semibold text-paper">
+                  {vehicleType === "car"
+                    ? "Carros disponíveis"
+                    : vehicleType === "motorcycle"
+                      ? "Motas disponíveis"
+                      : "Todas as viaturas disponíveis"}
+                </h1>
+                <p className="mt-3 text-base font-light text-paper/70 md:mt-4 md:text-lg">
+                  Selecionadas, revistas e prontas para entrega. Use os filtros para encontrar a sua.
+                </p>
+              </div>
+              {/* Telemóvel: marcadores numa linha ("4 viaturas", "desde 7450 €");
+                  computador: caixas com o rótulo por cima do número. */}
+              <dl className="flex flex-wrap gap-2 md:gap-3">
+                {stats.map((s) => (
+                  <div
+                    key={s.label}
+                    className={`flex items-baseline gap-1.5 rounded-full ${s.labelFirst ? "" : "flex-row-reverse justify-end"} border border-white/10 bg-ink/60 px-3.5 py-2 backdrop-blur-md md:min-w-[8.5rem] md:flex-col md:items-start md:gap-1 md:rounded-2xl md:px-5 md:py-4`}
+                  >
+                    <dt className="text-sm text-paper/60 md:text-[11px] md:uppercase md:tracking-[0.18em] md:text-paper/50">
+                      {s.label}
+                    </dt>
+                    <dd className="whitespace-nowrap text-sm font-semibold text-paper md:text-2xl">{s.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </header>
+        }
         key={JSON.stringify(initialFilters)}
         vehicles={vehicles}
         initialFilters={initialFilters}

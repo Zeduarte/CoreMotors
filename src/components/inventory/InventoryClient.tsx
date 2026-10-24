@@ -40,12 +40,15 @@ export function InventoryClient({
   initialFilters,
   initialSort = "relevance",
   olxFields = [],
+  header,
 }: {
   vehicles: Vehicle[];
   initialFilters?: Partial<VehicleFilters>;
   initialSort?: SortKey;
   /** Filtros do OLX com opções no stock (vazio sem ligação ao OLX). */
   olxFields?: SearchField[];
+  /** Topo da página, unido ao cartão dos filtros. */
+  header?: React.ReactNode;
 }) {
   const [filters, setFilters] = useState<VehicleFilters>(() => ({
     ...emptyFilters(),
@@ -113,21 +116,27 @@ export function InventoryClient({
 
   return (
     <div className="space-y-10">
-      <Filters
-        filters={filters}
-        sort={sort}
-        options={options}
-        resultCount={results.length}
-        onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
-        onSort={setSort}
-        onReset={() => {
-          setFilters({
-            ...emptyFilters(),
-            vehicleType: initialFilters?.vehicleType ?? null,
-          });
-          setSort("relevance");
-        }}
-      />
+      <div
+        className={header ? "rounded-3xl border border-white/10 bg-ink-soft" : undefined}
+      >
+        {header}
+        <Filters
+          embedded={!!header}
+          filters={filters}
+          sort={sort}
+          options={options}
+          resultCount={results.length}
+          onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
+          onSort={setSort}
+          onReset={() => {
+            setFilters({
+              ...emptyFilters(),
+              vehicleType: initialFilters?.vehicleType ?? null,
+            });
+            setSort("relevance");
+          }}
+        />
+      </div>
 
       {results.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-ink-soft p-10 text-center md:p-12">
