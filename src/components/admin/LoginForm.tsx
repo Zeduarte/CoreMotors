@@ -25,7 +25,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
           required
           autoFocus
           className="field"
-          placeholder="vendedor@supermotas.pt"
+          placeholder="vendedor@coremotors.pt"
         />
       </div>
 

@@ -3,7 +3,7 @@ import { normalizeWhatsApp } from "./phone";
 /** Constantes de marca e contactos — um único sítio para editar. */
 
 export const site = {
-  name: "Supermotas",
+  name: "CoreMotors",
   legalName: "Supermotas — Motas e Automóveis",
   description:
     "Stand de motas e automóveis em Portugal. Viaturas selecionadas, histórico transparente e uma experiência de compra sem fricção.",

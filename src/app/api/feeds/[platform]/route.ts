@@ -61,7 +61,7 @@ ${images}
     .join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<listings generator="Supermotas" channel="${esc(channelLabel)}" generated="${new Date().toISOString()}">
+<listings generator="CoreMotors" channel="${esc(channelLabel)}" generated="${new Date().toISOString()}">
 ${items}
 </listings>`;
 }
@@ -143,7 +143,7 @@ ${images}
     .join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<offers generator="Supermotas" generated="${new Date().toISOString()}">
+<offers generator="CoreMotors" generated="${new Date().toISOString()}">
 ${offers}
 </offers>`;
 }
