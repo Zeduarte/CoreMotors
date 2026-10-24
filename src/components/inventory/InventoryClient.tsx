@@ -117,7 +117,7 @@ export function InventoryClient({
   return (
     <div className="space-y-10">
       <div
-        className={header ? "rounded-3xl border border-white/10 bg-ink-soft" : undefined}
+        className={header ? "relative overflow-hidden rounded-3xl border border-white/10 bg-ink-soft" : undefined}
       >
         {header}
         <Filters

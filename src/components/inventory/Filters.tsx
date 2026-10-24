@@ -92,7 +92,7 @@ export function Filters({
     <div
       className={
         embedded
-          ? "border-t border-white/10 p-5 md:p-6"
+          ? "relative p-5 md:p-6"
           : "rounded-2xl border border-white/10 bg-ink-soft p-5 md:p-6"
       }
     >
