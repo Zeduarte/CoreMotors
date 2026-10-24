@@ -14,7 +14,7 @@ export default async function LoginPage({
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <p className="text-2xl font-bold tracking-tight text-paper">
-            engine<span className="text-accent">Line</span>
+            Core<span className="text-accent">Motors</span>
           </p>
           <p className="mt-2 text-sm text-paper/50">Backoffice · acesso restrito</p>
         </div>
