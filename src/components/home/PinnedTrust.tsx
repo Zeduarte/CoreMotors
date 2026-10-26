@@ -93,7 +93,7 @@ export function PinnedTrust({
       // a do conteúdo, senão o que não cabe é cortado.
       className="relative bg-ink-soft md:h-[var(--pin-height)]"
       style={{ "--pin-height": `${PILLARS.length * 90}vh` } as React.CSSProperties}
-      aria-label="Porquê comprar na CoreMotors"
+      aria-label="Porquê comprar na Supermotas"
     >
       <div
         data-pin
