@@ -40,7 +40,9 @@ export function MobileNav({
   const items = NAV.filter((i) => sections.includes(i.section));
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-ink-soft/95 backdrop-blur">
+    // Em modo app (iPhone, `viewport-fit=cover`) a barra estende o fundo por
+    // baixo da barra de estado e do notch; o conteúdo fica abaixo dela.
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-ink-soft/95 pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur">
       <div className="flex items-center justify-between px-4 py-3">
         <Link href="/admin" className="text-base font-bold tracking-tight">
           <span className="text-paper">{companyName}</span>
