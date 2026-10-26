@@ -40,7 +40,7 @@ export default async function DashboardLayout({
       .maybeSingle(),
   ]);
 
-  const companyName = settings.data?.company_name ?? "CoreMotors";
+  const companyName = settings.data?.company_name ?? "Supermotas";
   const user = {
     name: profile.full_name || profile.email || "Utilizador",
     role: profile.role,
@@ -51,8 +51,10 @@ export default async function DashboardLayout({
     <div className="min-h-dvh bg-ink text-paper">
       <div className="md:hidden"><MobileNav user={user} sections={sections} companyName={companyName} newLeads={count ?? 0}/></div>
       <div className="md:grid md:grid-cols-[248px_1fr]">
-        <div className="sticky top-0 hidden h-dvh md:block"><Sidebar user={user} sections={sections} companyName={companyName} newLeads={count ?? 0}/></div>
-        <main className="min-w-0"><div className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8 lg:px-10"><AdminWorldBar world={vehicleType} allowed={allowedTypes} />{children}</div></main>
+        {/* Safe-area insets: em modo app (viewport-fit=cover) nada fica por baixo
+            do notch, da barra de estado ou da barra inicial do iPhone/iPad. */}
+        <div className="sticky top-0 hidden h-dvh pl-[env(safe-area-inset-left)] pt-[env(safe-area-inset-top)] md:block bg-ink-soft"><Sidebar user={user} sections={sections} companyName={companyName} newLeads={count ?? 0}/></div>
+        <main className="min-w-0 pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] md:pl-0 md:pt-[env(safe-area-inset-top)]"><div className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8 lg:px-10"><AdminWorldBar world={vehicleType} allowed={allowedTypes} />{children}</div></main>
       </div>
     </div>
   );

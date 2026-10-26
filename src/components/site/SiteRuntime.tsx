@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { isAdminCache, isAdminServiceWorker } from "@/lib/admin-pwa";
 
 /**
  * Runtime do site público (cliente):
- *   1. Regista o Service Worker (PWA).
+ *   1. Desregista Service Workers antigos (excepto o do backoffice).
  *   2. Gere o consentimento de cookies (RGPD).
  *   3. Só carrega Google Analytics / Meta Pixel DEPOIS de o visitante aceitar.
  *
@@ -75,16 +76,25 @@ export function SiteRuntime({
   // Service Worker REMOVIDO: causava "Server Action not found" ao servir chunks
   // antigos em cache. Já não o registamos; e desregistamos qualquer SW que ainda
   // exista + limpamos as caches, para os browsers ficarem limpos sozinhos.
+  // Excepção: o SW do backoffice (âmbito `/admin`, só rede — ver
+  // public/admin/sw.js) e as suas caches; sem isto, cada visita ao site
+  // desinstalava a app do backoffice.
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
     navigator.serviceWorker
       .getRegistrations()
-      .then((regs) => regs.forEach((r) => r.unregister()))
+      .then((regs) =>
+        regs
+          .filter((r) => !isAdminServiceWorker(r.scope))
+          .forEach((r) => r.unregister()),
+      )
       .catch(() => {});
     if ("caches" in window) {
       caches
         .keys()
-        .then((keys) => keys.forEach((k) => caches.delete(k)))
+        .then((keys) =>
+          keys.filter((k) => !isAdminCache(k)).forEach((k) => caches.delete(k)),
+        )
         .catch(() => {});
     }
   }, []);

@@ -295,7 +295,7 @@ export async function getSiteSettings(): Promise<{
     .eq("id", 1)
     .maybeSingle();
   return {
-    company_name: data?.company_name ?? "CoreMotors",
+    company_name: data?.company_name ?? "Supermotas",
     logo_url: data?.logo_url ?? null,
     tagline: data?.tagline ?? null,
     accent: data?.accent ?? "#E8B15A",

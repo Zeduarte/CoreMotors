@@ -16,7 +16,7 @@ export const revalidate = 60;
 export const metadata: Metadata = {
   title: "Stock",
   description:
-    "Explore o stock completo de motas e automóveis da CoreMotors. Filtre por marca, modelo, preço, ano, combustível e quilómetros.",
+    "Explore o stock completo de motas e automóveis da Supermotas. Filtre por marca, modelo, preço, ano, combustível e quilómetros.",
 };
 
 export default async function InventoryPage({
