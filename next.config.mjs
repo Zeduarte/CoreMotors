@@ -93,17 +93,6 @@ const securityHeaders = [
   { key: "Content-Security-Policy-Report-Only", value: contentSecurityPolicy },
 ];
 
-// Service Worker do backoffice (public/admin/sw.js). Nunca em cache — senão
-// uma versão nova demorava a chegar aos telemóveis. O script está em /admin/,
-// mas o âmbito é `/admin` (sem barra, para incluir o próprio dashboard), um
-// pouco mais largo do que a pasta: o browser só o aceita com
-// `Service-Worker-Allowed`.
-const adminSwHeaders = [
-  { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
-  { key: "Content-Type", value: "application/javascript; charset=utf-8" },
-  { key: "Service-Worker-Allowed", value: "/admin" },
-];
-
 const nextConfig = {
   reactStrictMode: true,
   env: { NEXT_PUBLIC_SITE_URL: siteUrl },
@@ -111,7 +100,6 @@ const nextConfig = {
     return [
       { source: "/:path*", headers: securityHeaders },
       ...PUBLIC_PAGES.map((source) => ({ source, headers: publicCdnHeaders })),
-      { source: "/admin/sw.js", headers: adminSwHeaders },
     ];
   },
   images: {
