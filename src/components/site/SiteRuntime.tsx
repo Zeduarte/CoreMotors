@@ -77,7 +77,7 @@ export function SiteRuntime({
   // antigos em cache. Já não o registamos; e desregistamos qualquer SW que ainda
   // exista + limpamos as caches, para os browsers ficarem limpos sozinhos.
   // Excepção: o SW do backoffice (âmbito `/admin`, só rede — ver
-  // public/admin/sw.js) e as suas caches; sem isto, cada visita ao site
+  // src/lib/admin-sw.ts) e as suas caches; sem isto, cada visita ao site
   // desinstalava a app do backoffice.
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;

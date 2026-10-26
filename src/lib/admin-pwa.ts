@@ -11,11 +11,11 @@
  * dashboard, que é o `start_url` — o Next redirecciona `/admin/` para
  * `/admin`). O Chrome chegava a ignorar o âmbito do manifest por isso.
  * Como é mais largo do que a pasta do script, o SW precisa do cabeçalho
- * `Service-Worker-Allowed: /admin` (next.config.mjs).
+ * `Service-Worker-Allowed: /admin` (admin-sw.ts).
  */
 export const ADMIN_SCOPE = "/admin";
 
-/** Script do Service Worker do backoffice (em `public/admin/sw.js`). */
+/** Script do Service Worker do backoffice (rota src/app/admin/sw.js, código em admin-sw.ts). */
 export const ADMIN_SW_URL = "/admin/sw.js";
 
 /** Manifest da app do backoffice (src/app/admin/manifest.webmanifest/route.ts). */

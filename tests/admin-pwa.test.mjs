@@ -110,6 +110,10 @@ test('the admin layout links its own manifest, apple tags and viewport-fit=cover
   assert.ok(html.includes('<main>login</main>'));
 });
 
+// O script tal como a rota /admin/sw.js o devolve.
+const swRoute = load('src/app/admin/sw.js/route.ts');
+const swSource = await swRoute.GET().text();
+
 // Corre o SW num contexto isolado e devolve os listeners registados.
 function bootServiceWorker({ fetchImpl, cacheKeys = [] } = {}) {
   const listeners = {};
@@ -121,7 +125,7 @@ function bootServiceWorker({ fetchImpl, cacheKeys = [] } = {}) {
     registration: { navigationPreload: { enable: async () => {} } },
   };
   const caches = { keys: async () => cacheKeys, delete: async (k) => { deleted.push(k); return true; } };
-  vm.runInNewContext(readFileSync('public/admin/sw.js', 'utf8'), { self, caches, fetch: fetchImpl, Response });
+  vm.runInNewContext(swSource, { self, caches, fetch: fetchImpl, Response });
   return { listeners, deleted };
 }
 
@@ -132,7 +136,7 @@ function fetchEvent(url, mode, method = 'GET') {
 }
 
 test('the admin service worker is network-only: it never answers chunks, RSC or Server Actions', async () => {
-  const src = readFileSync('public/admin/sw.js', 'utf8');
+  const src = swSource;
   for (const forbidden of ['cache.put', 'caches.match', 'cache.match', 'addAll(', '.put(']) assert.ok(!src.includes(forbidden), forbidden);
   const { listeners } = bootServiceWorker({ fetchImpl: async () => new Response('ok') });
   assert.ok(listeners.install && listeners.activate && listeners.fetch);
@@ -193,18 +197,18 @@ test('the session middleware skips the admin manifest and service worker, but st
   for (const path of ['/admin/sw.js', '/admin/manifest.webmanifest', '/admin-icons/icon-192.png', '/']) assert.ok(!guarded(path), path);
 });
 
-test('the service worker script is never cached and may control /admin itself', async () => {
-  const { default: config } = await import('../next.config.mjs');
-  const rules = await config.headers();
-  const sw = rules.find((r) => r.source === '/admin/sw.js');
-  assert.ok(sw);
-  const h = Object.fromEntries(sw.headers.map(({ key, value }) => [key.toLowerCase(), value]));
-  assert.match(h['cache-control'], /no-cache/);
-  assert.match(h['content-type'], /^application\/javascript/);
-  assert.equal(h['service-worker-allowed'], pwa.ADMIN_SCOPE);
+test('the service worker script is never cached and may control /admin itself', () => {
+  // Os cabeçalhos vêm da própria rota: o Netlify serve os ficheiros de
+  // `public/` sem os do next.config.mjs, e sem `Service-Worker-Allowed` o
+  // browser recusava o SW (e a app deixava de se poder instalar).
+  assert.equal(swRoute.dynamic, 'force-static');
+  const res = swRoute.GET();
+  assert.match(res.headers.get('cache-control'), /no-cache/);
+  assert.match(res.headers.get('content-type'), /^application\/javascript/);
+  assert.equal(res.headers.get('service-worker-allowed'), pwa.ADMIN_SCOPE);
+  assert.ok(!existsSync('public/admin/sw.js'), 'um ficheiro estático passava à frente da rota, sem os cabeçalhos');
   const register = readFileSync('src/components/admin/PwaRegister.tsx', 'utf8');
   assert.match(register, /register\(ADMIN_SW_URL, \{ scope: ADMIN_SCOPE \}\)/);
   assert.match(register, /process\.env\.NODE_ENV !== "production"/);
   assert.equal(pwa.ADMIN_SW_URL, '/admin/sw.js');
-  assert.ok(existsSync('public/admin/sw.js'));
 });
