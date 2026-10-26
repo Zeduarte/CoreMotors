@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { getBranding } from "@/lib/queries";
-import { site } from "@/lib/site";
 import {
+  ADMIN_APP_NAME,
   ADMIN_ICONS,
   ADMIN_MANIFEST_URL,
   ADMIN_THEME_COLOR,
@@ -27,16 +26,9 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default async function AdminRootLayout({
+export default function AdminRootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  let companyName: string = site.name;
-  try {
-    companyName = (await getBranding()).companyName || site.name;
-  } catch {
-    /* sem Supabase: fica o nome por defeito */
-  }
-
   return (
     <>
       {/* As tags da app vão aqui e não só no `metadata`: o Next 15 envia o
@@ -48,7 +40,7 @@ export default async function AdminRootLayout({
       <link rel="apple-touch-icon" href={ADMIN_ICONS.apple} sizes="180x180" />
       <meta name="apple-mobile-web-app-capable" content="yes" />
       <meta name="mobile-web-app-capable" content="yes" />
-      <meta name="apple-mobile-web-app-title" content={companyName} />
+      <meta name="apple-mobile-web-app-title" content={ADMIN_APP_NAME} />
       {/* A página desenha por baixo da barra de estado do iPhone; a folga
           fica a cargo de `env(safe-area-inset-*)` (ver MobileNav). */}
       <meta

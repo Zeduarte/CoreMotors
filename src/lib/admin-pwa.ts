@@ -55,16 +55,23 @@ export const ADMIN_ICONS = {
 } as const;
 
 /**
+ * Nome da app instalada (ecrã inicial, multitarefa). É o nome da plataforma e
+ * fica fixo: o site e o próprio backoffice continuam com o nome da empresa
+ * (Definições, ou `site.name`).
+ */
+export const ADMIN_APP_NAME = "CoreMotors";
+
+/**
  * Web App Manifest do backoffice, servido em `/admin/manifest.webmanifest`.
  * Separado do do site (`/manifest.webmanifest`, início em `/`): instalado, o
  * backoffice abre directamente em `/admin` e não "foge" para o site público.
  */
-export function adminManifest(companyName: string) {
+export function adminManifest() {
   return {
     id: "/admin/",
-    name: `${companyName} Admin`,
-    short_name: companyName,
-    description: `Backoffice de ${companyName}`,
+    name: ADMIN_APP_NAME,
+    short_name: ADMIN_APP_NAME,
+    description: `Backoffice ${ADMIN_APP_NAME}`,
     start_url: ADMIN_SCOPE,
     scope: ADMIN_SCOPE,
     display: "standalone",

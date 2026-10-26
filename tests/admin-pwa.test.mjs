@@ -34,7 +34,7 @@ const publicFile = (url) => resolve('public', url.replace(/^\//, ''));
 const pngSize = (file) => { const b = readFileSync(file); return [b.readUInt32BE(16), b.readUInt32BE(20)]; };
 
 test('the admin manifest opens the backoffice, stays inside /admin/ and has real icons', () => {
-  const m = pwa.adminManifest('Stand Teste');
+  const m = pwa.adminManifest();
   assert.equal(m.id, '/admin/');
   assert.equal(m.scope, '/admin');
   assert.equal(m.start_url, '/admin');
@@ -42,8 +42,8 @@ test('the admin manifest opens the backoffice, stays inside /admin/ and has real
   // ("Start url should be within scope") e a app ficava com o site todo.
   assert.ok(m.start_url.startsWith(m.scope));
   assert.equal(m.display, 'standalone');
-  assert.equal(m.name, 'Stand Teste Admin');
-  assert.equal(m.short_name, 'Stand Teste');
+  assert.equal(m.name, 'CoreMotors');
+  assert.equal(m.short_name, 'CoreMotors');
   assert.equal(m.lang, 'pt-PT');
   assert.equal(m.theme_color, '#0A0A0A');
   assert.equal(m.background_color, '#0A0A0A');
@@ -67,33 +67,29 @@ test('the public manifest is a plain metadata link, so /admin can replace it', a
     assert.ok(!existsSync(file) || !statSync(file).isFile(), name);
   }
   assert.match(readFileSync('src/app/layout.tsx', 'utf8'), /manifest: "\/manifest\.webmanifest"/);
-  const route = load('src/app/manifest.webmanifest/route.ts', { '@/lib/site': { site: { name: 'CoreMotors', description: 'Stand' } } });
+  const route = load('src/app/manifest.webmanifest/route.ts', { '@/lib/site': { site: { name: 'Supermotas', description: 'Stand' } } });
   assert.equal(route.dynamic, 'force-static');
   const res = route.GET();
   assert.equal(res.headers.get('content-type'), 'application/manifest+json');
   const body = await res.json();
   assert.equal(body.start_url, '/');
-  assert.equal(body.name, 'CoreMotors — Motas e Automóveis');
+  assert.equal(body.name, 'Supermotas — Motas e Automóveis');
   assert.equal(body.scope, undefined);
 });
 
-test('the manifest route answers JSON with the company name, and falls back without Supabase', async () => {
-  const site = { site: { name: 'CoreMotors' } };
-  let branding = async () => ({ companyName: 'Stand Teste' });
-  const route = load('src/app/admin/manifest.webmanifest/route.ts', { '@/lib/queries': { getBranding: () => branding() }, '@/lib/site': site });
-  let res = await route.GET();
+test('the admin manifest route answers JSON with the fixed app name', async () => {
+  const route = load('src/app/admin/manifest.webmanifest/route.ts');
+  const res = route.GET();
   assert.match(res.headers.get('content-type'), /^application\/manifest\+json/);
-  let body = await res.json();
-  assert.equal(body.name, 'Stand Teste Admin');
-  assert.equal(body.scope, '/admin');
-  branding = async () => { throw new Error('sem rede'); };
-  body = await (await route.GET()).json();
+  const body = await res.json();
+  // A app é «CoreMotors»; o site e o backoffice ficam com o nome da empresa.
+  assert.equal(body.name, 'CoreMotors');
   assert.equal(body.short_name, 'CoreMotors');
+  assert.equal(body.scope, '/admin');
 });
 
 test('the admin layout links its own manifest, apple tags and viewport-fit=cover', async () => {
   const layout = load('src/app/admin/layout.tsx', {
-    '@/lib/queries': { getBranding: async () => ({ companyName: 'Stand Teste' }) },
     '@/components/admin/PwaRegister': { PwaRegister: () => null },
   });
   // O `metadata` substitui o manifest e os ícones do site...
@@ -109,7 +105,7 @@ test('the admin layout links its own manifest, apple tags and viewport-fit=cover
   assert.ok(html.includes('<link rel="manifest" href="/admin/manifest.webmanifest"/>'), html);
   assert.ok(html.includes('<link rel="apple-touch-icon" href="/admin-icons/apple-touch-icon.png" sizes="180x180"/>'));
   assert.ok(html.includes('<meta name="apple-mobile-web-app-capable" content="yes"/>'));
-  assert.ok(html.includes('<meta name="apple-mobile-web-app-title" content="Stand Teste"/>'));
+  assert.ok(html.includes('<meta name="apple-mobile-web-app-title" content="CoreMotors"/>'));
   assert.ok(html.includes('<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>'));
   assert.ok(html.includes('<main>login</main>'));
 });
