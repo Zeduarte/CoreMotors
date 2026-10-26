@@ -32,6 +32,8 @@ export const metadata: Metadata = {
     url: site.url,
   },
   robots: { index: true, follow: true },
+  // Ver src/app/manifest.webmanifest/route.ts (o backoffice tem o seu).
+  manifest: "/manifest.webmanifest",
   icons: { icon: "/icon.svg", shortcut: "/icon.svg", apple: "/icon.svg" },
 };
 
