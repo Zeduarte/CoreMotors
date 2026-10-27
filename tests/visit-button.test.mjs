@@ -182,8 +182,19 @@ await test('confirm without automatic messages: the salesperson is asked to tell
  const {deps}=fakeDeps(null);
  const reply=await press(db,'ok',deps);
  assert.match(reply,/^Visita de Maria confirmada para terça-feira, 27 de outubro, às 10:30\./);
- assert.match(reply,/O cliente não tem mensagens automáticas ligadas: avise-o por telefone ou WhatsApp\.$/);
+ assert.match(reply,/O cliente não recebe mensagens automáticas \(sem consentimento ou desligadas\): avise-o por telefone ou WhatsApp/);
+ assert.doesNotMatch(reply,/Não consegui enviar/);
  assert.equal(calls.updates.find(u=>u.table==='leads').patch.car_details.visit_message_sent_at,undefined);
+});
+
+await test('confirm when the Meta refuses or times out: the reply says what really happened',async()=>{
+ const recusa=fakeDb({outcome:'confirmed',lead:LEAD});
+ const r1=await press(recusa.db,'ok',fakeDeps({ok:false,error:'HTTP 400 — (#132001) Template name does not exist'}).deps);
+ assert.match(r1,/Não consegui enviar a confirmação ao cliente: avise-o por telefone ou WhatsApp/);
+ assert.doesNotMatch(r1,/não recebe mensagens automáticas/);
+ const incerto=fakeDb({outcome:'confirmed',lead:LEAD});
+ const r2=await press(incerto.db,'ok',fakeDeps({ok:false,uncertain:true,error:'timeout'}).deps);
+ assert.match(r2,/pode ter chegado ou não: confirme com ele/);
 });
 
 await test('confirm when the send to the customer fails: the error is recorded, the reply does not lie',async()=>{
@@ -218,12 +229,31 @@ await test('already handled, past or unknown: clear answer and nothing is sent t
 });
 
 await test('an invalid payload is answered with an error and never touches the database',async()=>{
- for(const payload of ['visit:ok:','visit:ok:não-é-um-uuid','visit:maybe:'+ID,'visit:ok:'+ID+'x','visit:ok:'+ID.toUpperCase(),'visit:teste:0']){
+ for(const payload of ['visit:ok:','visit:ok:não-é-um-uuid','visit:maybe:'+ID,'visit:ok:'+ID+'x','visit:ok:'+ID.toUpperCase()]){
   const {db,calls}=fakeDb({outcome:'confirmed',lead:LEAD});
   const {sent,deps}=fakeDeps({ok:true});
   const reply=await press(db,'ok',deps,payload);
   assert.equal(reply,VISIT_BUTTON_FALLBACK,payload);
   assert.equal(calls.rpc.length+calls.reads+calls.updates.length,0,payload);assert.equal(sent.length,0);
+ }
+});
+
+await test('the test buttons from Integrações get their own answer and never touch the database',async()=>{
+ const {db,calls}=fakeDb({outcome:'confirmed',lead:LEAD});
+ const {sent,deps}=fakeDeps({ok:true});
+ const reply=await press(db,'ok',deps,'visit:teste:0');
+ assert.match(reply,/só o teste dos botões/);
+ assert.equal(calls.rpc.length+calls.reads+calls.updates.length,0);assert.equal(sent.length,0);
+});
+
+await test('a salesperson without access gets a clear answer, not the generic one',async()=>{
+ for(const message of ['Sem permissão','Sem acesso a este tipo de viatura']){
+  const {db,calls}=fakeDb({rpcError:message,lead:LEAD});
+  const {sent,deps}=fakeDeps({ok:true});
+  const reply=await press(db,'ok',deps);
+  assert.match(reply,/Não tem acesso a este pedido de visita/,message);
+  assert.notEqual(reply,VISIT_BUTTON_FALLBACK);
+  assert.equal(sent.length,0);
  }
 });
 

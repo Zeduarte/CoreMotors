@@ -19,7 +19,7 @@ import { visitWhenLabel } from "@/lib/visits";
  *
  * A migração 0041 acrescentou os avisos do que acontece DEPOIS (contactos
  * atribuídos, vendas, reservas que terminam, preços, viaturas que saem da
- * oficina) e os das férias — todos nos mesmos quatro modelos.
+ * oficina) e os das férias — todos nos mesmos modelos de aviso.
  */
 
 export type TemplateFamily = "lead" | "viatura" | "testemunho" | "aviso" | "visita_equipa";

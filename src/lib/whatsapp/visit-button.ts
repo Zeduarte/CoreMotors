@@ -27,6 +27,8 @@ export interface VisitButtonDeps {
 
 const PAYLOAD = /^visit:(ok|no):[0-9a-f-]{36}$/;
 export const VISIT_BUTTON_FALLBACK = "Não consegui tratar esse pedido; abra o backoffice.";
+const VISIT_BUTTON_TEST = "Este era só o teste dos botões: está tudo a funcionar.";
+const NO_ACCESS = "Não tem acesso a este pedido de visita (secção ou tipo de viatura). Fale com um administrador.";
 
 /** Uma resposta à rota do webhook começa por «visit:»? */
 export function isVisitPayload(payload: string | undefined): boolean {
@@ -62,6 +64,8 @@ export async function handleVisitButton(input: {
 
 async function run(input: Parameters<typeof handleVisitButton>[0]): Promise<string> {
   const { db, actorId, payload } = input;
+  // Os botões do «Enviar teste» (Integrações) não apontam para nenhum contacto.
+  if (payload.startsWith("visit:teste:")) return VISIT_BUTTON_TEST;
   if (!PAYLOAD.test(payload)) return VISIT_BUTTON_FALLBACK;
   const [, which, id] = payload.split(":") as [string, "ok" | "no", string];
   const confirm = which === "ok";
@@ -73,7 +77,8 @@ async function run(input: Parameters<typeof handleVisitButton>[0]): Promise<stri
   });
   if (error || typeof outcome !== "string") {
     console.error("wa_set_visit:", error?.message);
-    return VISIT_BUTTON_FALLBACK;
+    // A base de dados recusa quem não tem a secção «leads» ou o tipo de viatura.
+    return /sem permiss|sem acesso/i.test(error?.message ?? "") ? NO_ACCESS : VISIT_BUTTON_FALLBACK;
   }
 
   const { data: lead } = await db
@@ -98,7 +103,11 @@ async function run(input: Parameters<typeof handleVisitButton>[0]): Promise<stri
         `Visita de ${who} confirmada${when ? ` para ${when}` : ""}.` +
         (sent?.ok
           ? " Enviei-lhe a confirmação por WhatsApp."
-          : " O cliente não tem mensagens automáticas ligadas: avise-o por telefone ou WhatsApp.")
+          : sent?.uncertain
+            ? ` A mensagem ao cliente pode ter chegado ou não: confirme com ele${contact}.`
+            : sent
+              ? ` Não consegui enviar a confirmação ao cliente: avise-o por telefone ou WhatsApp${contact}.`
+              : ` O cliente não recebe mensagens automáticas (sem consentimento ou desligadas): avise-o por telefone ou WhatsApp${contact}.`)
       );
     }
     case "declined": {
@@ -111,13 +120,13 @@ async function run(input: Parameters<typeof handleVisitButton>[0]): Promise<stri
     case "already_confirmed":
       return `A visita de ${who} já estava confirmada${when ? ` para ${when}` : ""}.`;
     case "already_declined":
-      return `A visita de ${who} já tinha sido recusada. Combine outra hora com o cliente${contact}.`;
+      return `A visita de ${who} já tinha sido recusada ou cancelada. Combine outra hora com o cliente${contact}.`;
     case "already_handled":
       return `O pedido de visita de ${who} já foi tratado no backoffice.`;
     case "past":
       return `Esse pedido de visita já passou da hora. Fale com o cliente${contact} para combinar outra.`;
     case "not_found":
-      return "Não encontrei esse pedido de visita, ou não tem permissão para o tratar.";
+      return "Não encontrei esse pedido de visita.";
     default:
       return VISIT_BUTTON_FALLBACK;
   }

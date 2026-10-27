@@ -181,7 +181,9 @@ begin
 
   if outcome = 'confirm' and l.visit_status = 'confirmed' then return 'already_confirmed'; end if;
   if outcome = 'decline' and l.visit_status = 'cancelled' then return 'already_declined'; end if;
-  if outcome = 'confirm' and l.visit_status in ('done', 'no_show', 'cancelled') then
+  -- Recusada (ou cancelada) por um colega: quem carrega «Confirmar» depois vê isso.
+  if outcome = 'confirm' and l.visit_status = 'cancelled' then return 'already_declined'; end if;
+  if outcome = 'confirm' and l.visit_status in ('done', 'no_show') then
     return 'already_handled';
   end if;
   if outcome = 'decline' and l.visit_status in ('done', 'no_show', 'confirmed') then

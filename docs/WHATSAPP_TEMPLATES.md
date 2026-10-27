@@ -243,7 +243,7 @@ Corpo:
 ```
 Olá {{1}}! Infelizmente não conseguimos receber a sua visita à {{2}} em {{3}}.
 
-Responda a esta mensagem e combinamos outra hora que lhe convenha.
+Entraremos em contacto consigo para combinar outra hora que lhe convenha.
 ```
 
 Exemplos: `Maria` · `Supermotas` · `terça-feira, 21 de outubro, às 10:30`

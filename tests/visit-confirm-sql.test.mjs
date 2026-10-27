@@ -112,7 +112,9 @@ await test('decline changes the visit, logs once, and repeating is a no-op', asy
   assert.equal(acts.length, 1);
   assert.equal(acts[0].body, 'Visita recusada pelo WhatsApp: equipa propõe outra hora.');
   assert.equal(await setVisit(vendedor, id, 'decline'), 'already_declined');
-  assert.equal(await setVisit(admin, id, 'confirm'), 'already_handled');
+  // Um colega que carrega «Confirmar» depois vê que já foi recusada.
+  assert.equal(await setVisit(admin, id, 'confirm'), 'already_declined');
+  assert.equal((await lead(id)).visit_status, 'cancelled');
   assert.equal((await activities(id)).length, 1);
 });
 

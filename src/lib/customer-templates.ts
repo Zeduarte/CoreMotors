@@ -49,7 +49,7 @@ export const CUSTOMER_TEMPLATES: Record<CustomerTemplate, TemplateDefinition> = 
     env: "WHATSAPP_TEMPLATE_VISITA_CANCELADA",
     body:
       "Olá {{1}}! Infelizmente não conseguimos receber a sua visita à {{2}} em {{3}}.\n\n" +
-      "Responda a esta mensagem e combinamos outra hora que lhe convenha.",
+      "Entraremos em contacto consigo para combinar outra hora que lhe convenha.",
     example: ["Maria", "Supermotas", "terça-feira, 21 de outubro, às 10:30"],
   },
   visita_pedido: {
