@@ -179,10 +179,10 @@ export function CustomerSettingsForm({
 
         <details className="rounded-xl border border-white/10 p-4 text-sm">
           <summary className="cursor-pointer font-medium text-paper">
-            Antes de ligar: criar os 2 modelos no WhatsApp Manager
+            Antes de ligar: criar os 4 modelos no WhatsApp Manager
           </summary>
           <p className="mt-3 text-paper/60">
-            A Meta só deixa a empresa iniciar conversas com modelos aprovados. Crie estes dois na conta do número ligado
+            A Meta só deixa a empresa iniciar conversas com modelos aprovados. Crie estes quatro na conta do número ligado
             (Modelos de mensagem → Criar modelo · idioma Portuguese (POR) · sem cabeçalho nem botões), com o texto exato.
             Os passos estão em <code>docs/WHATSAPP_TEMPLATES.md</code>.
           </p>

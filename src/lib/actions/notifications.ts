@@ -89,7 +89,7 @@ export async function saveWhatsAppNotificationSettings(data: FormData): Promise<
 }
 
 /**
- * Envia os quatro modelos, com os valores de exemplo, para o telefone de quem
+ * Envia os cinco modelos, com os valores de exemplo, para o telefone de quem
  * carrega no botão. É a forma de saber se a Meta já os aprovou ANTES de ligar
  * os avisos — por isso não depende do interruptor nem passa pela fila: o
  * resultado (e o motivo da Meta, se recusar) vem logo.
@@ -111,12 +111,18 @@ export async function sendWhatsAppTestNotification(): Promise<Result> {
     const params = def.example.map((v) => v.replace(/^https:\/\/www\.exemplo\.pt/, base));
     const result = await sendWhatsAppTemplate(
       to,
-      { name: templateName(family), language: templateLanguage(), params },
+      {
+        name: templateName(family),
+        language: templateLanguage(),
+        params,
+        // Os botões do teste não correspondem a nenhuma visita: o payload não é tratado.
+        ...(def.buttons ? { buttons: def.buttons.map((_, i) => ({ payload: `visit:teste:${i}` })) } : {}),
+      },
       number,
     );
     if (!result.ok) falhas.push(`${templateName(family)}: ${result.error}`);
   }
-  if (falhas.length) return { ok: false, error: `A Meta recusou ${falhas.length} de 4 modelos — ${falhas.join(" · ")}` };
+  if (falhas.length) return { ok: false, error: `A Meta recusou ${falhas.length} de ${Object.keys(NOTIFICATION_TEMPLATES).length} modelos — ${falhas.join(" · ")}` };
   return { ok: true };
 }
 

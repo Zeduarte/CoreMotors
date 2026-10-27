@@ -86,12 +86,16 @@ export async function visitContext(): Promise<VisitContext> {
 
 type VisitLead = Pick<LeadRow, "id" | "name" | "phone" | "car_label" | "car_details" | "visit_at">;
 
+export type VisitMessageKind = "visita" | "visita_cancelada" | "visita_pedido";
+
 /**
- * Envia ao cliente a mensagem da visita (confirmação ou lembrete), se ele a
- * pediu e o stand ligou as mensagens aos clientes. `null` = não se tentou.
+ * Envia ao cliente uma mensagem sobre a visita — a confirmação (e o lembrete),
+ * o «pedido recebido» ou o «não podemos receber» — se ele a pediu e o stand
+ * ligou as mensagens aos clientes. `null` = não se tentou.
  */
-export async function sendVisitMessage(
+export async function sendVisitTemplate(
   db: Db,
+  kind: VisitMessageKind,
   lead: VisitLead,
   ctx: VisitContext,
   settings?: CustomerSettings,
@@ -102,21 +106,32 @@ export async function sendVisitMessage(
   if (!s.customerWhatsApp || !phone || !optIn || !lead.visit_at) return null;
   const number = await whatsAppNumber(db);
   if (!number?.accessToken) return null;
+  const when = visitWhenLabel(lead.visit_at);
+  const params =
+    kind === "visita"
+      ? [
+          firstName(lead.name),
+          ctx.companyName,
+          when,
+          lead.car_label || "a combinar no stand",
+          ctx.address || "a indicar",
+        ]
+      : [firstName(lead.name), ctx.companyName, when];
   return sendWhatsAppTemplate(
     phone,
-    {
-      name: customerTemplateName("visita"),
-      language: templateLanguage(),
-      params: [
-        firstName(lead.name),
-        ctx.companyName,
-        visitWhenLabel(lead.visit_at),
-        lead.car_label || "a combinar no stand",
-        ctx.address || "a indicar",
-      ],
-    },
+    { name: customerTemplateName(kind), language: templateLanguage(), params },
     number,
   );
+}
+
+/** A confirmação da visita (e o lembrete). */
+export function sendVisitMessage(
+  db: Db,
+  lead: VisitLead,
+  ctx: VisitContext,
+  settings?: CustomerSettings,
+): Promise<TemplateSendResult | null> {
+  return sendVisitTemplate(db, "visita", lead, ctx, settings);
 }
 
 /**

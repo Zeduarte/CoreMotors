@@ -29,6 +29,8 @@ export interface TemplateDefinition {
   body: string;
   /** Valores de exemplo, que a Meta pede ao submeter. */
   example: string[];
+  /** Botões de resposta rápida (texto de cada um), se o modelo os tiver. */
+  buttons?: string[];
 }
 
 export const NOTIFICATION_TEMPLATES: Record<TemplateFamily, TemplateDefinition> = {
@@ -64,8 +66,23 @@ export const NOTIFICATION_TEMPLATES: Record<TemplateFamily, TemplateDefinition> 
       "Aprove-o ou recuse-o no backoffice: só aparece no site depois de aprovado.",
     example: ["João Pereira", "5"],
   },
+  visita_equipa: {
+    name: "engineline_visita_equipa",
+    env: "WHATSAPP_TEMPLATE_VISITA_EQUIPA",
+    body:
+      "Pedido de visita ao stand para {{1}}.\n\nCliente: {{2}}\nTelemóvel: {{3}}\nViatura: {{4}}\nMensagem: {{5}}\n\n" +
+      "Pode receber esta visita? Escolha uma opção abaixo.",
+    example: [
+      "terça-feira, 27 de outubro, às 10:30",
+      "Maria Silva",
+      "+351 912 345 678",
+      "Honda CB500F 2021",
+      "Gostava de ver a mota ao fim da tarde.",
+    ],
+    buttons: ["Confirmar visita", "Não posso nessa hora"],
+  },
   aviso: {
-    // «engineline_aviso» (com link) ficou na Meta; este já não o leva.
+    // «engineline_aviso»(com link) ficou na Meta; este já não o leva.
     name: "engineline_aviso_geral",
     env: "WHATSAPP_TEMPLATE_AVISO",
     body: "Aviso do backoffice: {{1}}.\n\nTrate disto no backoffice logo que possível.",
@@ -89,7 +106,12 @@ export interface TemplateMessage {
   language: string;
   /** As variáveis do corpo, por ordem. */
   params: string[];
+  /** Botões de resposta rápida, por ordem: o `payload` volta no webhook. */
+  buttons?: { payload: string }[];
 }
+
+/** O que se aceita num payload de botão (a Meta deixa até 256 caracteres). */
+const BUTTON_PAYLOAD = /^[A-Za-z0-9:_-]{1,256}$/;
 
 export interface TemplateSendResult {
   ok: boolean;
@@ -152,6 +174,23 @@ export async function sendWhatsAppTemplate(
     return { ok: false, permanent: true, error: `Nome de modelo inválido: ${template.name.slice(0, 60)}` };
   }
 
+  const buttons = template.buttons ?? [];
+  if (buttons.length > 3 || buttons.some((b) => !BUTTON_PAYLOAD.test(b.payload))) {
+    return { ok: false, permanent: true, error: "Payload de botão inválido" };
+  }
+  const components: unknown[] = [];
+  if (template.params.length) {
+    components.push({ type: "body", parameters: template.params.map((text) => ({ type: "text", text })) });
+  }
+  buttons.forEach((b, i) =>
+    components.push({
+      type: "button",
+      sub_type: "quick_reply",
+      index: String(i),
+      parameters: [{ type: "payload", payload: b.payload }],
+    }),
+  );
+
   try {
     const response = await fetch(
       `${graphBase()}/${graphVersion()}/${encodeURIComponent(number.phoneNumberId)}/messages`,
@@ -169,9 +208,7 @@ export async function sendWhatsAppTemplate(
           template: {
             name: template.name,
             language: { code: template.language },
-            components: template.params.length
-              ? [{ type: "body", parameters: template.params.map((text) => ({ type: "text", text })) }]
-              : [],
+            components,
           },
         }),
         // Como em send.ts: tempo limite curto e sem seguir redireccionamentos,

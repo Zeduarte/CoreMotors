@@ -96,9 +96,9 @@ export function VisitForm({
       >
         <CalendarIcon className="mx-auto h-9 w-9 text-accent" />
         <p className="mt-3 text-lg font-semibold text-paper">Pedido de visita enviado</p>
-        <p className="mt-1 text-sm text-paper/70">{visitWhenLabel(state.at)}</p>
-        <p className="mx-auto mt-3 max-w-xs text-sm text-paper/55">
-          Vamos confirmar a hora consigo em breve. Até já!
+        <p className="mx-auto mt-3 max-w-xs text-sm text-paper/70">
+          Recebemos o pedido para {visitWhenLabel(state.at)}. A equipa confirma a hora consigo por WhatsApp ou
+          telefone; só fica marcada depois dessa confirmação.
         </p>
         {ics && (
           <a

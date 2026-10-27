@@ -971,6 +971,8 @@ export type Database = {
       normalize_phone: { Args: { raw: string }; Returns: string };
       prune_whatsapp: { Args: Record<string, never>; Returns: undefined };
       wa_actor_for_phone: { Args: { raw_phone: string }; Returns: string | null };
+      /** Botões do aviso de visita: outcome 'confirm' | 'decline' → 'confirmed', 'declined', 'already_*', 'past', 'not_found'. */
+      wa_set_visit: { Args: { actor: string; lead: string; outcome: string }; Returns: string };
       wa_vehicles_for_actor: { Args: { actor: string }; Returns: WaVehicleRow[] };
       wa_vehicle_summary: {
         Args: { actor: string; car: string };

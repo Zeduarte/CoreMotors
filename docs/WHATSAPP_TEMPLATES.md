@@ -2,11 +2,11 @@
 
 Quando acontece algo no backoffice — um contacto do site, uma proposta de preço, um contacto atribuído, uma viatura que sai da oficina, uma venda, um pedido de férias, um colega que vai de férias — cada colaborador com telefone no perfil recebe uma mensagem no WhatsApp sobre o que é da sua área. A lista completa está em [Quem recebe o quê](#quem-recebe-o-quê).
 
-Estas mensagens são a empresa a iniciar a conversa. Fora da janela de 24 horas que se abre quando a pessoa escreve, a Meta **só aceita modelos (templates) aprovados**. Por isso, antes de ligar os avisos, o administrador de cada stand tem de criar estes quatro modelos na conta do WhatsApp Business **do número ligado ao site** (cada stand tem a sua conta; os modelos não passam de uma conta para outra).
+Estas mensagens são a empresa a iniciar a conversa. Fora da janela de 24 horas que se abre quando a pessoa escreve, a Meta **só aceita modelos (templates) aprovados**. Por isso, antes de ligar os avisos, o administrador de cada stand tem de criar estes cinco modelos na conta do WhatsApp Business **do número ligado ao site** (cada stand tem a sua conta; os modelos não passam de uma conta para outra).
 
 ## O jeito rápido: o botão do backoffice
 
-Em **Integrações → Avisos por WhatsApp**, o botão **Criar os modelos na Meta** submete de uma vez os seis modelos descritos abaixo (categoria Utility, `pt_PT`, texto e exemplos exatos); os que já existem são ignorados. Precisa do ID da conta do WhatsApp Business: vem da ligação feita em Integrações («Trocar de número») ou, se o número só estiver nas variáveis do Netlify, da variável `WHATSAPP_BUSINESS_ACCOUNT_ID` (WhatsApp Manager → Definições da conta). Se preferir, crie-os à mão como a seguir.
+Em **Integrações → Avisos por WhatsApp**, o botão **Criar os modelos na Meta** submete de uma vez os nove modelos descritos abaixo (categoria Utility, `pt_PT`, texto, exemplos e botões exatos); os que já existem são ignorados. Precisa do ID da conta do WhatsApp Business: vem da ligação feita em Integrações («Trocar de número») ou, se o número só estiver nas variáveis do Netlify, da variável `WHATSAPP_BUSINESS_ACCOUNT_ID` (WhatsApp Manager → Definições da conta). Se preferir, crie-os à mão como a seguir.
 
 ## Como criar cada modelo
 
@@ -14,11 +14,11 @@ Em **Integrações → Avisos por WhatsApp**, o botão **Criar os modelos na Met
 2. Categoria: **Utility** (utilidade). São avisos sobre a conta e a atividade da empresa, não marketing.
 3. Nome: o indicado abaixo, exatamente (só minúsculas, algarismos e `_`).
 4. Idioma: **Portuguese (POR)** — código `pt_PT`.
-5. Sem cabeçalho, sem rodapé e sem botões. No **corpo**, cole o texto exato abaixo, com as mesmas mudanças de linha. As variáveis `{{1}}`, `{{2}}`, … têm de ficar como estão.
+5. Sem cabeçalho e sem rodapé; botões só no `engineline_visita_equipa` (dois botões de **resposta rápida**, indicados no modelo 5). No **corpo**, cole o texto exato abaixo, com as mesmas mudanças de linha. As variáveis `{{1}}`, `{{2}}`, … têm de ficar como estão.
 6. Em **Exemplos de variáveis**, preencha com os exemplos indicados (a Meta pede-os para aprovar).
 7. Submeta. A aprovação costuma levar de minutos a algumas horas.
 
-Quando os quatro estiverem **Ativos**, vá a **Integrações → Avisos por WhatsApp**, carregue em **Enviar teste para o meu telefone** (envia os quatro modelos, com valores de exemplo, para o telefone do seu perfil — se a Meta recusar algum, o motivo aparece logo) e depois marque **Enviar avisos por WhatsApp à equipa**.
+Quando os cinco estiverem **Ativos**, vá a **Integrações → Avisos por WhatsApp**, carregue em **Enviar teste para o meu telefone** (envia os cinco modelos, com valores de exemplo, para o telefone do seu perfil — se a Meta recusar algum, o motivo aparece logo) e depois marque **Enviar avisos por WhatsApp à equipa**.
 
 Se a Meta recusar um nome (por exemplo, porque já existiu um modelo apagado com esse nome há menos de 30 dias), crie-o com outro nome e indique-o na variável de ambiente correspondente, no Netlify. O texto e as variáveis têm de ser os mesmos.
 
@@ -145,18 +145,56 @@ Exemplos:
 |---|---|---|
 | `{{1}}` | O aviso | `o acesso ao WhatsApp dado pela Meta expira a 12/12/2026; volte a ligar o número em «Trocar de número»` |
 
+## 5. `engineline_visita_equipa` — pedido de visita ao stand (com botões)
+
+Usado quando um cliente pede uma visita na ficha da viatura. Leva a **data e a hora** pedidas (em Lisboa) e pergunta ao vendedor se pode receber a visita, com **dois botões de resposta rápida**:
+
+- **Confirmar visita** — a visita fica confirmada no site, o vendedor recebe uma mensagem de texto a dizer que ficou confirmada e o cliente recebe a confirmação (modelo `engineline_visita`, se as mensagens aos clientes estiverem ligadas e ele aceitou o WhatsApp);
+- **Não posso nessa hora** — a visita fica recusada, o vendedor recebe a confirmação e o cliente recebe uma mensagem a pedir para combinarem outra hora (`engineline_visita_cancelada`).
+
+Só funciona para colaboradores com o separador Leads (e acesso ao tipo de viatura): a base de dados confere-o quando o botão é carregado. Se a visita já tinha sido tratada no backoffice, ou a hora já passou, o vendedor recebe uma frase a dizer isso e nada é enviado ao cliente. Cada botão traz o identificador do contacto (`visit:ok:<id>` e `visit:no:<id>`).
+
+Cada stand tem de submeter este modelo, **com os dois botões**, à aprovação da Meta; o botão **Criar os modelos na Meta** cria-o já com eles. Não pode ter outro texto nos botões sem se alterar o modelo na Meta.
+
+- Nome: `engineline_visita_equipa` (variável `WHATSAPP_TEMPLATE_VISITA_EQUIPA` para usar outro)
+- Categoria: Utility · Idioma: `pt_PT`
+- Botões (resposta rápida): `Confirmar visita` · `Não posso nessa hora`
+
+Corpo:
+
+```
+Pedido de visita ao stand para {{1}}.
+
+Cliente: {{2}}
+Telemóvel: {{3}}
+Viatura: {{4}}
+Mensagem: {{5}}
+
+Pode receber esta visita? Escolha uma opção abaixo.
+```
+
+Exemplos:
+
+| Variável | O que é | Exemplo |
+|---|---|---|
+| `{{1}}` | O dia e a hora pedidos | `terça-feira, 27 de outubro, às 10:30` |
+| `{{2}}` | O nome do cliente | `Maria Silva` |
+| `{{3}}` | O telemóvel do cliente | `+351 912 345 678` |
+| `{{4}}` | A viatura | `Honda CB500F 2021` |
+| `{{5}}` | A mensagem do cliente, ou «sem mensagem» | `Gostava de ver a mota ao fim da tarde.` |
+
 ## Mensagens aos clientes (alertas de stock e visitas)
 
 Além dos avisos à equipa, o site pode escrever aos **clientes** que o pediram no formulário:
 
 - **Alerta de stock** — quem criou um alerta («avisamos quando entrar») e marcou «Quero receber o aviso por WhatsApp» recebe o link quando é publicada uma viatura compatível (no máximo uma mensagem por dia; as outras seguem nos dias seguintes). A mensagem leva um link para cancelar o alerta.
-- **Visita ao stand** — quem marcou visita na ficha da viatura e aceitou a confirmação por WhatsApp recebe-a quando a equipa confirma na **Agenda de visitas**, e um lembrete na véspera.
+- **Visita ao stand** — quem pediu visita na ficha da viatura e aceitou o WhatsApp recebe logo «pedido recebido» (`engineline_visita_pedido`); depois, a confirmação quando a equipa confirma na **Agenda de visitas** ou o vendedor carrega em **Confirmar visita** no aviso (`engineline_visita`), e um lembrete na véspera. Se a visita for recusada ou cancelada, recebe uma mensagem a pedir para combinarem outra hora (`engineline_visita_cancelada`).
 
-Liga-se em **Integrações → Visitas e mensagens aos clientes → Enviar mensagens automáticas aos clientes por WhatsApp**, depois de estes dois modelos estarem aprovados. Desligado, nada sai sozinho: a equipa vê na Agenda e no contacto o que há para avisar, com um botão que abre o WhatsApp dela com o texto já escrito.
+Liga-se em **Integrações → Visitas e mensagens aos clientes → Enviar mensagens automáticas aos clientes por WhatsApp**, depois de estes quatro modelos estarem aprovados. Desligado, nada sai sozinho: a equipa vê na Agenda e no contacto o que há para avisar, com um botão que abre o WhatsApp dela com o texto já escrito.
 
 A Meta decide a categoria de cada modelo ao aprová-lo (a confirmação de uma visita é normalmente **Utility**; o aviso de stock pode ser classificado como **Marketing**, que tem outro preço por mensagem). Submeta-os como Utility; se a Meta mudar a categoria, continuam a funcionar.
 
-### 5. `engineline_alerta_stock` — viatura compatível com um alerta
+### 6. `engineline_alerta_stock` — viatura compatível com um alerta
 
 - Nome: `engineline_alerta_stock` (variável `WHATSAPP_TEMPLATE_ALERTA` para usar outro)
 - Idioma: `pt_PT`
@@ -175,7 +213,7 @@ Se já não está à procura, pode cancelar o alerta em {{5}} a qualquer momento
 
 Exemplos: `Maria` · `Supermotas` · `Yamaha MT-07 · 2021 · 12 000 km · 6 900 €` · `https://www.exemplo.pt/viaturas/yamaha-mt-07-2021` · `https://www.exemplo.pt/alertas/cancelar/3f2a9c1e`
 
-### 6. `engineline_visita` — confirmação e lembrete da visita
+### 7. `engineline_visita` — confirmação e lembrete da visita
 
 - Nome: `engineline_visita` (variável `WHATSAPP_TEMPLATE_VISITA` para usar outro)
 - Idioma: `pt_PT`
@@ -193,6 +231,40 @@ Se precisar de mudar a hora, responda a esta mensagem.
 
 Exemplos: `Maria` · `Supermotas` · `terça-feira, 21 de outubro, às 10:30` · `Yamaha MT-07 · 2021` · `Av. da Liberdade 100, 1250-096 Lisboa`
 
+### 8. `engineline_visita_cancelada` — não conseguimos receber a visita
+
+Enviado quando o vendedor carrega em **Não posso nessa hora** ou a equipa recusa/cancela a visita na Agenda.
+
+- Nome: `engineline_visita_cancelada` (variável `WHATSAPP_TEMPLATE_VISITA_CANCELADA` para usar outro)
+- Idioma: `pt_PT`
+
+Corpo:
+
+```
+Olá {{1}}! Infelizmente não conseguimos receber a sua visita à {{2}} em {{3}}.
+
+Responda a esta mensagem e combinamos outra hora que lhe convenha.
+```
+
+Exemplos: `Maria` · `Supermotas` · `terça-feira, 21 de outubro, às 10:30`
+
+### 9. `engineline_visita_pedido` — pedido de visita recebido
+
+Enviado logo que o cliente pede a visita no site (a hora ainda não está confirmada).
+
+- Nome: `engineline_visita_pedido` (variável `WHATSAPP_TEMPLATE_VISITA_PEDIDO` para usar outro)
+- Idioma: `pt_PT`
+
+Corpo:
+
+```
+Olá {{1}}! Recebemos o seu pedido de visita à {{2}} para {{3}}.
+
+Vamos confirmar a hora consigo em breve.
+```
+
+Exemplos: `Maria` · `Supermotas` · `terça-feira, 21 de outubro, às 10:30`
+
 O link de cancelar o alerta é assinado com `ALERT_LINK_SECRET` (se não existir, usa a chave de serviço do Supabase). Não precisa de a definir; se a mudar, os links já enviados deixam de funcionar.
 
 ## Quem recebe o quê
@@ -208,6 +280,7 @@ Cada colaborador recebe um aviso se **todas** estas condições se cumprirem:
 | Aviso | Quem recebe | Por defeito | Modelo |
 |---|---|---|---|
 | Contacto do site (cada tipo de pedido) | Leads | ligado | `engineline_contacto` |
+| Pedido de visita ao stand (com botões «Confirmar visita» / «Não posso nessa hora») | Leads | ligado | `engineline_visita_equipa` |
 | Contacto atribuído | o responsável escolhido (Leads) — mesmo com os contactos novos desligados | ligado | `engineline_contacto` |
 | Contacto ganho ou perdido por um colega | o responsável do contacto (Leads) | ligado | `engineline_novidade` |
 | Viatura reservada por um colega | Leads | ligado | `engineline_novidade` |
@@ -234,6 +307,9 @@ As condições voltam a ser verificadas no momento do envio: quem perdeu o acess
 | `WHATSAPP_TEMPLATE_VIATURA` | `engineline_novidade` | Nome do modelo das viaturas |
 | `WHATSAPP_TEMPLATE_TESTEMUNHO` | `engineline_testemunho_novo` | Nome do modelo dos testemunhos |
 | `WHATSAPP_TEMPLATE_AVISO` | `engineline_aviso_geral` | Nome do modelo dos avisos gerais |
+| `WHATSAPP_TEMPLATE_VISITA_EQUIPA` | `engineline_visita_equipa` | Nome do modelo do pedido de visita (com botões) |
+| `WHATSAPP_TEMPLATE_VISITA_CANCELADA` | `engineline_visita_cancelada` | Nome da mensagem ao cliente quando a visita é recusada |
+| `WHATSAPP_TEMPLATE_VISITA_PEDIDO` | `engineline_visita_pedido` | Nome da mensagem ao cliente quando o pedido é recebido |
 | `WHATSAPP_TEMPLATE_LANGUAGE` | `pt_PT` | Idioma em que os modelos foram aprovados |
 
 O endereço dos links é o `NEXT_PUBLIC_SITE_URL` do site.
