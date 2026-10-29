@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
 import { useIsomorphicLayoutEffect } from "./useIsomorphicLayoutEffect";
-import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
+import { prefersReducedMotionNow, usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 type Cleanup = void | (() => void);
 
@@ -39,7 +39,7 @@ export function useScrollAnimation<T extends HTMLElement = HTMLDivElement>(
 
   useIsomorphicLayoutEffect(() => {
     const el = ref.current;
-    if (!el || prefersReduced) return;
+    if (!el || prefersReduced || prefersReducedMotionNow()) return;
 
     let userCleanup: Cleanup;
     const ctx = gsap.context((self) => {

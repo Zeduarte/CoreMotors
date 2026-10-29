@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Lenis from "lenis";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
-import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { prefersReducedMotionNow, usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 /**
  * Orquestra o smooth scroll (Lenis) e sincroniza-o com o ScrollTrigger.
@@ -35,7 +35,9 @@ export function LenisProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
 
-    if (prefersReduced) {
+    // Lido também na hora: na hidratação o hook ainda diz `false`, e o Lenis
+    // era montado e desmontado logo a seguir para quem pediu menos movimento.
+    if (prefersReduced || prefersReducedMotionNow()) {
       root.classList.remove("js-anim");
       return;
     }

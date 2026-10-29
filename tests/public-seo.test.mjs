@@ -225,6 +225,66 @@ test('feeds: category per vehicle type, OLX codes from the saved category, no il
   assert.equal(esc('🚗'), '🚗');
 });
 
+test('gallery lightbox traps Tab inside the dialog', () => {
+  const { trapTab } = load('src/lib/focus-trap.ts');
+  const focused = [];
+  const mk = (name) => ({ name, focus: () => focused.push(name) });
+  const [a, b, c] = [mk('fechar'), mk('anterior'), mk('seguinte')];
+  const outside = mk('pagina');
+  const dialog = { querySelectorAll: () => [a, b, c], contains: (el) => [a, b, c].includes(el) };
+  const ev = (shiftKey) => ({ key: 'Tab', shiftKey, prevented: false, preventDefault() { this.prevented = true; } });
+  let e = ev(false);
+  assert.equal(trapTab(dialog, e, c), true); assert.ok(e.prevented); assert.equal(focused.pop(), 'fechar');
+  e = ev(true);
+  assert.equal(trapTab(dialog, e, a), true); assert.equal(focused.pop(), 'seguinte');
+  e = ev(false);
+  assert.equal(trapTab(dialog, e, b), false); assert.ok(!e.prevented, 'middle items tab normally');
+  e = ev(false);
+  assert.equal(trapTab(dialog, e, outside), true); assert.equal(focused.pop(), 'fechar');
+  assert.equal(trapTab(dialog, { key: 'Enter', preventDefault() {} }, a), false);
+  const src = readFileSync('src/components/vehicle/Gallery.tsx', 'utf8');
+  assert.ok(src.includes('trapTab(dialog.current, e)') && src.includes('ref={dialog}'));
+});
+
+test('reduced motion: Lenis is never initialised during hydration for reduce users', () => {
+  const effects = [];
+  let lenisCount = 0;
+  const classes = new Set();
+  globalThis.window = { matchMedia: (q) => ({ matches: q.includes('reduce'), addEventListener() {}, removeEventListener() {} }) };
+  globalThis.document = { documentElement: { classList: { add: (c) => classes.add(c), remove: (c) => classes.delete(c) } } };
+  try {
+    const stubs = {
+      // Hidratação: o useSyncExternalStore devolve o valor do servidor (false).
+      react: { useEffect: (fn) => effects.push(fn), useSyncExternalStore: (_s, _get, server) => server() },
+      'next/navigation': { usePathname: () => '/' },
+      lenis: class { constructor() { lenisCount++; } on() {} raf() {} destroy() {} },
+      '@/lib/gsap': { gsap: { ticker: { add() {}, remove() {}, lagSmoothing() {} } }, ScrollTrigger: { update() {}, refresh() {} } },
+    };
+    const { LenisProvider } = load('src/components/providers/LenisProvider.tsx', stubs);
+    LenisProvider({ children: null });
+    effects[0]();
+    assert.equal(lenisCount, 0);
+    assert.ok(!classes.has('js-anim'));
+    const { prefersReducedMotionNow } = load('src/hooks/usePrefersReducedMotion.ts', stubs);
+    assert.equal(prefersReducedMotionNow(), true);
+  } finally {
+    delete globalThis.window;
+    delete globalThis.document;
+  }
+  // No servidor o hook é `false` (o HTML não muda com a preferência).
+  const { usePrefersReducedMotion } = load('src/hooks/usePrefersReducedMotion.ts');
+  const Probe = () => React.createElement('i', null, String(usePrefersReducedMotion()));
+  assert.equal(renderToStaticMarkup(React.createElement(Probe)), '<i>false</i>');
+});
+
+test('footer "Serviços" link has the same style as its siblings', () => {
+  const { Footer } = load('src/components/layout/Footer.tsx', pageStubs);
+  const html = renderToStaticMarkup(React.createElement(Footer));
+  const cls = (label) => new RegExp(`<a href="[^"]*" class="([^"]*)">${label}</a>`).exec(html)?.[1];
+  assert.ok(cls('Serviços'));
+  assert.equal(cls('Serviços'), cls('Sobre'));
+});
+
 test('public pages declare a canonical URL without query strings', async () => {
   for (const [file, path] of [
     ['src/app/(public)/inventario/page.tsx', '/inventario'],
