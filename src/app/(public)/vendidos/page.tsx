@@ -5,12 +5,18 @@ import { VehicleCard } from "@/components/vehicle/VehicleCard";
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: "Viaturas vendidas",
-  alternates: { canonical: "/vendidos" },
-  description:
-    "Histórico de viaturas já vendidas. Veja algumas das entregas que fizemos — prova da confiança de quem comprou connosco.",
-};
+// Sem vendas para mostrar, a página fica fora do índice do Google (seria uma
+// página vazia) e fora do sitemap — ver `lib/sitemap.ts`.
+export async function generateMetadata(): Promise<Metadata> {
+  const vehicles = await getSoldVehicleList();
+  return {
+    title: "Viaturas vendidas",
+    alternates: { canonical: "/vendidos" },
+    description:
+      "Histórico de viaturas já vendidas. Veja algumas das entregas que fizemos — prova da confiança de quem comprou connosco.",
+    ...(vehicles.length ? {} : { robots: { index: false, follow: true } }),
+  };
+}
 
 export default async function SoldPage() {
   const vehicles = await getSoldVehicleList();

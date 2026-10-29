@@ -138,6 +138,27 @@ test('generic 404 title for unknown URLs; vehicle message only on vehicle routes
   assert.ok(renderToStaticMarkup(vehicle.default()).includes('Esta viatura já saiu do stand'));
 });
 
+test('sitemap uses real updated_at dates, lists sold pages consistently and /vendidos only with sales', () => {
+  const { buildSitemap } = load('src/lib/sitemap.ts');
+  const vehicles = [
+    { slug: 'a', status: 'published', vehicle_type: 'car', updated_at: '2026-09-01T10:00:00Z' },
+    { slug: 'b', status: 'reserved', vehicle_type: 'motorcycle', updated_at: '2026-09-05T10:00:00Z' },
+    { slug: 'c', status: 'sold', vehicle_type: 'car', updated_at: '2026-08-01T10:00:00Z' },
+  ];
+  const map = buildSitemap({ base: 'https://s.pt', staticPaths: ['', '/sobre'], vehicles, listings: [{ path: '/carros/bmw', lastModified: '2026-09-01T10:00:00Z' }] });
+  const by = Object.fromEntries(map.map((e) => [e.url, e]));
+  assert.equal(by['https://s.pt/viaturas/a'].lastModified.toISOString(), '2026-09-01T10:00:00.000Z');
+  assert.equal(by['https://s.pt'].lastModified.toISOString(), '2026-09-05T10:00:00.000Z');
+  assert.ok(!('lastModified' in by['https://s.pt/sobre']), 'institutional pages carry no fake date');
+  assert.equal(by['https://s.pt/viaturas/c'].priority, 0.3);
+  assert.equal(by['https://s.pt/vendidos'].lastModified.toISOString(), '2026-08-01T10:00:00.000Z');
+  assert.equal(by['https://s.pt/carros/bmw'].lastModified.toISOString(), '2026-09-01T10:00:00.000Z');
+  // Sem vendas de carros (o que o Google vê), /vendidos não entra.
+  const noSales = buildSitemap({ base: 'https://s.pt', staticPaths: [''], vehicles: vehicles.slice(0, 2), listings: [] });
+  assert.ok(!noSales.some((e) => e.url.endsWith('/vendidos')));
+  assert.ok(!readFileSync('src/app/sitemap.ts', 'utf8').includes('new Date()'));
+});
+
 test('public pages declare a canonical URL without query strings', async () => {
   for (const [file, path] of [
     ['src/app/(public)/inventario/page.tsx', '/inventario'],
