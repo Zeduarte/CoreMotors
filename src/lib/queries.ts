@@ -19,6 +19,7 @@ import {
 } from "@/lib/branding";
 import { publicMediaUrl } from "@/lib/storage";
 import { toListVehicle } from "@/lib/vehicle-list";
+import { PUBLIC_CAR_SELECT } from "@/lib/public-columns";
 
 /**
  * Leituras PÚBLICAS do inventário (Supabase).
@@ -40,7 +41,8 @@ async function mapPublicCars(rows: CarWithMedia[]): Promise<Vehicle[]> {
   });
 }
 
-const CAR_SELECT = "*, car_media(*)";
+// Colunas explícitas: com a 0045 o público já não lê a tabela inteira.
+const CAR_SELECT = PUBLIC_CAR_SELECT;
 
 const fetchVehicles = cachedPublic(async (vehicleType: VehicleType) => {
   const { data, error } = await supabasePublic

@@ -36,6 +36,8 @@ for(const [id,role]of[[admin,'admin'],[seller,'vendedor'],[mechanic,'mecanico'],
  await db.query('insert into public.profiles(id,role) values($1,$2)',[id,role]);
 }
 await db.query("update public.profiles set allowed_sections=array['dashboard'] where id=$1",[limited]);
+// Com um webhook configurado: desde a 0045, sem ele os contactos não entram na fila do webhook.
+await db.query(`update integration_secrets set data=data||'{"lead_webhook":"https://hooks.slack.com/services/x"}' where id=1`);
 const car=(await db.query(`insert into cars(slug,make,model,year,fuel,transmission,body,status,price) values('test-car','BMW','320',2020,'Diesel','Manual','Berlina','published',25000) returning id`)).rows[0].id;
 const car2=(await db.query(`insert into cars(slug,make,model,year,fuel,transmission,body,status,price) values('test-car-2','BMW','330',2021,'Diesel','Manual','Berlina','published',35000) returning id`)).rows[0].id;
 const lead=(await db.query("insert into leads(car_id,name,email) values($1,'Cliente','client@example.test') returning id",[car])).rows[0].id;
