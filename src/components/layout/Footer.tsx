@@ -3,6 +3,7 @@ import Image from "next/image";
 import { site } from "@/lib/site";
 import { DEFAULT_BRANDING, type Branding } from "@/lib/branding";
 import { LEGAL_NAME, NIF } from "@/lib/legal";
+import { ManageCookiesButton } from "@/components/site/ManageCookiesButton";
 
 // Links obrigatórios do rodapé. As políticas são páginas internas do site; o
 // Livro de Reclamações é o portal oficial (externo).
@@ -135,7 +136,7 @@ export function Footer({
             {LEGAL_NAME} | NIF: {NIF} | Copyright © {new Date().getFullYear()}
           </p>
           <nav className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 uppercase tracking-wide">
-            {LEGAL_LINKS.map((l, i) => (
+            {LEGAL_LINKS.map((l) => (
               <span key={l.label} className="flex items-center gap-3">
                 {l.external ? (
                   <a
@@ -156,13 +157,13 @@ export function Footer({
                     {l.label}
                   </Link>
                 )}
-                {i < LEGAL_LINKS.length - 1 && (
-                  <span aria-hidden className="text-paper/40">
-                    ·
-                  </span>
-                )}
+                <span aria-hidden className="text-paper/40">
+                  ·
+                </span>
               </span>
             ))}
+            {/* Reabre o banner de cookies (mudar ou retirar o consentimento). */}
+            <ManageCookiesButton className="font-medium uppercase tracking-wide text-paper/80 transition-colors hover:text-paper" />
           </nav>
         </div>
       </div>

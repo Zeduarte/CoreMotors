@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal/LegalPage";
+import { ManageCookiesButton } from "@/components/site/ManageCookiesButton";
 
 export const metadata: Metadata = {
   title: "Política de Cookies",
@@ -44,10 +45,14 @@ export default function CookiesPage() {
       <p>
         Quando visita o site pela primeira vez, apresentamos um aviso onde pode{" "}
         <strong>aceitar</strong> ou <strong>recusar</strong> os cookies de
-        análise. Pode alterar a sua escolha a qualquer momento limpando os dados
-        do site no seu navegador. Pode também bloquear ou eliminar cookies nas
-        definições do navegador — note que desativar alguns cookies pode afetar
-        o funcionamento do site.
+        análise. Pode alterar ou retirar a sua escolha a qualquer momento em
+        «Gerir cookies» (aqui ou no rodapé do site): ao retirar, os cookies de
+        análise são apagados e deixam de ser carregados. Pode também bloquear
+        ou eliminar cookies nas definições do navegador — note que desativar
+        alguns cookies pode afetar o funcionamento do site.
+      </p>
+      <p>
+        <ManageCookiesButton className="rounded-full border border-white/15 px-5 py-2 text-sm text-paper transition-colors hover:border-white/40" />
       </p>
 
       <h2>4. Alterações</h2>

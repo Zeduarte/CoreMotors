@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { isAdminCache, isAdminServiceWorker } from "@/lib/admin-pwa";
+import { CONSENT_KEY, OPEN_CONSENT_EVENT, clearTrackingCookies } from "@/lib/consent";
 
 /**
  * Runtime do site público (cliente):
@@ -10,10 +11,11 @@ import { isAdminCache, isAdminServiceWorker } from "@/lib/admin-pwa";
  *   2. Gere o consentimento de cookies (RGPD).
  *   3. Só carrega Google Analytics / Meta Pixel DEPOIS de o visitante aceitar.
  *
- * Sem consentimento explícito, nenhum script de rastreio é carregado.
+ * Sem consentimento explícito, nenhum script de rastreio é carregado. O
+ * visitante pode mudar de ideias em «Gerir cookies» (rodapé e Política de
+ * Cookies): retirar o consentimento corta os envios nesta página, apaga os
+ * cookies de análise e, nas visitas seguintes, os scripts já não carregam.
  */
-
-const CONSENT_KEY = "el-consent";
 
 declare global {
   interface Window {
@@ -21,6 +23,19 @@ declare global {
     gtag?: (...args: unknown[]) => void;
     fbq?: ((...args: unknown[]) => void) & { queue?: unknown[]; loaded?: boolean };
     _fbq?: unknown;
+    [gaDisable: `ga-disable-${string}`]: boolean | undefined;
+  }
+}
+
+/** Corta o GA4 e o Pixel já carregados nesta página e apaga os seus cookies. */
+function revokeTracking(ga4Id: string | null) {
+  if (ga4Id) window[`ga-disable-${ga4Id}`] = true;
+  window.gtag?.("consent", "update", { analytics_storage: "denied", ad_storage: "denied" });
+  window.fbq?.("consent", "revoke");
+  try {
+    clearTrackingCookies();
+  } catch {
+    /* ignora */
   }
 }
 
@@ -108,11 +123,26 @@ export function SiteRuntime({
     }
   }, []);
 
+  // «Gerir cookies» reabre o banner.
+  useEffect(() => {
+    const reopen = () => setDecision(null);
+    window.addEventListener(OPEN_CONSENT_EVENT, reopen);
+    return () => window.removeEventListener(OPEN_CONSENT_EVENT, reopen);
+  }, []);
+
   // Carrega os scripts quando há consentimento.
   useEffect(() => {
     if (decision !== "yes") return;
-    if (ga4Id) loadGA4(ga4Id);
-    if (pixelId) loadPixel(pixelId);
+    // Voltar a aceitar depois de retirar (na mesma página) reativa os envios.
+    if (ga4Id) {
+      window[`ga-disable-${ga4Id}`] = false;
+      loadGA4(ga4Id);
+      window.gtag?.("consent", "update", { analytics_storage: "granted", ad_storage: "granted" });
+    }
+    if (pixelId) {
+      loadPixel(pixelId);
+      window.fbq?.("consent", "grant");
+    }
   }, [decision, ga4Id, pixelId]);
 
   function decide(value: "yes" | "no") {
@@ -121,6 +151,7 @@ export function SiteRuntime({
     } catch {
       /* ignora */
     }
+    if (value === "no") revokeTracking(ga4Id);
     setDecision(value);
   }
 

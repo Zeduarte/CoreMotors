@@ -285,6 +285,29 @@ test('footer "Serviços" link has the same style as its siblings', () => {
   assert.equal(cls('Serviços'), cls('Sobre'));
 });
 
+test('cookie consent: "Gerir cookies" reopens the banner and withdrawing clears analytics cookies', () => {
+  const { clearTrackingCookies, OPEN_CONSENT_EVENT } = load('src/lib/consent.ts');
+  const writes = [];
+  const doc = {
+    get cookie() { return '_ga=GA1.1.1; _ga_ABC=GS1; el-sessao=1; _fbp=fb.1; _gid=GA1.2'; },
+    set cookie(v) { writes.push(v); },
+  };
+  assert.deepEqual(clearTrackingCookies(doc, 'www.supermotas.com'), ['_ga', '_ga_ABC', '_fbp', '_gid']);
+  assert.ok(writes.every((w) => /expires=Thu, 01 Jan 1970/.test(w)));
+  assert.ok(writes.includes('_ga=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.supermotas.com'));
+  assert.ok(!writes.some((w) => w.startsWith('el-sessao')));
+
+  const runtime = readFileSync('src/components/site/SiteRuntime.tsx', 'utf8');
+  assert.ok(runtime.includes('OPEN_CONSENT_EVENT') && runtime.includes('revokeTracking'));
+  // Os scripts continuam a só carregar com decisão "yes".
+  assert.ok(runtime.includes('if (decision !== "yes") return;'));
+
+  const footer = renderToStaticMarkup(React.createElement(load('src/components/layout/Footer.tsx', pageStubs).Footer));
+  assert.ok(footer.includes('>Gerir cookies</button>'));
+  assert.ok(renderToStaticMarkup(load('src/app/(public)/politica-de-cookies/page.tsx', pageStubs).default()).includes('Gerir cookies</button>'));
+  assert.equal(OPEN_CONSENT_EVENT, 'cookie-consent:open');
+});
+
 test('public pages declare a canonical URL without query strings', async () => {
   for (const [file, path] of [
     ['src/app/(public)/inventario/page.tsx', '/inventario'],
