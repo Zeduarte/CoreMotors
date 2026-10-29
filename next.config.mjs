@@ -31,22 +31,32 @@ const PUBLIC_PAGES = [
   "/politica-de-privacidade",
   "/termos-condicoes",
 ];
-const publicCdnHeaders = [
-  {
-    key: "Netlify-CDN-Cache-Control",
-    value: "public, s-maxage=60, stale-while-revalidate=604800, durable",
-  },
-  // O mundo escolhido e os pedidos de navegação do Next (RSC) têm respostas
-  // diferentes para o mesmo endereço.
-  {
-    key: "Netlify-Vary",
-    value:
-      "cookie=coremotors_public_type,header=RSC|Next-Router-State-Tree|Next-Router-Prefetch|Next-Router-Segment-Prefetch",
-  },
-  // `public-data` e `branding`: as etiquetas de src/lib/public-cache.ts e de
-  // getBranding; `_N_T_/layout`: revalidatePath("/", "layout").
-  { key: "Netlify-Cache-Tag", value: "public-data,branding,_N_T_/layout" },
-];
+// Páginas cujo conteúdo depende da pesquisa no endereço: os filtros do stock
+// (?marca=…&preco_max=…) e as viaturas a comparar (?ids=…). Por omissão a CDN
+// do Netlify ignora a pesquisa na chave da cache — sem `query`, quem abrisse
+// /inventario?marca=Yamaha recebia a página guardada para outra pesquisa.
+// `query` sozinho (sem lista) faz variar por toda a pesquisa.
+const QUERY_PAGES = ["/inventario", "/comparar"];
+
+// O mundo escolhido e os pedidos de navegação do Next (RSC) têm respostas
+// diferentes para o mesmo endereço.
+const VARY =
+  "cookie=coremotors_public_type,header=RSC|Next-Router-State-Tree|Next-Router-Prefetch|Next-Router-Segment-Prefetch";
+
+function cdnHeaders(vary) {
+  return [
+    {
+      key: "Netlify-CDN-Cache-Control",
+      value: "public, s-maxage=60, stale-while-revalidate=604800, durable",
+    },
+    { key: "Netlify-Vary", value: vary },
+    // `public-data` e `branding`: as etiquetas de src/lib/public-cache.ts e de
+    // getBranding; `_N_T_/layout`: revalidatePath("/", "layout").
+    { key: "Netlify-Cache-Tag", value: "public-data,branding,_N_T_/layout" },
+  ];
+}
+const publicCdnHeaders = cdnHeaders(VARY);
+const queryCdnHeaders = cdnHeaders(`query,${VARY}`);
 
 // Cabeçalhos de segurança, aplicados a todas as rotas.
 // A CSP vai em modo `Report-Only` de propósito: o site depende de scripts
@@ -99,7 +109,10 @@ const nextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
-      ...PUBLIC_PAGES.map((source) => ({ source, headers: publicCdnHeaders })),
+      ...PUBLIC_PAGES.map((source) => ({
+        source,
+        headers: QUERY_PAGES.includes(source) ? queryCdnHeaders : publicCdnHeaders,
+      })),
     ];
   },
   images: {
