@@ -16,6 +16,7 @@ export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Stock",
+  alternates: { canonical: "/inventario" },
   description:
     "Explore o stock completo de motas e automóveis da Supermotas. Filtre por marca, modelo, preço, ano, combustível e quilómetros.",
 };

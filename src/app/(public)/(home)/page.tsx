@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getPublicVehicleType } from "@/lib/vehicle-context";
 import type { HeroMedia } from "@/lib/hero-media";
 import { getShowroomContent } from "@/lib/showroom-queries";
@@ -26,6 +27,10 @@ import { existingMedia, getHeroMedia } from "@/lib/hero-media";
 import { OPTIONAL_MEDIA } from "@/lib/media";
 import { bodiesFor } from "@/lib/vehicle-categories";
 import { brandOptions, sameBrand } from "@/lib/brand-name";
+
+// O canónico da página inicial (sem query strings). O título e a descrição
+// vêm da layout raiz.
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 // ISR: revalida a cada 60s — novos destaques e edições de conteúdo aparecem
 // sem rebuild manual.

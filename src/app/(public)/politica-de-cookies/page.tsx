@@ -3,6 +3,7 @@ import { LegalPage } from "@/components/legal/LegalPage";
 
 export const metadata: Metadata = {
   title: "Política de Cookies",
+  alternates: { canonical: "/politica-de-cookies" },
   description:
     "O que são cookies, que cookies utilizamos neste site e como pode geri-los.",
 };

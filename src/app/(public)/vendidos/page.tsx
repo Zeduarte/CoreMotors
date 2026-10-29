@@ -7,6 +7,7 @@ export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Viaturas vendidas",
+  alternates: { canonical: "/vendidos" },
   description:
     "Histórico de viaturas já vendidas. Veja algumas das entregas que fizemos — prova da confiança de quem comprou connosco.",
 };

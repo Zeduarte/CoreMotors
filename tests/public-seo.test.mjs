@@ -110,3 +110,47 @@ test('dealer JSON-LD publishes openingHoursSpecification and no fixed priceRange
   assert.ok(!('openingHours' in ld));
   assert.deepEqual(ld.openingHoursSpecification.map((s) => `${s.opens}-${s.closes}`), ['09:00-12:30', '14:00-19:00']);
 });
+
+test('SEO listing text keeps acronyms ("SUV usados", not "sUV usados")', () => {
+  const { midSentence, seoIntro, resolveSeoPage } = load('src/lib/seo-pages.ts');
+  assert.equal(midSentence('SUV usados'), 'SUV usados');
+  assert.equal(midSentence('Carros elétricos usados'), 'carros elétricos usados');
+  assert.equal(midSentence('Moto 4 e quads usados'), 'moto 4 e quads usados');
+  const suv = resolveSeoPage('car', 'suv', []);
+  assert.match(seoIntro(suv, 'car', 2, 15000, 'Stand'), /— SUV usados/);
+  assert.match(seoIntro(suv, 'car', 0, null, 'Stand'), /não temos SUV usados/);
+});
+
+const pageStubs = {
+  '@/lib/queries': { getBranding: async () => ({ companyName: 'Stand', logoUrl: null }) },
+  'next/link': { __esModule: true, default: ({ href, children, prefetch, ...p }) => React.createElement('a', { href, ...p }, children) },
+  'next/image': { __esModule: true, default: () => null },
+};
+
+test('generic 404 title for unknown URLs; vehicle message only on vehicle routes', async () => {
+  const root = load('src/app/not-found.tsx', pageStubs);
+  assert.equal(root.metadata.title, 'Página não encontrada');
+  const html = renderToStaticMarkup(await root.default());
+  assert.ok(html.includes('Página não encontrada'));
+  assert.ok(!html.includes('viatura já saiu'));
+  const vehicle = load('src/app/(public)/viaturas/[slug]/not-found.tsx', pageStubs);
+  assert.equal(vehicle.metadata.title, 'Viatura não encontrada');
+  assert.ok(renderToStaticMarkup(vehicle.default()).includes('Esta viatura já saiu do stand'));
+});
+
+test('public pages declare a canonical URL without query strings', async () => {
+  for (const [file, path] of [
+    ['src/app/(public)/inventario/page.tsx', '/inventario'],
+    ['src/app/(public)/sobre/page.tsx', '/sobre'],
+    ['src/app/(public)/contactos/page.tsx', '/contactos'],
+    ['src/app/(public)/servicos/page.tsx', '/servicos'],
+    ['src/app/(public)/vender/page.tsx', '/vender'],
+    ['src/app/(public)/quiz/page.tsx', '/quiz'],
+    ['src/app/(public)/(home)/page.tsx', '/'],
+  ]) {
+    assert.ok(readFileSync(file, 'utf8').includes(`canonical: "${path}"`), file);
+  }
+  const layout = load('src/app/(public)/viaturas/[slug]/layout.tsx');
+  const meta = await layout.generateMetadata({ params: Promise.resolve({ slug: 'bmw-320d' }) });
+  assert.equal(meta.alternates.canonical, '/viaturas/bmw-320d');
+});

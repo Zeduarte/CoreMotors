@@ -5,6 +5,7 @@ import { OrderCarForm } from "@/components/forms/OrderCarForm";
 
 export const metadata: Metadata = {
   title: "Vender ou Encomendar",
+  alternates: { canonical: "/vender" },
   description:
     "Avalie a retoma da sua viatura ou encomende a viatura que procura. Resposta rápida e sem compromisso.",
 };
