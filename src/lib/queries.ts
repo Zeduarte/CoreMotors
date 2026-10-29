@@ -144,8 +144,11 @@ const fetchBySlug = cachedPublic(async (vehicleType: VehicleType, slug: string) 
 
 export async function getVehicleBySlug(
   slug: string,
+  /** O mundo a procurar primeiro. Sem ele, o do cookie — que as rotas de
+   * imagem (Open Graph) não podem ler: lá passa-se um tipo fixo. */
+  preferred?: VehicleType,
 ): Promise<Vehicle | undefined> {
-  const type = await getPublicVehicleType();
+  const type = preferred ?? (await getPublicVehicleType());
   const found = await safely("getVehicleBySlug", () => fetchBySlug(type, slug), null);
   if (found) return found;
   // Quem chega sem a escolha certa guardada (o Google, que não guarda
