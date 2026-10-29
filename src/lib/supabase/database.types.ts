@@ -416,6 +416,8 @@ type VehicleTasksRow = {
   description: string | null;
   hours: number;
   created_by: string | null;
+  /** Nome de quem registou, guardado quando o perfil é apagado (0046). */
+  created_by_name?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -434,7 +436,9 @@ type VehicleTasksUpdate = Partial<VehicleTasksInsert>;
 // ---- time_entries (horas fora das viaturas, por utilizador) ----------------
 type TimeEntriesRow = {
   id: string;
-  profile_id: string;
+  /** null quando o utilizador foi apagado (0046); o nome fica em profile_name. */
+  profile_id: string | null;
+  profile_name?: string | null;
   work_date: string; // "YYYY-MM-DD"
   start_time: string; // "HH:MM:SS"
   end_time: string | null;
@@ -944,7 +948,13 @@ export type Database = {
         Relationships: [];
       };
     };
-    Views: Record<string, never>;
+    Views: {
+      // 0046 — total de horas e de registos por viatura (RLS de quem lê).
+      vehicle_task_totals: {
+        Row: { car_id: string; total_hours: number; log_count: number };
+        Relationships: [];
+      };
+    };
     Functions: {
       claim_notification_jobs: {
         Args: Record<string, never>;
@@ -1049,6 +1059,9 @@ export type Database = {
       wa_update_badges: { Args: { actor: string; new_content: Json }; Returns: undefined };
       wa_update_site_settings: { Args: { actor: string; changes: Json }; Returns: undefined };
       can_approve_leave: { Args: Record<string, never>; Returns: boolean };
+      can_decide_leave_for: { Args: { target: string }; Returns: boolean };
+      // 0046 — pode mexer nas horas da oficina registadas por `target`.
+      can_manage_hours_of: { Args: { target: string | null }; Returns: boolean };
       leave_directory: {
         Args: Record<string, never>;
         Returns: { id: string; full_name: string }[];
