@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import type { ChatAction } from "@/lib/chat/actions";
+import { historyPayload } from "@/lib/chat/conversation";
 
 /**
  * Painel do assistente virtual.
@@ -19,6 +20,8 @@ interface Message {
   actions?: ChatAction[];
   /** Momento em que a mensagem entrou na conversa. */
   at: number;
+  /** Assinatura do servidor (só respostas completas): volta no histórico. */
+  sig?: string;
 }
 
 /** Teto por conversa: protege a fatura mesmo que alguém insista. */
@@ -117,8 +120,9 @@ export function ChatWidget({
     setBusy(true);
     setError(null);
 
-    // O assistente só precisa do texto — nunca enviamos os botões nem as horas.
-    const payload = history.map((m) => ({ role: m.role, content: m.content }));
+    // O assistente só precisa do texto (e da assinatura das respostas) — nunca
+    // enviamos os botões nem as horas. Só as últimas trocas completas.
+    const payload = historyPayload(messages, text);
 
     try {
       const res = await fetch("/api/chat", {
@@ -430,6 +434,11 @@ function applyEvent(
     const actions = event.value as ChatAction[];
     setMessages((prev) =>
       prev.map((m, i) => (i === prev.length - 1 ? { ...m, actions } : m)),
+    );
+  } else if (event.type === "sig" && typeof event.value === "string") {
+    const sig = event.value;
+    setMessages((prev) =>
+      prev.map((m, i) => (i === prev.length - 1 ? { ...m, sig } : m)),
     );
   } else if (event.type === "error" && typeof event.value === "string") {
     setError(event.value);
