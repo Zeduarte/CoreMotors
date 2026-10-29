@@ -7,7 +7,10 @@ import type { Section } from "@/lib/permissions";
  * o seletor não aparecer em páginas onde não significa nada.
  */
 
-/** Páginas públicas iguais nos dois mundos (institucional e legal). */
+/**
+ * Páginas públicas iguais nos dois mundos (institucional, legal e o link de
+ * cancelar o alerta de stock, que chega por WhatsApp/email).
+ */
 export const COMMON_PUBLIC_PATHS = [
   "/sobre",
   "/servicos",
@@ -15,6 +18,7 @@ export const COMMON_PUBLIC_PATHS = [
   "/politica-de-cookies",
   "/politica-de-privacidade",
   "/termos-condicoes",
+  "/alertas",
 ] as const;
 
 /**
@@ -42,6 +46,31 @@ export function pathHasWorld(pathname: string): boolean {
   const clean = pathname.replace(/\/+$/, "") || "/";
   return !COMMON_PUBLIC_PATHS.some(
     (p) => clean === p || clean.startsWith(`${p}/`),
+  );
+}
+
+/** O mundo que o próprio endereço diz (/carros/…, /motas/…), ou null. */
+export function worldFromPath(pathname: string): VehicleType | null {
+  return /^\/carros(\/|$)/.test(pathname)
+    ? "car"
+    : /^\/motas(\/|$)/.test(pathname)
+      ? "motorcycle"
+      : null;
+}
+
+/**
+ * Mostrar o ecrã de escolha (carros ou motas) a quem ainda não escolheu?
+ *
+ * Não nas páginas comuns aos dois mundos (escolher não muda nada — e tapava,
+ * por exemplo, o link de cancelar o alerta), nem onde o endereço já diz o
+ * mundo: as páginas por marca/categoria e a ficha de uma viatura (o tipo da
+ * própria viatura, gravado por `VehicleWorldSync`), incluindo a ficha impressa.
+ */
+export function needsWorldChoice(pathname: string): boolean {
+  return (
+    pathHasWorld(pathname) &&
+    !worldFromPath(pathname) &&
+    !/^\/viaturas\/[^/]+/.test(pathname)
   );
 }
 
