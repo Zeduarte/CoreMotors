@@ -189,6 +189,42 @@ test('motorcycles never show "Portas 0" or "Lugares 0" (compare page and specs)'
   assert.ok(renderToStaticMarkup(React.createElement(Specs, { vehicle: moto2 })).includes('Lugares'));
 });
 
+test('feeds: category per vehicle type, OLX codes from the saved category, no illegal XML chars, absolute images', () => {
+  const { toOlxXml, toXml, toCsv, esc, cdata } = load('src/lib/feeds.ts');
+  const { DEFAULT_COMPANY } = load('src/lib/branding.ts');
+  const moto = { ...baseVehicle, slug: 'yamaha-mt07', make: 'Yamaha', model: 'MT-07', vehicleType: 'motorcycle', body: 'Naked', doors: 0, description: 'Bom\u0001 estado\u000b￿ ]]> fim' };
+  const base = 'https://s.pt';
+
+  // Sem categoria do OLX guardada: nome do tipo, sem atributos inventados.
+  const plain = toOlxXml([baseVehicle, moto], DEFAULT_COMPANY, base);
+  assert.ok(!plain.includes('AJUSTAR'));
+  assert.deepEqual([...plain.matchAll(/<category[^>]*>([^<]*)<\/category>/g)].map((m) => m[1]), ['Carros', 'Motos']);
+  assert.ok(!plain.includes('<attributes>'));
+  assert.ok(!/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/.test(plain));
+  assert.ok(plain.includes('<image url="https://s.pt/placeholder-car.svg"/>'));
+
+  // Com a categoria guardada: id, nome e códigos/valores do próprio OLX.
+  const categories = [{ vehicle_type: 'motorcycle', category_id: 389, category_name: 'Motociclos', attributes: [
+    { code: 'brand_moto', label: 'Marca', values: [{ code: 'yamaha', label: 'Yamaha' }] },
+    { code: 'milage', label: 'Quilómetros', validation: { numeric: true } },
+    { code: 'door_count', label: 'Portas' },
+  ] }];
+  const mapped = toOlxXml([moto], DEFAULT_COMPANY, base, categories);
+  assert.match(mapped, /<category id="389"><!\[CDATA\[Motociclos\]\]><\/category>/);
+  assert.match(mapped, /<attribute code="brand_moto"><!\[CDATA\[yamaha\]\]><\/attribute>/);
+  assert.match(mapped, /<attribute code="milage"><!\[CDATA\[90000\]\]><\/attribute>/);
+  assert.ok(!mapped.includes('door_count'), 'zero doors is not sent');
+
+  const generic = toXml([moto], 'Standvirtual', base);
+  assert.ok(!/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/.test(generic));
+  assert.ok(generic.includes('<image>https://s.pt/placeholder-car.svg</image>'));
+  assert.ok(toCsv([moto], base).includes('"https://s.pt/placeholder-car.svg"'));
+  assert.equal(esc('a\u0000<b>'), 'a&lt;b&gt;');
+  assert.equal(cdata('x\u0007]]>y'), '<![CDATA[x]]]]><![CDATA[>y]]>');
+  // Emojis (pares de surrogates válidos) ficam.
+  assert.equal(esc('🚗'), '🚗');
+});
+
 test('public pages declare a canonical URL without query strings', async () => {
   for (const [file, path] of [
     ['src/app/(public)/inventario/page.tsx', '/inventario'],
