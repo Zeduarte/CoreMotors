@@ -1,6 +1,6 @@
 import { getAdminVehicleType } from "@/lib/vehicle-context";
 import { createClient } from "@/lib/supabase/server";
-import { leadFilters } from "@/lib/lead-filters";
+import { leadFilters,leadSearchOr } from "@/lib/lead-filters";
 import { csvCell } from "@/lib/operations";
 export async function GET(request:Request) {
  const db=await createClient();const {data:allowed}=await db.rpc("has_section",{section:"leads"});
@@ -15,7 +15,7 @@ export async function GET(request:Request) {
    let q=db.from("leads").select("*");
    q=general?q.is("vehicle_type",null):q.eq("vehicle_type",vehicleType);
    if(f.status)q=q.eq("status",f.status);
-   if(f.q)q=q.or(`name.ilike.%${f.q}%,email.ilike.%${f.q}%,phone.ilike.%${f.q}%,car_label.ilike.%${f.q}%`);
+   if(f.q)q=q.or(leadSearchOr(f.q));
    if(f.assigned)q=q.eq("assigned_to",f.assigned);
    if(f.due==="overdue")q=q.in("status",["new","contacted","proposal"]).lt("next_action_at",new Date().toISOString());
    if(f.due==="unanswered")q=q.eq("status","new").is("first_contacted_at",null);
