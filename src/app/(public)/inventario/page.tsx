@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getPublicVehicleType, getVehicleSelection } from "@/lib/vehicle-context";
-import { inventoryVehicleType } from "@/lib/vehicle-categories";
+import { inventoryRedirect } from "@/lib/inventory-redirect";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { mediaFor } from "@/lib/media";
@@ -26,15 +26,16 @@ export default async function InventoryPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const sp = await searchParams;
-  const requested = inventoryVehicleType(sp.tipo);
   const vehicleType = await getPublicVehicleType();
-  if (requested && (requested !== vehicleType || !(await getVehicleSelection()))) {
-    // Muda o mundo e volta com a mesma pesquisa (sem o `tipo`).
-    const rest = new URLSearchParams(
-      Object.entries(sp).filter((e): e is [string, string] => e[0] !== "tipo" && typeof e[1] === "string"),
-    ).toString();
-    redirect(`/api/vehicle-context?area=public&type=${requested}&target=${encodeURIComponent(`/inventario${rest ? `?${rest}` : ""}`)}`);
-  }
+  // Muda o mundo e volta com a mesma pesquisa (sem o `tipo`). Normalmente já
+  // o fez o next.config.mjs, com um 307; aqui fica de reserva.
+  const switchWorld = inventoryRedirect(
+    new URLSearchParams(
+      Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === "string"),
+    ),
+    (await getVehicleSelection()) ?? undefined,
+  );
+  if (switchWorld) redirect(switchWorld);
   // Stock leve para os cartões, com os valores dos campos do OLX pesquisáveis.
   const { vehicles, fields: olxFields } = await inventoryWithOlx(await getVehicles(vehicleType), vehicleType);
 

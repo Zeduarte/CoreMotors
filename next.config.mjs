@@ -106,6 +106,23 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   env: { NEXT_PUBLIC_SITE_URL: siteUrl },
+  // `/inventario?tipo=motas&marca=…` (links antigos e partilhados) com outro
+  // mundo escolhido (ou nenhum): muda o mundo e volta ao stock com a mesma
+  // pesquisa. Feito aqui, com um 307 a sério — na página, com o esqueleto do
+  // stock já enviado, o redirecionamento saía com 200. O Next junta a pesquisa
+  // do pedido ao destino; `carry=1` diz à rota para a devolver ao stock.
+  async redirects() {
+    return [
+      ["carros", "car"],
+      ["motas", "motorcycle"],
+    ].map(([tipo, type]) => ({
+      source: "/inventario",
+      has: [{ type: "query", key: "tipo", value: tipo }],
+      missing: [{ type: "cookie", key: "coremotors_public_type", value: type }],
+      destination: `/api/vehicle-context?area=public&type=${type}&target=%2Finventario&carry=1`,
+      permanent: false,
+    }));
+  },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
