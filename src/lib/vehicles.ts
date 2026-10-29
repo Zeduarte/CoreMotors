@@ -255,11 +255,23 @@ export function activeFilterCount(f: VehicleFilters): number {
   return n;
 }
 
+/** Sem preço publicado: "sob consulta" (ou 0 por preencher). */
+const noPrice = (v: Vehicle) => v.priceOnRequest || !(v.price > 0);
+
+/**
+ * Ordena por preço com as viaturas sem preço SEMPRE no fim, nas duas ordens:
+ * o "sob consulta" tem `price` 0 e, sem isto, aparecia como a mais barata.
+ */
+const byPrice =
+  (dir: 1 | -1) =>
+  (a: Vehicle, b: Vehicle): number =>
+    Number(noPrice(a)) - Number(noPrice(b)) || (noPrice(a) ? 0 : dir * (a.price - b.price));
+
 const SORTERS: Record<SortKey, (a: Vehicle, b: Vehicle) => number> = {
   relevance: (a, b) =>
     Number(b.featured) - Number(a.featured) || b.year - a.year,
-  "price-asc": (a, b) => a.price - b.price,
-  "price-desc": (a, b) => b.price - a.price,
+  "price-asc": byPrice(1),
+  "price-desc": byPrice(-1),
   "year-desc": (a, b) => b.year - a.year,
   "mileage-asc": (a, b) => a.mileage - b.mileage,
 };

@@ -159,6 +159,36 @@ test('sitemap uses real updated_at dates, lists sold pages consistently and /ven
   assert.ok(!readFileSync('src/app/sitemap.ts', 'utf8').includes('new Date()'));
 });
 
+test('price sorts always put "sob consulta" last', () => {
+  const { sortVehicles } = load('src/lib/vehicles.ts');
+  const list = [
+    { ...baseVehicle, slug: 'consulta', price: 0, priceOnRequest: true },
+    { ...baseVehicle, slug: 'cara', price: 40000 },
+    { ...baseVehicle, slug: 'zero', price: 0 },
+    { ...baseVehicle, slug: 'barata', price: 9000 },
+  ];
+  assert.deepEqual(sortVehicles(list, 'price-asc').map((v) => v.slug), ['barata', 'cara', 'consulta', 'zero']);
+  assert.deepEqual(sortVehicles(list, 'price-desc').map((v) => v.slug), ['cara', 'barata', 'consulta', 'zero']);
+});
+
+test('motorcycles never show "Portas 0" or "Lugares 0" (compare page and specs)', async () => {
+  const moto = { ...baseVehicle, slug: 'm1', vehicleType: 'motorcycle', body: 'Naked', doors: 0, seats: 0 };
+  const moto2 = { ...moto, slug: 'm2', seats: 2 };
+  const stubs = { ...pageStubs, '@/lib/queries': { getVehicleBySlug: async (s) => ({ m1: moto, m2: moto2, c1: baseVehicle })[s] } };
+  const Compare = load('src/app/(public)/comparar/page.tsx', stubs).default;
+  const motos = renderToStaticMarkup(await Compare({ searchParams: Promise.resolve({ ids: 'm1,m2' }) }));
+  assert.ok(!motos.includes('Portas'), 'no doors row between motorcycles');
+  assert.ok(motos.includes('Lugares'));
+  assert.ok(!/>0<\/div>/.test(motos));
+  const mixed = renderToStaticMarkup(await Compare({ searchParams: Promise.resolve({ ids: 'm1,c1' }) }));
+  assert.ok(mixed.includes('Portas'));
+
+  const { Specs } = load('src/components/vehicle/Specs.tsx', { '@/components/ui/Reveal': { Reveal: ({ children, className }) => React.createElement('div', { className }, children) } });
+  const specs = renderToStaticMarkup(React.createElement(Specs, { vehicle: moto }));
+  assert.ok(!specs.includes('Lugares') && !specs.includes('Portas'));
+  assert.ok(renderToStaticMarkup(React.createElement(Specs, { vehicle: moto2 })).includes('Lugares'));
+});
+
 test('public pages declare a canonical URL without query strings', async () => {
   for (const [file, path] of [
     ['src/app/(public)/inventario/page.tsx', '/inventario'],
