@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database, WhatsAppNotificationClaimRow } from "@/lib/supabase/database.types";
 import { site } from "@/lib/site";
+import { webhookUrlProblem } from "@/lib/webhook-url";
 import {
   buildDigest,
   buildNotification,
@@ -36,10 +37,10 @@ async function processWebhookJobs(db: Db) {
   if (configError) return {ok:false,error:"Não foi possível ler a configuração."};
   const webhook = config.data.lead_webhook;
   if (typeof webhook !== "string" || !webhook) return {ok:true};
-  let url: URL;
-  try { url = new URL(webhook); } catch { return {ok:false,error:"URL do webhook inválido."}; }
-  const allowed = (process.env.NOTIFICATION_WEBHOOK_HOSTS ?? "hooks.slack.com,discord.com,discordapp.com,hook.eu1.make.com,hook.us1.make.com,hooks.zapier.com").split(",").map(x => x.trim());
-  if (url.protocol !== "https:" || url.username || url.password || !allowed.includes(url.hostname)) return {ok:false,error:"Domínio do webhook não autorizado no servidor."};
+  // A mesma verificação de quando se grava nas Integrações (webhook-url.ts).
+  const problem = webhookUrlProblem(webhook);
+  if (problem) return {ok:false,error:problem};
+  const url = new URL(webhook);
   const {data: jobs,error} = await db.rpc("claim_notification_jobs");
   if (error) return {ok:false,error:"Não foi possível obter notificações pendentes."};
   for (const job of jobs ?? []) {

@@ -19,6 +19,7 @@ import {
   companySchema,
   workshopSchema,
 } from "@/lib/schemas";
+import { webhookUrlProblem } from "@/lib/webhook-url";
 
 export interface SettingsResult {
   ok: boolean;
@@ -203,6 +204,12 @@ export async function saveIntegrations(input: unknown): Promise<SettingsResult> 
       error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
     };
   }
+  // O envio só aceita HTTPS e os domínios autorizados no servidor: um URL que
+  // nunca ia sair é recusado já, em vez de encher a fila em silêncio.
+  const webhookProblem = parsed.data.lead_webhook
+    ? webhookUrlProblem(parsed.data.lead_webhook)
+    : null;
+  if (webhookProblem) return { ok: false, error: webhookProblem };
 
   const supabase = await createClient();
   const { error } = await supabase.from("integration_secrets").upsert(
