@@ -194,9 +194,8 @@ export const leadSchema = z.object({
   car_id: z.string().uuid().nullable().optional(),
   car_label: z.string().max(160).optional().or(z.literal("")),
   name: z.string().trim().min(2, "Indique o seu nome"),
-  // Obrigatório: é com ele que se entra no backoffice (não há entrada por
-  // telefone). O telefone de cada um grava-se no próprio perfil.
-  email: z.string().trim().min(1, "Indique o email").email("Email inválido"),
+  // Opcional: há quem só deixe o telefone. Um dos dois é obrigatório (abaixo).
+  email: z.string().trim().email("Email inválido").optional().or(z.literal("")),
   phone: z
     .string()
     .trim()
