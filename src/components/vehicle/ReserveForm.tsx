@@ -1,5 +1,6 @@
 "use client";
 
+import { isValidPhone } from "@/lib/phone";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
@@ -45,7 +46,7 @@ export function ReserveForm({
     if (!data.name?.trim()) next.name = "Indique o seu nome.";
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email ?? ""))
       next.email = "Email inválido.";
-    if (!/^[\d\s+]{9,}$/.test(data.phone ?? ""))
+    if (!isValidPhone(data.phone ?? ""))
       next.phone = "Telefone inválido.";
     setErrors(next);
     if (Object.keys(next).length > 0) e.preventDefault();
@@ -100,7 +101,7 @@ export function ReserveForm({
             <Field id="name" label="Nome" error={errors.name}>
               <input
                 id="name"
-                name="name"
+                name="name" required minLength={2} maxLength={120}
                 type="text"
                 autoComplete="name"
                 className="rinput"
@@ -110,7 +111,7 @@ export function ReserveForm({
               <Field id="email" label="Email" error={errors.email}>
                 <input
                   id="email"
-                  name="email"
+                  name="email" required maxLength={254}
                   type="email"
                   autoComplete="email"
                   className="rinput"
@@ -119,7 +120,7 @@ export function ReserveForm({
               <Field id="phone" label="Telefone" error={errors.phone}>
                 <input
                   id="phone"
-                  name="phone"
+                  name="phone" required maxLength={40}
                   type="tel"
                   autoComplete="tel"
                   className="rinput"

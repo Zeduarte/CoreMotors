@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { publicSubmissionClient } from "@/lib/public-submissions";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 import { requireSection } from "@/lib/guard";
+import { compactPhone, isValidPhone } from "@/lib/phone";
 import { getAdminVehicleType } from "@/lib/vehicle-context";
 import { getCustomerSettings, sendVisitMessage, sendVisitTemplate, takenSlots, visitContext } from "@/lib/visit-run";
 import { isBookable, visitDays, visitWhenLabel, zonedParts, type VisitDay } from "@/lib/visits";
@@ -46,7 +47,9 @@ const requestSchema = z.object({
   phone: z
     .string()
     .trim()
-    .regex(/^[\d\s+]{9,}$/, "Indique um telefone válido, para confirmarmos a visita"),
+    .max(40)
+    .refine(isValidPhone, "Indique um telefone válido, para confirmarmos a visita")
+    .transform(compactPhone),
   email: z.string().trim().email("Email inválido").optional().or(z.literal("")),
   message: z.string().trim().max(1000).optional().or(z.literal("")),
 });

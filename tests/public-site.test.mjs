@@ -302,6 +302,26 @@ test("the Novidade badge uses the server render time on both sides (no hydration
   assert.match(readFileSync("src/components/vehicle/VehicleCard.tsx", "utf8"), /badgesFor\(vehicle, useBadges\(\), useBadgeNow\(\)\)/);
 });
 
+test("public lead forms accept common phone formats and bound name and date", () => {
+  const load = loader();
+  const { isValidPhone, compactPhone } = load("src/lib/phone.ts");
+  for (const ok of ["912345678", "912 345 678", "912-345-678", "912.345.678", "+351 912 345 678", "(+351) 912 345 678", "+44 20 7946 0958"])
+    assert.equal(isValidPhone(ok), true, ok);
+  for (const bad of ["", "12345", "91234567a", "912345678; drop", "+351 912 345 678 999 999"]) assert.equal(isValidPhone(bad), false, bad);
+  assert.equal(compactPhone("+351 912-345.678"), "+351912345678");
+  const { leadSchema } = load("src/lib/schemas.ts");
+  const base = { kind: "contact", name: "Rui Costa", email: "", phone: "912-345-678", message: "", preferred_date: "", details: "" };
+  const ok = leadSchema.safeParse(base);
+  assert.equal(ok.success, true);
+  assert.equal(ok.data.phone, "912345678");
+  assert.equal(leadSchema.safeParse({ ...base, name: "x".repeat(121) }).success, false);
+  assert.equal(leadSchema.safeParse({ ...base, preferred_date: "amanhã" }).success, false);
+  assert.equal(leadSchema.safeParse({ ...base, preferred_date: "2026-11-03" }).success, true);
+  // O browser pede o nome antes de enviar (não só a caixa da privacidade).
+  for (const f of ["src/components/vehicle/InfoForm.tsx", "src/components/vehicle/OfferForm.tsx", "src/components/forms/ContactForm.tsx", "src/components/forms/TradeInForm.tsx", "src/components/forms/OrderCarForm.tsx"])
+    assert.match(readFileSync(f, "utf8"), /name="name" required/, f);
+});
+
 test("/inventario?tipo= switches world with a real redirect, keeping the search", () => {
   const { inventoryRedirect } = loader()("src/lib/inventory-redirect.ts");
   const q = (s) => new URLSearchParams(s);

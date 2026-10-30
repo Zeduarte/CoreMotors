@@ -1,3 +1,4 @@
+import { compactPhone, isValidPhone } from "@/lib/phone";
 import { z } from "zod";
 import { MOTORCYCLE_BODIES, isMotorcycleBody } from "./vehicle-categories";
 import { canonicalBrand } from "./brand-name";
@@ -193,17 +194,25 @@ export const leadSchema = z.object({
     .default("contact"),
   car_id: z.string().uuid().nullable().optional(),
   car_label: z.string().max(160).optional().or(z.literal("")),
-  name: z.string().trim().min(2, "Indique o seu nome"),
+  name: z.string().trim().min(2, "Indique o seu nome").max(120, "Nome demasiado longo"),
   // Opcional: há quem só deixe o telefone. Um dos dois é obrigatório (abaixo).
-  email: z.string().trim().email("Email inválido").optional().or(z.literal("")),
+  email: z.string().trim().max(254).email("Email inválido").optional().or(z.literal("")),
+  // Aceita "912-345-678", "+351 912 345 678"…; grava-se sem separadores.
   phone: z
     .string()
     .trim()
-    .regex(/^[\d\s+]{9,}$/, "Telefone inválido")
+    .max(40)
+    .refine((v) => !v || isValidPhone(v), "Telefone inválido")
+    .transform((v) => (v ? compactPhone(v) : v))
+    .optional(),
+  message: z.string().trim().max(2000).optional().or(z.literal("")),
+  // Dia (AAAA-MM-DD) — vai para uma coluna de data.
+  preferred_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida")
+    .refine((v) => !Number.isNaN(Date.parse(v)), "Data inválida")
     .optional()
     .or(z.literal("")),
-  message: z.string().trim().max(2000).optional().or(z.literal("")),
-  preferred_date: z.string().optional().or(z.literal("")),
   /** JSON com detalhes extra (ex.: carro de retoma). */
   details: z.string().max(4000).optional().or(z.literal("")),
 }).refine((v) => Boolean(v.email || v.phone), {
