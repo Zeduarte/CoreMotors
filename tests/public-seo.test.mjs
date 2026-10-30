@@ -442,14 +442,14 @@ test('public pages declare a canonical URL without query strings', async () => {
     ['src/app/(public)/inventario/page.tsx', '/inventario'],
     ['src/app/(public)/sobre/page.tsx', '/sobre'],
     ['src/app/(public)/contactos/page.tsx', '/contactos'],
-    ['src/app/(public)/servicos/page.tsx', '/servicos'],
+    ['src/app/(public)/servicos/(lista)/page.tsx', '/servicos'],
     ['src/app/(public)/vender/page.tsx', '/vender'],
     ['src/app/(public)/quiz/page.tsx', '/quiz'],
     ['src/app/(public)/(home)/page.tsx', '/'],
   ]) {
     assert.ok(readFileSync(file, 'utf8').includes(`canonical: "${path}"`), file);
   }
-  const layout = load('src/app/(public)/viaturas/[slug]/layout.tsx');
+  const layout = load('src/app/(public)/viaturas/[slug]/layout.tsx', { '@/lib/route-guards': { vehicleExists: async () => true } });
   const meta = await layout.generateMetadata({ params: Promise.resolve({ slug: 'bmw-320d' }) });
   assert.equal(meta.alternates.canonical, '/viaturas/bmw-320d');
 });

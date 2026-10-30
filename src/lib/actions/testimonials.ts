@@ -3,6 +3,7 @@
 import { publicSubmissionClient } from "@/lib/public-submissions";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 import { requireSection } from "@/lib/guard";
+import { revalidatePath } from "next/cache";
 import { revalidatePublic } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
 import { publicTestimonialSchema } from "@/lib/schemas";
@@ -41,7 +42,10 @@ export async function submitPublicTestimonial(input: unknown): Promise<TResult> 
     console.error("submitPublicTestimonial:", error.message);
     return { ok: false, error: "Não foi possível enviar. Tente novamente." };
   }
-  revalidatePublic("/admin/testemunhos");
+  // Só a lista do backoffice muda: o testemunho entra por aprovar e não
+  // aparece no site. `revalidatePublic` limpava a cache de dados e da CDN de
+  // todo o site público a cada submissão anónima.
+  revalidatePath("/admin/testemunhos");
   // Aviso a quem aprova testemunhos (agendado pela base de dados).
   deliverNotificationsSoon();
   return { ok: true };

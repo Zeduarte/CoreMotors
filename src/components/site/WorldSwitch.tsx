@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import type { VehicleType } from "@/lib/vehicle-categories";
-import { WORLD_LABEL, otherWorld, pathHasWorld } from "@/lib/world";
+import { WORLD_LABEL, otherWorld, pathHasWorld, worldFromPath, worldSwitchDestination } from "@/lib/world";
 import { asset } from "@/lib/asset";
 import { mediaFor } from "@/lib/media";
 import { markWorldArrival, prefersReducedMotion, runWorldProgress } from "@/lib/world-arrival";
@@ -54,10 +54,11 @@ export function WorldSwitch({
 
   if (!pathHasWorld(pathname)) return null;
 
-  const target = otherWorld(world);
+  // Em /carros/… e /motas/… o mundo mostrado é o do endereço, não o do cookie.
+  const target = otherWorld(worldFromPath(pathname) ?? world);
   const label = WORLD_LABEL[target];
-  // Numa ficha de viatura o slug é do mundo atual — volta ao stock.
-  const destination = pathname.startsWith("/viaturas/") ? "/inventario" : pathname;
+  // A página equivalente no outro mundo (ver `worldSwitchDestination`).
+  const destination = worldSwitchDestination(pathname, target);
 
   // A foto do outro mundo começa a carregar antes do clique.
   const preload = () => {

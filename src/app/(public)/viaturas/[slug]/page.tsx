@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   getVehicleBySlug,
-  getAllSlugs,
   getBranding,
   getVehicleList,
 } from "@/lib/queries";
@@ -33,21 +32,16 @@ import { site } from "@/lib/site";
 import { VehicleJsonLd } from "@/components/seo/VehicleJsonLd";
 import { addressLine, getVisitsEnabled } from "@/lib/visit-run";
 
-// ISR: páginas conhecidas são pré-geradas; novas viaturas publicadas depois do
-// build são renderizadas on-demand e cacheadas (dynamicParams = true, default).
-export const revalidate = 60;
+// Gerada a cada pedido, como o resto do site público: o layout lê o cookie
+// carros/motas, por isso não há páginas estáticas nem ISR. Pré-gerar as fichas
+// (generateStaticParams) tornava a rota estática e, sem viaturas no build, cada
+// visita rebentava ao ler o cookie (erro 500). A rapidez vem da CDN do Netlify
+// (cópia por mundo, ver next.config.mjs) e da cache dos dados
+// (src/lib/public-cache.ts), que o backoffice limpa ao gravar.
+export const dynamic = "force-dynamic";
 
 // Em Next 15, `params` é assíncrono.
 type Params = Promise<{ slug: string }>;
-
-/**
- * Gera uma página estática por viatura no build (SSG). Quando a fonte passar a
- * API, este método faz `fetch` da lista de slugs — o resto mantém-se.
- */
-export async function generateStaticParams() {
-  const slugs = await getAllSlugs();
-  return slugs.map((slug) => ({ slug }));
-}
 
 /** Metadata dinâmica por viatura (title, description, Open Graph com a capa). */
 export async function generateMetadata({

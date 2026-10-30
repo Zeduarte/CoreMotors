@@ -82,7 +82,7 @@ export function ContactForm({
               </label>
               <input
                 id="c-name"
-                name="name"
+                name="name" required minLength={2} maxLength={120}
                 className="field"
                 autoComplete="name"
               />

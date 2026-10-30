@@ -1,5 +1,6 @@
 "use client";
 
+import { isValidPhone } from "@/lib/phone";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
@@ -101,7 +102,7 @@ export function StockAlertForm({
     if (!hasCriteria) next.criteria = "Indique pelo menos a marca, a categoria ou o preço máximo.";
     if (!data.name?.trim()) next.name = "Indique o seu nome.";
     if (!p && !email) next.phone = "Indique o telemóvel ou o email, para o avisarmos.";
-    else if (p && !/^[\d\s+]{9,}$/.test(p)) next.phone = "Telemóvel inválido.";
+    else if (p && !isValidPhone(p)) next.phone = "Telemóvel inválido.";
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) next.email = "Email inválido.";
     setErrors(next);
     if (Object.keys(next).length > 0) e.preventDefault();

@@ -1,7 +1,8 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
-import { localRedirect } from "@/lib/local-redirect";
+import { cleanLocalRedirect, localRedirect } from "@/lib/local-redirect";
+import { safePublicTarget } from "@/lib/safe-target";
 
 const ADMIN_TARGETS = [
   "/admin", "/admin/carros", "/admin/carros/novo", "/admin/oficina",
@@ -9,12 +10,6 @@ const ADMIN_TARGETS = [
   "/admin/pagina-inicial", "/admin/definicoes", "/admin/testemunhos",
   "/admin/utilizadores",
 ];
-const PUBLIC_TARGETS = [
-  "/", "/inventario", "/vendidos", "/favoritos", "/quiz", "/vender",
-  "/contactos", "/sobre", "/servicos", "/comparar",
-  "/politica-de-cookies", "/politica-de-privacidade", "/termos-condicoes",
-];
-
 /**
  * Troca o tipo de viatura (carros/motas) guardado num cookie e volta à página
  * pedida. `/api/vehicle-context` serve o site e o backoffice (`area=admin`);
@@ -38,19 +33,28 @@ export async function switchVehicleContext(request: NextRequest, forceArea?: "ad
     );
   }
 
-  const target = params.get("target");
-  const allowed = area === "admin" ? ADMIN_TARGETS : PUBLIC_TARGETS;
-  const validTarget = target && (
-    allowed.includes(target) ||
-    (area === "public" && /^\/viaturas\/[a-z0-9-]+$/.test(target)) ||
-    // Páginas por marca e categoria (/motas/yamaha).
-    (area === "public" && /^\/(carros|motas)(\/[a-z0-9-]{1,80})?$/.test(target)) ||
-    // O stock com uma pesquisa (vinda das páginas por marca, por exemplo).
-    (area === "public" && /^\/inventario\?[A-Za-z0-9_%=&.+-]{1,500}$/.test(target)) ||
-    (area === "admin" && /^\/admin\/carros\/[0-9a-f-]{36}$/.test(target))
-  );
-  const destination = validTarget ? target : area === "admin" ? "/admin/carros" : "/";
-  const response = localRedirect(destination, 303);
+  let target = params.get("target");
+  // Vindo do redirecionamento de /inventario?tipo=… (next.config.mjs): o Next
+  // juntou a pesquisa original a este pedido; volta ao stock com ela (sem o
+  // `tipo`, que já fez o seu trabalho).
+  if (area === "public" && params.get("carry") === "1" && target === "/inventario") {
+    const rest = new URLSearchParams(params);
+    for (const key of ["type", "area", "target", "carry", "tipo"]) rest.delete(key);
+    const query = rest.toString();
+    if (query) target = `${target}?${query}`;
+  }
+  const validTarget =
+    area === "public"
+      ? safePublicTarget(target)
+      : target &&
+        (ADMIN_TARGETS.includes(target) || /^\/admin\/carros\/[0-9a-f-]{36}$/.test(target))
+        ? target
+        : null;
+  const destination = validTarget ?? (area === "admin" ? "/admin/carros" : "/");
+  // Sem a pesquisa deste pedido no endereço final (ver cleanLocalRedirect);
+  // /admin/vehicle-context (só backoffice) usa o redirecionamento simples.
+  const response =
+    forceArea ? localRedirect(destination, 303) : cleanLocalRedirect(destination, 303);
   response.cookies.set(`coremotors_${area}_type`, type, {
     httpOnly: true,
     sameSite: "lax",
