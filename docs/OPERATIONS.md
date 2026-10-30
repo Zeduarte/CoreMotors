@@ -69,3 +69,11 @@ Validar em staging:
 - Entrega do webhook é “pelo menos uma vez”: um timeout depois de o destino receber pode causar repetição. O envio inclui `Idempotency-Key`; o destino tem de a respeitar para deduplicar.
 - Há até 8 tentativas automáticas. As integrações mostram falhas que exigem intervenção. A fila processa até 3 notificações por execução, para respeitar o tempo de execução.
 - Os dados de aquisição existentes precisam de ser preenchidos: ausência aparece como “—”, nunca como custo zero ou margem fictícia.
+
+## Voltar a correr migrações
+
+Cada migração aplica-se **uma vez**, por ordem. Não voltar a correr uma migração antiga sozinha:
+
+- `0013`, `0018`, `0019` e `0020` criam objetos sem `if not exists` (políticas, colunas, restrições, funções): uma segunda execução falha logo no início e, por ser transacional, não altera nada — mas também não "repara" nada.
+- `0021` corre sem erro, mas repõe as regras de férias dessa altura (por cima da `0022`/`0041`/`0046`): um chefe voltaria a poder aprovar outro chefe. Se for corrida por engano, voltar a correr, por ordem, `0022`, `0041` e `0046`.
+- As migrações novas (como a `0046`) são escritas para poderem ser corridas mais de uma vez sem mudar o resultado.
