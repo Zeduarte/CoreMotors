@@ -415,6 +415,28 @@ test('chat client only resends complete, signed exchanges (last 10)', () => {
   assert.equal(p[0].content, 'q20');
 });
 
+test('google reviews: cached server-side, no public-submission quota spent', async () => {
+  const memo = new Map();
+  const stubs = {
+    __id: 'reviews',
+    'next/cache': { unstable_cache: (fn) => async (...a) => { const k = JSON.stringify(a); if (!memo.has(k)) memo.set(k, await fn(...a)); return memo.get(k); } },
+    '@/lib/showroom-queries': { getShowroomContent: async () => ({ google: { enabled: true, placeId: 'abc' } }) },
+  };
+  const route = load('src/app/api/google-reviews/route.ts', stubs);
+  assert.ok(!readFileSync('src/app/api/google-reviews/route.ts', 'utf8').includes('publicSubmissionClient'));
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return new Response(JSON.stringify({ rating: 4.8, userRatingCount: 10 }), { status: 200 }); };
+  process.env.GOOGLE_PLACES_API_KEY = 'k';
+  try {
+    for (let i = 0; i < 3; i++) assert.equal((await (await route.GET()).json()).place.rating, 4.8);
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = realFetch;
+    delete process.env.GOOGLE_PLACES_API_KEY;
+  }
+});
+
 test('public pages declare a canonical URL without query strings', async () => {
   for (const [file, path] of [
     ['src/app/(public)/inventario/page.tsx', '/inventario'],
