@@ -9,7 +9,10 @@ import { getBadges } from "@/lib/queries";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  await requireSection("definicoes");
+  const me = await requireSection("definicoes");
+  // Quem tem o separador sem ser administrador vê as definições e pode otimizar
+  // as fotos (photos.ts só pede o separador); gravar é só para o administrador.
+  const isAdmin = me.role === "admin";
 
   const [settings, company, badges] = await Promise.all([
     getSiteSettings(),
@@ -26,6 +29,13 @@ export default async function SettingsPage() {
         </p>
       </div>
 
+      {!isAdmin && (
+        <p className="card mb-6 p-4 text-sm text-paper/70">
+          Só de leitura: alterar a marca, os contactos e as etiquetas é só para administradores. Pode usar «Otimizar fotos».
+        </p>
+      )}
+
+      <fieldset disabled={!isAdmin} className="min-w-0">
       <BrandingForm initial={settings} />
 
       <div className="mt-10 mb-6 border-t border-white/10 pt-8">
@@ -46,6 +56,7 @@ export default async function SettingsPage() {
       </div>
 
       <BadgesForm initial={badges} />
+      </fieldset>
 
       <div className="mt-10 mb-6 border-t border-white/10 pt-8">
         <h2 className="text-lg font-semibold text-paper">Otimizar fotos</h2>
