@@ -263,7 +263,7 @@ await test("a stock alert keeps what the person is looking for, with the type of
  assert.match(empty.error,/marca, a categoria ou o preço/);
 });
 
-await test("public enquiries inherit the chosen world and cannot bind to the other category",async()=>{
+await test("public enquiries inherit the chosen world, and a vehicle enquiry takes the vehicle's own type",async()=>{
  const {submitLead}=load("src/lib/actions/leads.ts");
  publicType="motorcycle";
  const car=rows.find(r=>r.vehicle_type==="car"),bike=rows.find(r=>r.vehicle_type==="motorcycle");
@@ -271,9 +271,11 @@ await test("public enquiries inherit the chosen world and cannot bind to the oth
  function form(id){const f=new FormData();for(const[k,v]of Object.entries({privacy_acknowledged:"yes",kind:"contact",name:"Cliente Teste",email:"cliente@example.test",message:"Pretendo mais informações",...(id?{car_id:id}:{})}))f.set(k,v);return f;}
  assert.equal((await submitLead({ok:false},form())).ok,true);
  assert.equal(leadRows.at(-1).vehicle_type,"motorcycle");
- const before=leadRows.length;
- assert.equal((await submitLead({ok:false},form(car.id))).ok,false);
- assert.equal(leadRows.length,before);
+ // Um carro pedido a partir do mundo das motas (link partilhado, favoritos):
+ // antes era recusado («já não está disponível»).
+ assert.equal((await submitLead({ok:false},form(car.id))).ok,true);
+ assert.equal(leadRows.at(-1).car_id,car.id);
+ assert.equal(leadRows.at(-1).vehicle_type,"car");
  assert.equal((await submitLead({ok:false},form(bike.id))).ok,true);
  assert.equal(leadRows.at(-1).car_id,bike.id);
  assert.equal(leadRows.at(-1).vehicle_type,"motorcycle");

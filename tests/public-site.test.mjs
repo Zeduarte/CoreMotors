@@ -192,6 +192,37 @@ test("the world switch on /carros and /motas goes to the equivalent page of the 
   assert.equal(go("/inventario", "motorcycle"), "/inventario");
 });
 
+test("favourites, recently viewed and compare are one list for both worlds, keeping old saved data", () => {
+  const store = new Map([
+    ["sf:favorites:car", JSON.stringify(["bmw-320d", "audi-a3"])],
+    ["sf:favorites:motorcycle", JSON.stringify(["yamaha-mt-07", "bmw-320d"])],
+    ["coremotors:compare:motorcycle", "{estragado"],
+  ]);
+  globalThis.window = {
+    localStorage: {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, String(v)),
+    },
+  };
+  try {
+    const { migrateWorldLists } = loader()("src/hooks/useLocalList.ts");
+    migrateWorldLists("sf:favorites");
+    assert.deepEqual(JSON.parse(store.get("sf:favorites")), ["bmw-320d", "audi-a3", "yamaha-mt-07"]);
+    assert.ok(store.has("sf:favorites:car"), "as listas antigas ficam intactas");
+    // Já migrada: não volta a juntar (o que se tirou não reaparece).
+    store.set("sf:favorites", "[]");
+    migrateWorldLists("sf:favorites");
+    assert.equal(store.get("sf:favorites"), "[]");
+    // Dados estragados não rebentam.
+    migrateWorldLists("coremotors:compare");
+    assert.equal(store.has("coremotors:compare"), false);
+  } finally {
+    delete globalThis.window;
+  }
+  for (const file of ["src/hooks/useLocalList.ts", "src/components/inventory/CompareContext.tsx"])
+    assert.doesNotMatch(readFileSync(file, "utf8"), /useVehicleWorld/, file);
+});
+
 test("/inventario?tipo= switches world with a real redirect, keeping the search", () => {
   const { inventoryRedirect } = loader()("src/lib/inventory-redirect.ts");
   const q = (s) => new URLSearchParams(s);

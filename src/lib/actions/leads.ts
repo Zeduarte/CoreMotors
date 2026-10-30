@@ -78,7 +78,7 @@ export async function submitLead(
   }
   const formType = formData.get("vehicle_type");
   // As páginas por marca (/motas/yamaha) dizem o tipo; o resto segue o mundo escolhido.
-  const vehicleType =
+  let vehicleType =
     v.kind === "alert" && (formType === "car" || formType === "motorcycle")
       ? formType
       : await getPublicVehicleType();
@@ -105,9 +105,12 @@ export async function submitLead(
   }
   let carLabel = v.car_label || null;
   if (v.car_id) {
+    // A viatura diz o tipo, não o mundo guardado no browser: quem está nos
+    // carros e pergunta por uma mota (link partilhado, favoritos) não pode
+    // ficar com «já não está disponível».
     const { data: car } = await supabase
       .from("cars")
-      .select("make,model,status").eq("vehicle_type",vehicleType)
+      .select("make,model,status,vehicle_type")
       .eq("id", v.car_id)
       .in("status", ["published", "reserved"])
       .maybeSingle();
@@ -117,6 +120,7 @@ export async function submitLead(
         error: "Esta viatura já não está disponível para este pedido.",
       };
     carLabel = `${car.make} ${car.model}`;
+    if (car.vehicle_type === "car" || car.vehicle_type === "motorcycle") vehicleType = car.vehicle_type;
   }
   if (v.kind === "reservation") {
     const { data: settings } = await supabase

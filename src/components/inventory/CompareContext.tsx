@@ -8,8 +8,10 @@ import {
   useState,
 } from "react";
 
-import { useVehicleWorld } from "@/components/site/VehicleWorld";
+import { migrateWorldLists } from "@/hooks/useLocalList";
 const MAX = 3;
+// Uma lista para os dois mundos (antes, uma por mundo — ver migrateWorldLists).
+const KEY = "coremotors:compare";
 
 
 interface CompareCtx {
@@ -25,30 +27,30 @@ const Ctx = createContext<CompareCtx | null>(null);
 
 /** Estado global (persistido em localStorage) das viaturas a comparar. */
 export function CompareProvider({ children }: { children: React.ReactNode }) {
-  const KEY = `coremotors:compare:${useVehicleWorld()}`;
-  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [slugs, setSlugs] = useState<string[]>([]);
 
   // Hidrata do localStorage no cliente.
   useEffect(() => {
     try {
+      migrateWorldLists(KEY);
       const raw = localStorage.getItem(KEY);
       const parsed = raw ? JSON.parse(raw) : [];
       setSlugs(Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === "string").slice(0, MAX) : []);
     } catch {
       /* ignora */
     }
-    setLoadedKey(KEY);
-  }, [KEY]);
+    setLoaded(true);
+  }, []);
 
   useEffect(() => {
-    if (loadedKey !== KEY) return;
+    if (!loaded) return;
     try {
       localStorage.setItem(KEY, JSON.stringify(slugs));
     } catch {
       /* ignora */
     }
-  }, [slugs, KEY, loadedKey]);
+  }, [slugs, loaded]);
 
   const value = useMemo<CompareCtx>(
     () => ({
