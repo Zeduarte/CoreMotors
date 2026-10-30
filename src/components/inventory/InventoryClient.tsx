@@ -10,6 +10,8 @@ import {
   distinctValues,
   distinctMakes,
   filtersToQuery,
+  filtersFromQuery,
+  sortFromQuery,
 } from "@/lib/vehicles";
 import type { SearchField } from "@/lib/olx/search";
 import dynamic from "next/dynamic";
@@ -47,21 +49,33 @@ export function InventoryClient({
   /** Filtros do OLX com opções no stock (vazio sem ligação ao OLX). */
   olxFields?: SearchField[];
 }) {
+  // O endereço manda: ao voltar da ficha, o Next pode repor a página com os
+  // dados do 1.º pedido (sem os filtros escritos depois), mas o endereço já
+  // os tem. No servidor e na hidratação é o mesmo endereço → mesmo resultado.
+  const [fromUrl] = useState(() => {
+    if (typeof window === "undefined") return null;
+    const sp = Object.fromEntries(new URLSearchParams(window.location.search));
+    return { filters: filtersFromQuery(sp), sort: sortFromQuery(sp) };
+  });
   const [filters, setFilters] = useState<VehicleFilters>(() => ({
     ...emptyFilters(),
     ...initialFilters,
+    ...(fromUrl?.filters ?? {}),
+    ...(initialFilters?.vehicleType ? { vehicleType: initialFilters.vehicleType } : {}),
   }));
-  const [sort, setSort] = useState<SortKey>(initialSort);
+  const [sort, setSort] = useState<SortKey>(fromUrl?.sort ?? initialSort);
 
   // A pesquisa vai para o endereço (como no OLX): guarda-se, partilha-se e o
   // «voltar» da ficha regressa a ela. `replaceState` não cria entradas novas
-  // no histórico a cada letra escrita.
+  // no histórico a cada letra escrita. Com `null` (e não o estado atual do
+  // histórico), o Next sincroniza o router com o endereço novo; com o estado
+  // dele, ao voltar da ficha repunha o endereço antigo e os filtros perdiam-se.
   useEffect(() => {
     const id = window.setTimeout(() => {
       const qs = filtersToQuery(filters, sort);
       const url = `${window.location.pathname}${qs ? `?${qs}` : ""}`;
       if (url !== `${window.location.pathname}${window.location.search}`) {
-        window.history.replaceState(window.history.state, "", url);
+        window.history.replaceState(null, "", url);
       }
     }, 300);
     return () => window.clearTimeout(id);

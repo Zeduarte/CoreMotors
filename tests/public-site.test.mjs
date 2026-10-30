@@ -190,6 +190,16 @@ test("the world switch on /carros and /motas goes to the equivalent page of the 
   assert.equal(go("/motas/ate-5000-euros", "car"), "/carros");
   assert.equal(go("/viaturas/bmw-320d", "motorcycle"), "/inventario");
   assert.equal(go("/inventario", "motorcycle"), "/inventario");
+  // O botão segue o mundo do endereço, mesmo com o cookie no outro.
+  const React = require("react");
+  const { renderToStaticMarkup } = require("react-dom/server");
+  let pathname = "/carros/bmw";
+  const { WorldSwitch } = loader({ "next/navigation": { usePathname: () => pathname } })("src/components/site/WorldSwitch.tsx");
+  const href = (world) => /href="([^"]*)"/.exec(renderToStaticMarkup(React.createElement(WorldSwitch, { world })))[1].replace(/&amp;/g, "&");
+  for (const world of ["car", "motorcycle"])
+    assert.equal(href(world), `/api/vehicle-context?area=public&type=motorcycle&target=${encodeURIComponent("/motas/bmw")}`, world);
+  pathname = "/vendidos";
+  assert.equal(href("car"), `/api/vehicle-context?area=public&type=motorcycle&target=${encodeURIComponent("/vendidos")}`);
 });
 
 test("favourites, recently viewed and compare are one list for both worlds, keeping old saved data", () => {
