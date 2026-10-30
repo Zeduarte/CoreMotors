@@ -7,8 +7,6 @@ import { CHANNELS, COMING_SOON } from "@/lib/schemas";
 
 type Cred = { username?: string; token?: string; enabled?: boolean };
 export type IntegrationsInitial = Record<string, unknown> & {
-  stripe_secret?: string;
-  feed_token?: string;
   lead_webhook?: string;
 };
 
@@ -31,7 +29,6 @@ export function IntegrationsForm({
     }
     return out;
   });
-  const [stripe, setStripe] = useState(initial.stripe_secret ?? "");
   const [leadWebhook, setLeadWebhook] = useState(initial.lead_webhook ?? "");
 
   function update(id: string, patch: Partial<Cred>) {
@@ -43,7 +40,6 @@ export function IntegrationsForm({
     startTransition(async () => {
       const res = await saveIntegrations({
         ...creds,
-        stripe_secret: stripe,
         lead_webhook: leadWebhook,
       });
       if (res.ok) toast.success("Credenciais guardadas.");
@@ -106,25 +102,6 @@ export function IntegrationsForm({
           </div>
           ),
         )}
-      </div>
-
-      <div className="border-t border-white/10 pt-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-paper/50">
-          Pagamentos (Stripe — MB WAY / cartão)
-        </h2>
-        <p className="mt-1 text-xs text-paper/40">
-          Chave secreta da conta Stripe, usada para cobrar o sinal das reservas.
-        </p>
-        <div className="mt-3 max-w-md">
-          <span className="field-label">Stripe — chave secreta</span>
-          <input
-            type="password"
-            className="field"
-            value={stripe}
-            onChange={(e) => setStripe(e.target.value)}
-            placeholder="sk_live_…"
-          />
-        </div>
       </div>
 
       <div className="border-t border-white/10 pt-5">

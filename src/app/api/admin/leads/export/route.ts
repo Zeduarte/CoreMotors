@@ -8,6 +8,8 @@ export async function GET(request:Request) {
  const vehicleType=await getAdminVehicleType();const general=new URL(request.url).searchParams.get("gerais")==="1";
  const f=leadFilters(Object.fromEntries(new URL(request.url).searchParams));
  // Pull one page per stream request. Memory stays bounded for large exports.
+ // O responsável pelo nome, não pelo id.
+ const {data:staff}=await db.rpc("staff_directory");const staffName=new Map((staff??[]).map(p=>[p.id,p.full_name]));
  let offset=0;let first=true;
  const stream=new ReadableStream({async pull(controller){
   try {
@@ -22,7 +24,7 @@ export async function GET(request:Request) {
    if(f.due==="unassigned")q=q.is("assigned_to",null).in("status",["new","contacted","proposal"]);
    const {data,error}=await q.order("created_at",{ascending:false}).order("id").range(offset,offset+499);
    if(error)throw new Error("Exportação interrompida");
-   const csv=(data??[]).map(l=>[l.name,l.email,l.phone,l.car_label,l.status,l.assigned_to,l.next_action,l.next_action_at,l.loss_reason].map(csvCell).join(",")).join("\r\n");
+   const csv=(data??[]).map(l=>[l.name,l.email,l.phone,l.car_label,l.status,l.assigned_to?staffName.get(l.assigned_to)??"":"",l.next_action,l.next_action_at,l.loss_reason].map(csvCell).join(",")).join("\r\n");
    if(csv)controller.enqueue(new TextEncoder().encode(csv+"\r\n"));
    offset+=500;if(!data||data.length<500)controller.close();
   }catch(e){controller.error(e);}
