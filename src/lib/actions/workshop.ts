@@ -8,6 +8,7 @@ import { requireSection } from "@/lib/guard";
 import { worklogHours } from "@/lib/operations";
 import { getCurrentProfile } from "@/lib/admin-queries";
 import { canAccess } from "@/lib/permissions";
+import { canManageHoursOf } from "@/lib/workshop";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 
 export interface ActionResult {
@@ -75,18 +76,32 @@ export async function createWorklog(formData: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
-/** Apaga um registo de horas. */
+/**
+ * Apaga um registo de horas: os próprios, ou os de quem está abaixo (o RLS
+ * da 0046 aplica a mesma regra).
+ */
 export async function deleteWorklog(id: string): Promise<ActionResult> {
-  await requireSection("oficina");
+  const me = await requireSection("oficina");
+  if (!z.string().uuid().safeParse(id).success) return { ok: false, error: "Registo inválido." };
   const supabase = await createClient();
+  const { data: registo } = await supabase
+    .from("vehicle_tasks")
+    .select("car_id, created_by")
+    .eq("id", id)
+    .maybeSingle();
+  if (!registo) return { ok: false, error: "Registo não encontrado." };
+  if (!(await canManageHoursOf(supabase, me, registo.created_by))) {
+    return { ok: false, error: "Só pode apagar as horas que registou." };
+  }
   const { data, error } = await supabase
     .from("vehicle_tasks")
     .delete()
     .eq("id", id)
-    .select("car_id")
-    .maybeSingle();
+    .select("car_id");
   if (error) return { ok: false, error: "Erro ao apagar." };
-  if (data?.car_id) revalidatePublic(`/admin/oficina/${data.car_id}`);
+  if (!data?.length) return { ok: false, error: "Só pode apagar as horas que registou." };
+  revalidatePublic(`/admin/oficina/${registo.car_id}`);
+  revalidatePublic("/admin/oficina");
   return { ok: true };
 }
 
@@ -176,7 +191,10 @@ export async function createWorkshopVehicle(
     vehicle_name: parsed.data.name,
     plate: parsed.data.plate.toUpperCase().replace(/\s+/g, ""),
   });
-  if (error || !data) return { ok: false, error: "Não foi possível criar a viatura." };
+  if (error || !data) {
+    if (error) console.error("createWorkshopVehicle:", error.message);
+    return { ok: false, error: rpcMessage(error?.message ?? "", "Não foi possível criar a viatura.") };
+  }
   revalidatePublic("/admin/oficina");
   // «Viatura nova na oficina» para os colegas (agendado pela base de dados).
   deliverNotificationsSoon();
@@ -215,7 +233,7 @@ export async function returnVehicleToWorkshop(id: string): Promise<ActionResult>
 
 /** As mensagens das funções da BD já estão em português; o resto não se mostra. */
 function rpcMessage(message: string, fallback: string): string {
-  return /oficina|preparada|rascunho|permissão|não encontrada/i.test(message) ? message : fallback;
+  return /oficina|preparada|rascunho|permissão|não encontrada|dados inválidos|tipo inválido/i.test(message) ? message : fallback;
 }
 
 function revalidateVehicle(id: string) {

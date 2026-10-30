@@ -1110,8 +1110,10 @@ await test('0041: the decision reaches the requester, never the one who decided'
  assert.deepEqual(await recipientsBy('leave_decided','profile_id',chefe),[chefe]);
  const {payload}=(await db.query("select payload from notification_jobs where event='leave_decided' and payload->>'profile_id'=$1",[chefe])).rows[0];
  assert.equal(payload.decision,'rejected');
- // Um chefe não decide o plano de outro chefe: a RLS não o deixa, e não há aviso.
- await asUser(chefe,()=>db.query("update leave_days set status='approved' where profile_id=$1",[chefe]));
+ // Um chefe não decide o próprio plano: a RLS não o deixa, e não há aviso.
+ // (Desde a 0046 o dia recusado é do próprio para voltar a pedir — por isso a
+ // aprovação já não passa em silêncio: é recusada.)
+ await assert.rejects(asUser(chefe,()=>db.query("update leave_days set status='approved' where profile_id=$1",[chefe])),/row-level security/);
  assert.equal((await db.query("select count(*)::int n from notification_jobs where event='leave_decided' and payload->>'profile_id'=$1",[chefe])).rows[0].n,1);
 });
 

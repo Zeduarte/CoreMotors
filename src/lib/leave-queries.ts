@@ -1,6 +1,5 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { canDecideLeaveFor } from "@/lib/permissions";
 import {
   DEFAULT_BALANCE,
   type CompanyDay,
@@ -127,34 +126,49 @@ export interface PendingRequest {
 }
 
 /**
+ * Dos ids dados, os de quem `me` decide as férias. Quem sabe é a base de
+ * dados (`can_decide_leave_for`): o chefe nem sempre pode ler o papel dos
+ * colegas em `profiles`, e adivinhar pelo papel em falta escondia ou mostrava
+ * pedidos errados.
+ */
+async function decidableAmong(ids: string[]): Promise<Set<string>> {
+  const db = await createClient();
+  const respostas = await Promise.all(
+    [...new Set(ids)].map(async (target) => {
+      const { data, error } = await db.rpc("can_decide_leave_for", { target });
+      if (error) console.error("can_decide_leave_for:", error.message);
+      return [target, !error && data === true] as const;
+    }),
+  );
+  return new Set(respostas.filter(([, pode]) => pode).map(([id]) => id));
+}
+
+/**
  * Pedidos por decidir, agrupados por colaborador.
  *
- * Só aparecem os de quem está abaixo de quem consulta — mostrar um pedido
+ * Só aparecem os que quem consulta pode mesmo decidir — mostrar um pedido
  * que depois o servidor recusa decidir seria enganador.
  */
-export async function getPendingRequests(
-  approverRole: string,
-): Promise<PendingRequest[]> {
+export async function getPendingRequests(): Promise<PendingRequest[]> {
   const db = await createClient();
-  const [{ data, error }, colegas, { data: perfis }] = await Promise.all([
+  const [{ data, error }, colegas] = await Promise.all([
     db
       .from("leave_days")
       .select("profile_id,day,half,status")
       .eq("status", "pending")
       .order("day"),
     getColleagues(),
-    db.from("profiles").select("id,role"),
   ]);
   if (error) {
     console.error("getPendingRequests:", error.message);
     return [];
   }
-  const papeis = new Map((perfis ?? []).map((p) => [p.id as string, p.role as string]));
+  const pode = await decidableAmong((data ?? []).map((d) => d.profile_id as string));
   const nomes = new Map(colegas.map((c) => [c.id, c.name]));
   const porPessoa = new Map<string, LeaveDay[]>();
   for (const d of data ?? []) {
     const id = d.profile_id as string;
-    if (!canDecideLeaveFor(approverRole, papeis.get(id) ?? "")) continue;
+    if (!pode.has(id)) continue;
     const lista = porPessoa.get(id) ?? [];
     lista.push({
       day: d.day as string,
@@ -168,4 +182,41 @@ export async function getPendingRequests(
     name: nomes.get(profileId) ?? "Colaborador",
     days,
   }));
+}
+
+export interface ColleagueBalance extends Colleague {
+  balance: LeaveBalance;
+}
+
+/**
+ * Saldos do ano de quem `me` decide as férias (para os ajustar). O próprio
+ * fica de fora, exceto o administrador, que decide o seu.
+ */
+export async function getManagedBalances(year: number): Promise<ColleagueBalance[]> {
+  const colegas = await getColleagues();
+  const pode = await decidableAmong(colegas.map((c) => c.id));
+  const geridos = colegas.filter((c) => pode.has(c.id));
+  return Promise.all(
+    geridos.map(async (c) => ({ ...c, balance: await getBalance(c.id, year) })),
+  );
+}
+
+export interface CompanyDayRow extends CompanyDay {
+  id: string;
+}
+
+/** Os dias especiais do ano, com id, para os gerir. */
+export async function getCompanyDayRows(year: number): Promise<CompanyDayRow[]> {
+  const db = await createClient();
+  const { data, error } = await db
+    .from("company_days")
+    .select("id,day,kind,label")
+    .gte("day", `${year}-01-01`)
+    .lte("day", `${year}-12-31`)
+    .order("day");
+  if (error) {
+    console.error("getCompanyDayRows:", error.message);
+    return [];
+  }
+  return (data ?? []) as CompanyDayRow[];
 }

@@ -86,6 +86,7 @@ export default async function OficinaVehiclePage({
         carId={vehicle.id}
         initial={vehicle.logs}
         lastEnd={vehicle.lastEnd}
+        manageable={vehicle.manageable}
       />
 
       <div className="mt-8">
