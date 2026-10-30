@@ -322,6 +322,32 @@ test("public lead forms accept common phone formats and bound name and date", ()
     assert.match(readFileSync(f, "utf8"), /name="name" required/, f);
 });
 
+test("a visitor over their own limit is refused before consuming the global form quota", async () => {
+  const counts = new Map();
+  const db = {
+    rpc: async (_, { key_value, max_hits }) => {
+      const n = (counts.get(key_value) ?? 0) + 1;
+      counts.set(key_value, n);
+      return { data: n <= max_hits, error: null };
+    },
+  };
+  process.env.TRUSTED_CLIENT_IP_HEADER = "x-nf-client-connection-ip";
+  process.env.SUBMISSION_HASH_SECRET = "segredo";
+  try {
+    const { publicSubmissionClient } = loader({
+      "next/headers": { headers: async () => new Headers({ "x-nf-client-connection-ip": "203.0.113.9" }) },
+      "@/lib/supabase/admin": { createAdminClient: () => db },
+    })("src/lib/public-submissions.ts");
+    let refused = 0;
+    for (let i = 0; i < 50; i++) await publicSubmissionClient("lead", `p${i}@example.test`).catch(() => refused++);
+    assert.equal(refused, 40, "10 por IP em 10 minutos");
+    assert.equal(counts.get("lead:global"), 10, "os 40 recusados não gastaram o global");
+  } finally {
+    delete process.env.TRUSTED_CLIENT_IP_HEADER;
+    delete process.env.SUBMISSION_HASH_SECRET;
+  }
+});
+
 test("/inventario?tipo= switches world with a real redirect, keeping the search", () => {
   const { inventoryRedirect } = loader()("src/lib/inventory-redirect.ts");
   const q = (s) => new URLSearchParams(s);

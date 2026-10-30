@@ -63,13 +63,18 @@ export async function publicSubmissionClient(
   const hash = (value: string) =>
     createHmac("sha256", secret).update(value).digest("hex");
   const [globalMax, ipMax, identityMax] = QUOTAS[kind];
-  const keys = [{ value: `${kind}:global`, max: globalMax }];
+  // Do mais específico para o global: quem passa do seu limite (por IP ou
+  // por pessoa) é recusado ANTES de gastar o contador global. Com o global
+  // primeiro, cada pedido recusado de um só abusador consumia-o na mesma, e
+  // bastava um IP para esgotar os formulários do site inteiro.
+  const keys: { value: string; max: number }[] = [];
   if (ip) keys.push({ value: `${kind}:ip:${hash(ip)}`, max: ipMax });
   if (identity)
     keys.push({
       value: `${kind}:identity:${hash(identity.toLowerCase())}`,
       max: identityMax,
     });
+  keys.push({ value: `${kind}:global`, max: globalMax });
   for (const key of keys) {
     const { data, error } = await db.rpc("consume_submission", {
       key_value: key.value,
