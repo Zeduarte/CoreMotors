@@ -286,6 +286,22 @@ test("an anonymous testimonial (still unpublished) does not purge the public cac
   assert.deepEqual(calls, [["path", "/admin/testemunhos"]]);
 });
 
+test("the Novidade badge uses the server render time on both sides (no hydration mismatch)", () => {
+  const React = require("react");
+  const { renderToStaticMarkup } = require("react-dom/server");
+  const load = loader();
+  const { BadgesProvider, useBadges, useBadgeNow } = load("src/components/site/BadgesContext.tsx");
+  const { badgesFor } = load("src/lib/badges.ts");
+  const renderedAt = Date.parse("2026-10-01T12:00:00Z");
+  // Viatura com 14 dias no render do servidor; no browser (dias depois, ou a
+  // página veio da CDN) já não seria «novidade» com Date.now().
+  const vehicle = { status: "published", price: 1, mileage: 50_000, national: false, createdAt: "2026-09-17T13:00:00Z" };
+  const Labels = () => React.createElement("p", null, badgesFor(vehicle, useBadges(), useBadgeNow()).map((b) => b.id).join(","));
+  const html = renderToStaticMarkup(React.createElement(BadgesProvider, { badges: load("src/lib/badges.ts").DEFAULT_BADGES, now: renderedAt }, React.createElement(Labels)));
+  assert.equal(html, "<p>new</p>");
+  assert.match(readFileSync("src/components/vehicle/VehicleCard.tsx", "utf8"), /badgesFor\(vehicle, useBadges\(\), useBadgeNow\(\)\)/);
+});
+
 test("/inventario?tipo= switches world with a real redirect, keeping the search", () => {
   const { inventoryRedirect } = loader()("src/lib/inventory-redirect.ts");
   const q = (s) => new URLSearchParams(s);

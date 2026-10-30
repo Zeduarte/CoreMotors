@@ -34,9 +34,11 @@ export default async function PublicLayout({
     getVehicleSelection(),
     getBadges(),
   ]);
+  // Hora do render, para a etiqueta «Novidade» igual no servidor e no browser.
+  const renderedAt = Date.now();
 
   return (
-    <VehicleWorld key={type} type={type} chosen={selection !== null}><BadgesProvider badges={badges}><LenisProvider>
+    <VehicleWorld key={type} type={type} chosen={selection !== null}><BadgesProvider badges={badges} now={renderedAt}><LenisProvider>
       {/* O provider envolve o conteúdo: a barra fixa da ficha de viatura
           precisa de abrir o mesmo painel de conversa que o botão flutuante. */}
       <ChatProvider enabled={!!process.env.ANTHROPIC_API_KEY}>
