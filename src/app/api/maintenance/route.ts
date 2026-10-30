@@ -4,8 +4,9 @@ import { revalidateTag } from "next/cache";
 import { PUBLIC_DATA_TAG } from "@/lib/public-cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processNotificationJobs } from "@/lib/notifications";
-import { refreshIfNeeded } from "@/lib/olx/client";
-import { refreshStats, syncPending } from "@/lib/olx/sync";
+import { olxConfigured, refreshIfNeeded } from "@/lib/olx/client";
+import { carsWithExpiredReservations } from "@/lib/olx/queue";
+import { markPending, refreshStats, syncPending } from "@/lib/olx/sync";
 import { pruneWaMedia } from "@/lib/whatsapp/photos";
 import { runStockAlerts } from "@/lib/stock-alert-run";
 import { runVisitReminders } from "@/lib/visit-run";
@@ -17,8 +18,18 @@ export async function POST(request: Request) {
   if (!secret || Buffer.byteLength(token) !== Buffer.byteLength(expected) || !timingSafeEqual(Buffer.from(token),Buffer.from(expected))) return NextResponse.json({error:"Unauthorized"},{status:401});
   const db = createAdminClient();
   if (!db) return NextResponse.json({error:"Unavailable"},{status:503});
+  // As viaturas cujas reservas vão expirar: lidas antes, porque a função só
+  // devolve quantas expirou.
+  const expiring = await carsWithExpiredReservations(db);
   const {data: expired, error} = await db.rpc("expire_reservations");
   if (error) return NextResponse.json({error:"Maintenance failed"},{status:503});
+  // Voltam a «publicada»: o anúncio do OLX acompanha (a sincronização corre
+  // mais abaixo, com as outras pendentes).
+  if (expired && olxConfigured()) {
+    for (const id of expiring) {
+      try { await markPending(db, id); } catch (e) { console.error("maintenance olx (reservas):", e); }
+    }
+  }
   // Reservas expiradas voltam a "publicada": o site tem de o mostrar já. Só
   // quando alguma expirou — limpar sempre apagava as páginas guardadas na CDN
   // de 15 em 15 minutos, e a visita seguinte esperava pela função.
