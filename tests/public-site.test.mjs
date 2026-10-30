@@ -233,6 +233,59 @@ test("favourites, recently viewed and compare are one list for both worlds, keep
     assert.doesNotMatch(readFileSync(file, "utf8"), /useVehicleWorld/, file);
 });
 
+test("a Supabase error in getBranding is not cached as the example contacts", async () => {
+  const cached = new Map();
+  let fail = true;
+  const settings = { company_name: "Supermotas Lda", phone: "253000000" };
+  const db = {
+    from: () => {
+      const api = new Proxy({}, {
+        get: (_, k) => k === "then"
+          ? (ok) => ok(fail ? { data: null, error: { message: "timeout" } } : { data: settings, error: null })
+          : () => api,
+      });
+      return api;
+    },
+  };
+  const load = loader({
+    "next/cache": {
+      // A cache só guarda o que a função devolve; o que lança não fica.
+      unstable_cache: (fn, key) => async (...a) => {
+        const k = JSON.stringify([key, a]);
+        if (!cached.has(k)) cached.set(k, await fn(...a));
+        return cached.get(k);
+      },
+      revalidatePath() {}, revalidateTag() {},
+    },
+    "@/lib/supabase/public": { supabasePublic: db },
+    "./vehicle-context": { getPublicVehicleType: async () => "car" },
+    "./showroom-queries": { getShowroomContent: async () => ({ locations: [] }) },
+    "@/lib/storage": { publicMediaUrl: (p) => p },
+  });
+  const { getBranding } = load("src/lib/queries.ts");
+  const { DEFAULT_BRANDING } = load("src/lib/branding.ts");
+  assert.deepEqual(await getBranding(), DEFAULT_BRANDING, "com erro: defaults, só neste pedido");
+  fail = false;
+  const b = await getBranding();
+  assert.equal(b.companyName, "Supermotas Lda", "o erro não ficou guardado");
+  assert.equal(b.company.phone, "253000000");
+});
+
+test("an anonymous testimonial (still unpublished) does not purge the public cache", async () => {
+  const calls = [];
+  const load = loader({
+    "next/cache": { revalidatePath: (p) => calls.push(["path", p]), revalidateTag: (t) => calls.push(["tag", t]), unstable_cache: (f) => f },
+    "@/lib/public-submissions": { publicSubmissionClient: async () => ({ from: () => ({ insert: async () => ({ error: null }) }) }) },
+    "@/lib/notifications-kick": { deliverNotificationsSoon() {} },
+    "@/lib/guard": { requireSection: async () => ({}) },
+    "@/lib/supabase/server": { createClient: async () => ({}) },
+  });
+  const { submitPublicTestimonial } = load("src/lib/actions/testimonials.ts");
+  const r = await submitPublicTestimonial({ privacyAcknowledged: true, name: "Ana Silva", rating: 5, body: "Atendimento impecável, recomendo vivamente!", role: "" });
+  assert.equal(r.ok, true, r.error);
+  assert.deepEqual(calls, [["path", "/admin/testemunhos"]]);
+});
+
 test("/inventario?tipo= switches world with a real redirect, keeping the search", () => {
   const { inventoryRedirect } = loader()("src/lib/inventory-redirect.ts");
   const q = (s) => new URLSearchParams(s);
