@@ -1,5 +1,6 @@
 import type { VehicleType } from "@/lib/vehicle-categories";
 import type { Section } from "@/lib/permissions";
+import { TYPE_PATH, resolveSeoPage, seoPath } from "@/lib/seo-pages";
 
 /**
  * Carros e motas são dois "mundos" com stock separado — mas nem tudo se
@@ -72,6 +73,34 @@ export function needsWorldChoice(pathname: string): boolean {
     !worldFromPath(pathname) &&
     !/^\/viaturas\/[^/]+/.test(pathname)
   );
+}
+
+/**
+ * Para onde vai o seletor de mundo (para `target`) a partir desta página.
+ *
+ * Quase sempre a mesma página: o cookie muda e ela passa a mostrar o outro
+ * mundo. Mas /carros/… e /motas/… dizem o mundo no próprio endereço — voltar
+ * ao mesmo endereço parecia não fazer nada. Aí vai para a página equivalente
+ * do outro mundo (/carros/bmw → /motas/bmw, se a marca também tem motas) ou,
+ * não havendo, para a lista do outro mundo. Numa ficha de viatura o slug é do
+ * mundo atual: vai para o stock.
+ */
+export function worldSwitchDestination(pathname: string, target: VehicleType): string {
+  if (pathname.startsWith("/viaturas/")) return "/inventario";
+  if (!worldFromPath(pathname)) return pathname;
+  const list = `/${TYPE_PATH[target]}`;
+  const slug = /^\/(?:carros|motas)\/([^/]+)\/?$/.exec(pathname)?.[1];
+  if (!slug) return list;
+  const page = resolveSeoPage(target, decodeURIComponentSafe(slug), []);
+  return page ? seoPath(page) : list;
+}
+
+function decodeURIComponentSafe(s: string): string {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
 }
 
 /** O mundo influencia este ecrã do backoffice? */

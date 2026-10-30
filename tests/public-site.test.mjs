@@ -181,6 +181,17 @@ test("unknown vehicles, listings and services answer a real 404 before the skele
     assert.ok(existsSync(`src/app/(public)/${dir}/loading.tsx`), dir);
 });
 
+test("the world switch on /carros and /motas goes to the equivalent page of the other world", () => {
+  const { worldSwitchDestination: go } = loader()("src/lib/world.ts");
+  assert.equal(go("/carros", "motorcycle"), "/motas");
+  assert.equal(go("/motas/", "car"), "/carros");
+  assert.equal(go("/carros/bmw", "motorcycle"), "/motas/bmw"); // marca com carros e motas
+  assert.equal(go("/carros/suv", "motorcycle"), "/motas"); // categoria só dos carros
+  assert.equal(go("/motas/ate-5000-euros", "car"), "/carros");
+  assert.equal(go("/viaturas/bmw-320d", "motorcycle"), "/inventario");
+  assert.equal(go("/inventario", "motorcycle"), "/inventario");
+});
+
 test("/inventario?tipo= switches world with a real redirect, keeping the search", () => {
   const { inventoryRedirect } = loader()("src/lib/inventory-redirect.ts");
   const q = (s) => new URLSearchParams(s);
