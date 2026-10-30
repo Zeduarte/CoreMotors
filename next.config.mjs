@@ -64,7 +64,8 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://www.facebook.com https://connect.facebook.net",
+  // nominatim: a pesquisa de morada do mapa no backoffice (AddressMapPicker).
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://www.facebook.com https://connect.facebook.net https://nominatim.openstreetmap.org",
   "frame-src 'self' https://www.google.com https://maps.google.com https://www.facebook.com https://web.facebook.com",
   // Service Worker e manifest da app do backoffice (/admin/sw.js,
   // /admin/manifest.webmanifest) — do próprio domínio.
@@ -95,6 +96,8 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  // Sem `X-Powered-By: Next.js`: não se anuncia a tecnologia a quem procura alvos.
+  poweredByHeader: false,
   env: { NEXT_PUBLIC_SITE_URL: siteUrl },
   async headers() {
     return [
