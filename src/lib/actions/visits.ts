@@ -115,6 +115,8 @@ export async function requestVisit(_prev: VisitRequestState, formData: FormData)
     },
   });
   if (error) {
+    // A vaga encheu entre a verificação e a gravação (garantido na BD pela 0047).
+    if (/ocupada/.test(error.message)) return { ok: false, error: "Essa hora acabou de ficar ocupada. Escolha outra, por favor." };
     console.error("requestVisit:", error.message);
     return { ok: false, error: "Não foi possível marcar. Tente novamente ou ligue-nos." };
   }

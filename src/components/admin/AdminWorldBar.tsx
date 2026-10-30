@@ -31,7 +31,8 @@ export function AdminWorldBar({
       </p>
       {canSwitch && (
         <a
-          href={`/api/vehicle-context?area=admin&type=${target}&target=${encodeURIComponent(adminTarget(pathname))}`}
+          // Rota dentro de /admin: na app instalada a troca não sai da app.
+          href={`/admin/vehicle-context?type=${target}&target=${encodeURIComponent(adminTarget(pathname))}`}
           className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-medium text-paper/70 transition-colors hover:border-accent hover:text-accent"
         >
           Passar para {WORLD_LABEL[target]}

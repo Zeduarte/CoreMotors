@@ -17,7 +17,8 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 export default async function IntegrationsPage() {
-  await requireSection("integracoes");
+  const me = await requireSection("integracoes");
+  const isAdmin = me.role === "admin";
 
   const [settings, integrations, customer] = await Promise.all([
     getSiteSettings(),
@@ -37,7 +38,14 @@ export default async function IntegrationsPage() {
         </p>
       </div>
 
+      {!isAdmin && (
+        <p className="card mb-6 p-4 text-sm text-paper/70">
+          Pode consultar esta página e usar o simulador do WhatsApp; alterar as definições é só para administradores.
+        </p>
+      )}
       <div className="space-y-6">
+        {/* Só o administrador grava (as ações também o exigem): para os outros fica só de leitura. */}
+        <fieldset disabled={!isAdmin} className="min-w-0 space-y-6">
         <MarketingForm
           initial={{
             ga4_id: settings.ga4_id,
@@ -47,6 +55,7 @@ export default async function IntegrationsPage() {
           }}
         />
         <IntegrationsForm initial={integrations as IntegrationsInitial} />
+        </fieldset>
         <FeedUrls baseUrl={baseUrl} />
         {/* O OLX e os outros portais geram-se agora no seu separador. */}
         <Link
@@ -59,7 +68,8 @@ export default async function IntegrationsPage() {
             «Plataformas de anúncios». StandVirtual, CustoJusto, auto SAPO e Piscapisca: brevemente disponíveis.
           </p>
         </Link>
-        <WhatsAppPanel baseUrl={baseUrl} />
+        <WhatsAppPanel baseUrl={baseUrl} isAdmin={isAdmin} />
+        <fieldset disabled={!isAdmin} className="min-w-0">
         <CustomerSettingsForm
           initial={{
             visitsEnabled: customer.visitsEnabled,
@@ -68,6 +78,7 @@ export default async function IntegrationsPage() {
           }}
           missing={customer.missing}
         />
+        </fieldset>
         <NotificationStatus />
       </div>
     </>

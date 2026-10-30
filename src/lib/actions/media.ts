@@ -129,12 +129,17 @@ export async function updateMediaAlt(
   alt: string,
 ): Promise<MediaResult> {
   await requireSection("carros");
+  // Descrição da foto para quem não a vê (leitores de ecrã) e para o Google.
+  const text = alt.trim().slice(0, 200);
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("car_media")
-    .update({ alt })
-    .eq("id", mediaId);
+    .update({ alt: text })
+    .eq("id", mediaId)
+    .select("id");
   if (error) return { ok: false, error: error.message };
+  if (!data?.length) return { ok: false, error: "Fotografia não encontrada." };
+  revalidatePublic("/");
   return { ok: true };
 }
 

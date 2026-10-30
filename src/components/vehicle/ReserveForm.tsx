@@ -9,8 +9,8 @@ import { formatPrice } from "@/lib/format";
 /**
  * Reserva de viatura com sinal.
  *
- * Cria uma lead do tipo `reservation` com o valor do sinal nos detalhes. O
- * pagamento em si (MB WAY/cartão via Stripe) é tratado depois pela equipa —
+ * Cria uma lead do tipo `reservation` com o valor do sinal nos detalhes. Não
+ * há cobrança online: o sinal é combinado e confirmado depois pela equipa —
  * este passo garante a intenção de reserva e recolhe o contacto do cliente.
  */
 export function ReserveForm({

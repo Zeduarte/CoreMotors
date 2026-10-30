@@ -1,4 +1,5 @@
 import { getAdminVehicleType } from "@/lib/vehicle-context";
+import { lisbonMonthWindows } from "@/lib/lisbon-months";
 import "server-only";
 import { allRows } from "@/lib/pagination";
 import { createClient } from "@/lib/supabase/server";
@@ -193,7 +194,9 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     .slice(0, 8);
 
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  // Meses de Lisboa, não do servidor (UTC no Netlify).
+  const months = lisbonMonthWindows(now, 6);
+  const monthStart = months[months.length - 1]!.start;
 
   const available = list.filter(
     (c) => c.status === "published" || c.status === "reserved",
@@ -220,15 +223,13 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   // Últimos 6 meses de vendas.
   const salesByMonth: { name: string; vendidos: number }[] = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const next = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+  for (const { start, end, month } of months) {
     const vendidos = list.filter((c) => {
       if (!c.sold_at) return false;
       const t = new Date(c.sold_at);
-      return t >= d && t < next;
+      return t >= start && t < end;
     }).length;
-    salesByMonth.push({ name: MONTHS_PT[d.getMonth()]!, vendidos });
+    salesByMonth.push({ name: MONTHS_PT[month]!, vendidos });
   }
 
   return {

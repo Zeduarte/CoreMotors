@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/admin/StatusBadge";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { WorkshopStage } from "@/components/admin/WorkshopStage";
 import type { CarFormValues } from "@/lib/schemas";
+import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,7 @@ export default async function EditCarPage({ params }: { params: Params }) {
   })();
 
   const showroom = await getShowroomContent();
+  const allowedTypes = await getAllowedVehicleTypes();
   const badgeOptions = await getBadges();
   const olxFields = await getOlxFieldsForForm({
     categoryId: (car as { olx_category_id?: number | null }).olx_category_id ?? null,
@@ -133,6 +135,8 @@ export default async function EditCarPage({ params }: { params: Params }) {
       <div className="space-y-6">
         <MediaManager carId={car.id} initial={media} />
         <CarForm
+          allowedTypes={allowedTypes}
+          isAdmin={profile.role === "admin"}
           locations={showroom.locations}
           carId={car.id}
           defaults={defaults}

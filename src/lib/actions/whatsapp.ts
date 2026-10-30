@@ -30,6 +30,13 @@ import { syncBusinessProfile, type ProfileResult } from "@/lib/whatsapp/profile"
  * de isto ir para produção por distracção.
  */
 
+/**
+ * Ligar, desligar e mudar o perfil do número da empresa: só o administrador,
+ * como o resto da página Integrações. O simulador fica para quem tem o
+ * separador — corre com as permissões de quem o usa.
+ */
+const ADMIN_ONLY = "Sem permissão. Apenas administradores.";
+
 export interface SimulationResult {
   ok: boolean;
   error?: string;
@@ -101,6 +108,7 @@ export async function connectWhatsApp(input: {
   phoneNumberId: string;
 }): Promise<ConnectResult> {
   const me = await requireSection("integracoes");
+  if (me.role !== "admin") return { ok: false, error: ADMIN_ONLY };
 
   const parsed = z
     .object({
@@ -124,7 +132,8 @@ export async function connectWhatsApp(input: {
 }
 
 export async function disconnectWhatsApp(): Promise<{ ok: boolean; error?: string }> {
-  await requireSection("integracoes");
+  const me = await requireSection("integracoes");
+  if (me.role !== "admin") return { ok: false, error: ADMIN_ONLY };
   const db = createAdminClient();
   if (!db) return { ok: false, error: "A chave de serviço do Supabase não está configurada." };
   const result = await disconnectAccount(db);
@@ -134,7 +143,8 @@ export async function disconnectWhatsApp(): Promise<{ ok: boolean; error?: strin
 
 /** «Aplicar a marca»: nome «Core Motors» e logótipo no perfil do número (profile.ts). */
 export async function syncWhatsAppProfile(): Promise<ProfileResult> {
-  await requireSection("integracoes");
+  const me = await requireSection("integracoes");
+  if (me.role !== "admin") return { ok: false, error: ADMIN_ONLY, done: [] };
   const db = createAdminClient();
   if (!db) return { ok: false, error: "A chave de serviço do Supabase não está configurada.", done: [] };
   // A imagem do perfil é fixa: public/whatsapp-profile.png, só se muda no código.

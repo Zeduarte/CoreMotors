@@ -388,8 +388,9 @@ export const integrationsSchema = z.object({
   autosapo: channelCred,
   custojusto: channelCred,
   piscapisca: channelCred,
-  stripe_secret: z.string().trim().max(200).optional().or(z.literal("")),
-  feed_token: z.string().trim().max(80).optional().or(z.literal("")),
+  // `stripe_secret` e `feed_token` já não se recolhem (não havia uso: não há
+  // cobrança online, ver docs/OPERATIONS.md, e os feeds não pedem token). Os
+  // valores já guardados ficam — saveIntegrations não os apaga.
   /** Webhook (Slack/Discord/Make/Zapier) notificado a cada novo lead. */
   lead_webhook: z
     .string()

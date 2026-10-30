@@ -1111,6 +1111,8 @@ export type Database = {
         Args: { lead: string; amount: number; sale_date: string };
         Returns: undefined;
       };
+      erase_lead_personal_data: { Args: { lead: string }; Returns: string };
+      car_has_sales_history: { Args: { car: string }; Returns: boolean };
       staff_directory: { Args: Record<string, never>; Returns: StaffMember[] };
       analytics_summary: {
         Args: Record<string, never>;
