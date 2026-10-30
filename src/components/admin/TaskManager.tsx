@@ -31,10 +31,13 @@ export function TaskManager({
   carId,
   initial,
   lastEnd,
+  manageable = [],
 }: {
   carId: string;
   initial: VehicleTaskRow[];
   lastEnd: string | null;
+  /** Registos que quem vê pode fechar ou apagar: os seus e os de quem está abaixo. */
+  manageable?: string[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -64,7 +67,7 @@ export function TaskManager({
         toast.success("Registo apagado.");
         router.refresh();
       } else {
-        toast.error("Erro ao apagar.");
+        toast.error(res.error ?? "Erro ao apagar.");
       }
     });
   }
@@ -174,16 +177,18 @@ export function TaskManager({
                   <p className="mt-1 text-sm text-paper/60">{t.description}</p>
                 )}
               </div>
-              {!t.end_time && <ActionForm action={finishWorklog} label="Terminar" className="space-y-2"><input type="hidden" name="id" value={t.id}/><Field label="Hora de fim"><input className="field" type="time" name="end_time" defaultValue={nowHM()} required/></Field><label className="flex cursor-pointer items-center gap-2 text-sm text-paper/70"><input type="checkbox" name="overnight" className="h-4 w-4 shrink-0 accent-accent"/>Terminou no dia seguinte</label></ActionForm>}
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => remove(t.id)}
-                aria-label="Apagar registo"
-                className="shrink-0 rounded-md px-2 py-1 text-xs text-paper/40 hover:bg-red-500/15 hover:text-red-300"
-              >
-                ✕
-              </button>
+              {!t.end_time && manageable.includes(t.id) && <ActionForm action={finishWorklog} label="Terminar" className="space-y-2"><input type="hidden" name="id" value={t.id}/><Field label="Hora de fim"><input className="field" type="time" name="end_time" defaultValue={nowHM()} required/></Field><label className="flex cursor-pointer items-center gap-2 text-sm text-paper/70"><input type="checkbox" name="overnight" className="h-4 w-4 shrink-0 accent-accent"/>Terminou no dia seguinte</label></ActionForm>}
+              {manageable.includes(t.id) && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => remove(t.id)}
+                  aria-label="Apagar registo"
+                  className="shrink-0 rounded-md px-2 py-1 text-xs text-paper/40 hover:bg-red-500/15 hover:text-red-300"
+                >
+                  ✕
+                </button>
+              )}
             </li>
           ))}
         </ul>

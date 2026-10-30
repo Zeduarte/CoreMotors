@@ -147,3 +147,50 @@ await test('férias: quem tem Definições junta e retira dias da empresa; os ou
   assert.deepEqual(await leave.removeCompanyDay(dias[0].id), { ok: true });
   assert.equal((await leave.removeCompanyDay(dias[0].id)).ok, false, 'já não existe: não é sucesso');
 });
+
+// ---- Oficina e horas -------------------------------------------------------
+
+const workshop = load('src/lib/actions/workshop.ts');
+const workshopQ = load('src/lib/workshop.ts');
+const hoursQ = load('src/lib/hours-queries.ts');
+
+await test('oficina: o mecânico regista um carro (antes falhava com portas NULL)', async () => {
+  as(mech1);
+  const r = await workshop.createWorkshopVehicle(form({ name: 'Renault Clio', plate: 'cc 00 cc' }));
+  assert.equal(r.ok, true);
+  const row = (await db.query('select vehicle_type,status,license_plate from cars where id=$1', [r.id])).rows[0];
+  assert.deepEqual(row, { vehicle_type: 'car', status: 'workshop', license_plate: 'CC00CC' });
+});
+
+await test('oficina: só apaga e vê o ✕ nos próprios registos; o chefe/admin nos de baixo', async () => {
+  const car = (await db.query("select id from cars where license_plate='CC00CC'")).rows[0].id;
+  const de = async (who, start) => (await db.query("insert into vehicle_tasks(car_id,start_time,end_time,created_by) values($1,$2,'18:00',$3) returning id", [car, start, who])).rows[0].id;
+  const t1 = await de(mech1, '08:00');
+  const t2 = await de(mech2, '09:00');
+  as(mech1);
+  assert.deepEqual((await workshopQ.getWorkshopVehicle(car)).manageable, [t1]);
+  let r = await workshop.deleteWorklog(t2);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /que registou/);
+  assert.equal((await workshop.deleteWorklog('não-é-uuid')).ok, false);
+  assert.equal((await db.query('select count(*)::int n from vehicle_tasks where id=$1', [t2])).rows[0].n, 1);
+  as(admin);
+  assert.deepEqual((await workshopQ.getWorkshopVehicle(car)).manageable.sort(), [t1, t2].sort());
+  r = await workshop.deleteWorklog(t2);
+  assert.deepEqual(r, { ok: true });
+  as(mech1);
+  assert.deepEqual(await workshop.deleteWorklog(t1), { ok: true });
+});
+
+await test(`oficina e horas: totais certos com mais de ${MAX_ROWS} registos`, async () => {
+  const car = (await db.query("select id from cars where license_plate='CC00CC'")).rows[0].id;
+  await db.query("insert into vehicle_tasks(car_id,work_date,start_time,end_time,created_by) select $1,'2031-03-10','09:00','10:00',$2 from generate_series(1,1300)", [car, mech1]);
+  await db.query("insert into time_entries(profile_id,work_date,start_time,end_time,description) select $1,'2031-03-11','09:00','09:30','Limpeza' from generate_series(1,1100)", [mech1]);
+  as(mech1);
+  const lista = await workshopQ.getWorkshopVehicles();
+  const v = lista.find((x) => x.id === car);
+  assert.deepEqual({ h: v.totalHours, n: v.logCount }, { h: 1300, n: 1300 });
+  const { entries } = await hoursQ.getHours('2031-03-01', '2031-03-31', mech1);
+  assert.equal(entries.length, 2400);
+  assert.equal(entries.reduce((s, e) => s + e.hours, 0), 1300 + 550);
+});
