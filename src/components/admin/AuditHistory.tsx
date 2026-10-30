@@ -7,7 +7,7 @@ export async function AuditHistory({entity,id}: {entity:string;id:string}) {
     // Nomes da equipa (só id e nome, para qualquer colaborador — 0021). Sem eles, fica o id curto.
     db.rpc("leave_directory"),
   ]);
-  const nomes = new Map((equipa ?? []).map((p) => [p.id, p.full_name]));
+  const nomes = new Map((Array.isArray(equipa) ? equipa : []).map((p) => [p.id, p.full_name]));
   return <section className="card p-5"><h2 className="mb-3 text-lg font-semibold">Histórico de alterações</h2>
     {error ? <p role="alert">Não foi possível carregar o histórico.</p> : !data?.length ? <p className="text-sm text-paper/50">Sem alterações registadas.</p> :
     <ol className="space-y-3">{data.map(e => <li key={e.id} className="border-b border-white/10 pb-3 text-sm">
