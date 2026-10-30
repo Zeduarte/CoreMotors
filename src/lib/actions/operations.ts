@@ -231,3 +231,23 @@ export async function requeueNotification(data: FormData) {
   const {error}=await db.from("notification_jobs").update({attempts:0,next_attempt_at:new Date().toISOString(),last_error:null}).eq("id",id.data).is("delivered_at",null).select("id").single();
   refresh();return result(error);
 }
+
+/**
+ * «Apagar dados pessoais» (RGPD), só o administrador. Sem reservas nem venda o
+ * contacto é apagado; com elas fica, anonimizado, para a venda e o histórico da
+ * viatura não perderem o registo (função `erase_lead_personal_data`, 0047).
+ */
+export async function eraseLeadPersonalData(data: FormData) {
+  const me = await requireSection("leads");
+  if (me.role !== "admin") return {ok:false,error:"Apenas administradores."};
+  const id = uuid.safeParse(data.get("id")); if (!id.success) return {ok:false,error:"Contacto inválido."};
+  const db = await createClient();
+  const {data: outcome, error} = await db.rpc("erase_lead_personal_data", {lead: id.data});
+  if (error) {
+    // Sem a migração 0047 a função não existe.
+    if (/erase_lead_personal_data|function|schema cache/i.test(error.message)) return {ok:false,error:"Falta aplicar a migração 0047 na base de dados."};
+    return {ok:false,error:error.message};
+  }
+  refresh();
+  return outcome === "deleted" ? {ok:true,redirect:"/admin/leads"} : {ok:true};
+}

@@ -6,7 +6,7 @@ import { canAccess } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { ActionForm, Field } from "@/components/admin/ActionForm";
 import { AuditHistory } from "@/components/admin/AuditHistory";
-import { saveLeadNotesForm, saveLeadFollowup, addLeadActivity, reserveVehicle, releaseReservation, confirmDeposit, closeSale } from "@/lib/actions/operations";
+import { saveLeadNotesForm, saveLeadFollowup, addLeadActivity, reserveVehicle, releaseReservation, confirmDeposit, closeSale, eraseLeadPersonalData } from "@/lib/actions/operations";
 import { LocalDateTime } from "@/components/admin/LocalDateTime";
 import { formatPrice } from "@/lib/format";
 import { confirmVisit, scheduleVisit, setVisitOutcome } from "@/lib/actions/visits";
@@ -43,6 +43,7 @@ export default async function LeadPage({params}: {params:Promise<{id:string}>}) 
   const phoneDigits = customerPhone(lead.phone);
   const optIn = Boolean((lead.car_details ?? {}).whatsapp_opt_in_at);
   const HIDDEN_DETAILS = new Set(["criteria", "whatsapp_opt_in_at", "visit_message_sent_at", "visit_message_error", "alert_cancelled_at"]);
+  const erased = lead.name === "Dados apagados (RGPD)";
   const details = Object.entries(lead.car_details ?? {}).filter(([key]) => !HIDDEN_DETAILS.has(key));
   const visitOpen = lead.visit_status === "requested" || lead.visit_status === "confirmed";
   const visitLabels: Record<string,string> = {requested:"Por confirmar",confirmed:"Confirmada",done:"Realizada",no_show:"Não compareceu",cancelled:"Cancelada"};
@@ -133,5 +134,9 @@ export default async function LeadPage({params}: {params:Promise<{id:string}>}) 
     {canCars && canFinance && !inactive && <ActionForm action={closeSale} label="Concluir venda" confirm="Concluir a venda, marcar a viatura vendida e encerrar este contacto?"><h2 className="text-lg font-semibold">Concluir venda</h2><input type="hidden" name="lead" value={id}/><div className="grid gap-3 sm:grid-cols-2"><Field label="Preço efetivo de venda (€)"><input name="amount" className="field" type="number" step="0.01" min="0.01" required/></Field><Field label="Data da venda"><input name="sale_date" className="field" type="date" defaultValue={date} max={date} required/></Field></div></ActionForm>}
     <ActionForm action={saveLeadNotesForm} label="Guardar notas"><input type="hidden" name="id" value={id}/><Field label="Notas internas"><textarea name="notes" className="field" maxLength={5000} rows={3} defaultValue={lead.notes ?? ""}/></Field></ActionForm>
     <AuditHistory entity="leads" id={id}/>
+    {me.role === "admin" && !erased && <ActionForm action={eraseLeadPersonalData} label="Apagar dados pessoais" danger success="Dados pessoais apagados." confirm="Apagar os dados pessoais deste contacto (nome, email, telefone, mensagem e notas)? Não se pode desfazer. Com reservas ou venda registadas o contacto fica, anonimizado; sem elas é apagado." className="card space-y-3 border-red-500/20 p-5">
+      <h2 className="text-lg font-semibold">Dados pessoais (RGPD)</h2><input type="hidden" name="id" value={id}/>
+      <p className="text-sm text-paper/60">A pedido do cliente. Sem reservas nem venda, o contacto é apagado; com elas, fica sem nada que identifique a pessoa, para não perder o histórico da venda. Fica registado no histórico.</p>
+    </ActionForm>}
   </div>;
 }

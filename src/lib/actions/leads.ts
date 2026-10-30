@@ -1,16 +1,11 @@
 "use server";
 
 import { getPublicVehicleType } from "@/lib/vehicle-context";
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { publicSubmissionClient } from "@/lib/public-submissions";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
-import { requireSection } from "@/lib/guard";
-import { z } from "zod";
 import { leadSchema } from "@/lib/schemas";
 import { criteriaLabel } from "@/lib/stock-alerts";
 import { alertCriteriaSchema } from "@/lib/stock-alert-schema";
-import type { LeadStatus } from "@/lib/supabase/database.types";
 
 export interface LeadActionState {
   ok: boolean;
@@ -155,49 +150,5 @@ export async function submitLead(
   // mesma gravação; saem depois de o cliente ter a resposta, sem o fazer
   // esperar — e se o WhatsApp falhar, o contacto já está gravado.
   deliverNotificationsSoon();
-  return { ok: true };
-}
-
-// ---- Gestão (staff) -------------------------------------------------------
-export async function setLeadStatus(id: string, status: LeadStatus) {
-  if (
-    !z.string().uuid().safeParse(id).success ||
-    !z.enum(["new", "contacted", "proposal", "closed"]).safeParse(status)
-      .success
-  )
-    return {
-      ok: false,
-      error: "Abra o contacto para registar a venda ou o motivo de perda.",
-    };
-  await requireSection("leads");
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("leads")
-    .update({ status })
-    .eq("id", id);
-  if (error) return { ok: false, error: error.message };
-  revalidatePath("/admin/leads");
-  revalidatePath("/admin");
-  return { ok: true };
-}
-
-export async function deleteLead(id: string) {
-  await requireSection("leads");
-  const supabase = await createClient();
-  const { error } = await supabase.from("leads").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
-  revalidatePath("/admin/leads");
-  return { ok: true };
-}
-
-export async function saveLeadNotes(id: string, notes: string) {
-  await requireSection("leads");
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("leads")
-    .update({ notes: notes || null })
-    .eq("id", id);
-  if (error) return { ok: false, error: error.message };
-  revalidatePath("/admin/leads");
   return { ok: true };
 }
