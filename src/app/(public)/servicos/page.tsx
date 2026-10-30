@@ -2,6 +2,7 @@ import { getShowroomContent } from "@/lib/showroom-queries";
 import { ServiceCards } from "@/components/showroom/ServiceCards";
 export const metadata = {
   title: "Serviços",
+  alternates: { canonical: "/servicos" },
   description:
     "Conheça os serviços e o acompanhamento disponíveis para a sua próxima viatura.",
 };

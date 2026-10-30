@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FadeImage } from "@/components/ui/FadeImage";
 import { ViewTransition } from "@/components/ui/ViewTransition";
 import type { VehicleImage, VehicleVideo } from "@/types/vehicle";
+import { trapTab } from "@/lib/focus-trap";
 
 /** Distância mínima (px) para um arrasto contar como "passar à foto seguinte". */
 const SWIPE = 40;
@@ -43,6 +44,8 @@ export function Gallery({
   const [mounted, setMounted] = useState(false);
   const thumbs = useRef<HTMLUListElement>(null);
   const closeBtn = useRef<HTMLButtonElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+  const expandBtn = useRef<HTMLButtonElement>(null);
   const current = images[active]!;
   const hasMultiple = images.length > 1;
 
@@ -69,12 +72,17 @@ export function Gallery({
     if (top || left) list.scrollBy({ top, left, behavior: "smooth" });
   }, [active]);
 
-  // Teclado, foco e bloqueio de scroll enquanto o lightbox está aberto.
+  // Teclado, foco e bloqueio de scroll enquanto o lightbox está aberto. O foco
+  // fica preso no diálogo (Tab dá a volta) e, ao fechar, volta a quem o abriu
+  // — ou ao botão de ecrã completo, se se abriu tocando na foto.
   useEffect(() => {
     if (lightbox === null) return;
-    const previous = document.activeElement as HTMLElement | null;
+    const active = document.activeElement;
+    const previous =
+      active instanceof HTMLElement && active !== document.body ? active : expandBtn.current;
     closeBtn.current?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
+      if (trapTab(dialog.current, e)) return;
       if (e.key === "Escape") setLightbox(null);
       if (lightbox === "photo") {
         if (e.key === "ArrowRight") step(1);
@@ -168,6 +176,7 @@ export function Gallery({
               e.stopPropagation();
               setLightbox("photo");
             }}
+            ref={expandBtn}
             aria-label="Ver fotografias em ecrã completo"
             className="absolute bottom-3 left-3 grid h-9 w-9 place-items-center rounded-full bg-black/45 text-white backdrop-blur transition-colors hover:bg-black/70"
           >
@@ -221,6 +230,7 @@ export function Gallery({
             {lightbox !== null && (
               <motion.div
                 key="lightbox"
+                ref={dialog}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}

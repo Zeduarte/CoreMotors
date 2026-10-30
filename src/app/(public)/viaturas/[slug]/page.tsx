@@ -60,7 +60,7 @@ export async function generateMetadata({
   if (!vehicle) return { title: "Viatura não encontrada" };
 
   const title = `${vehicle.make} ${vehicle.model} ${vehicle.year}`;
-  const description = `${vehicle.tagline} ${priceLabel(vehicle.price, vehicle.priceOnRequest)} · ${formatKm(vehicle.mileage)} · ${vehicle.fuel}.`;
+  const description = [vehicle.tagline?.trim(), `${priceLabel(vehicle.price, vehicle.priceOnRequest)} · ${formatKm(vehicle.mileage)} · ${vehicle.fuel}.`].filter(Boolean).join(" ");
 
   return {
     title,

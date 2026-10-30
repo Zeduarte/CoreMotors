@@ -26,6 +26,8 @@ const ROWS: {
   get: (v: Vehicle) => string;
   best?: "min" | "max";
   metric?: (v: Vehicle) => number | null;
+  /** Esconde a linha quando nenhuma viatura tem valor. */
+  hideIfEmpty?: boolean;
 }[] = [
   {
     label: "Preço",
@@ -54,9 +56,19 @@ const ROWS: {
     get: (v) => (v.displacement ? `${formatNumber(v.displacement)} cm³` : "—"),
   },
   { label: "Cor", get: (v) => v.color || "—" },
-  { label: "Portas", get: (v) => String(v.doors) },
-  { label: "Lugares", get: (v) => String(v.seats) },
+  // Zero = por preencher ou não se aplica (as motas não têm portas).
+  {
+    label: "Portas",
+    get: (v) => (v.vehicleType !== "motorcycle" && v.doors > 0 ? String(v.doors) : "—"),
+    hideIfEmpty: true,
+  },
+  { label: "Lugares", get: (v) => (v.seats > 0 ? String(v.seats) : "—"), hideIfEmpty: true },
 ];
+
+/** As linhas a mostrar: sem as que ficariam só com "—" (ex.: portas entre motas). */
+function visibleRows(vehicles: Vehicle[]) {
+  return ROWS.filter((row) => !row.hideIfEmpty || vehicles.some((v) => row.get(v) !== "—"));
+}
 
 /**
  * Valor "vencedor" de uma linha, ou null quando não há um vencedor claro
@@ -153,7 +165,7 @@ export default async function ComparePage({ searchParams }: Params) {
             ))}
 
             {/* Especificações */}
-            {ROWS.map((row) => {
+            {visibleRows(found).map((row) => {
               const winner = winningValue(row, found);
               return (
                 <Fragment key={row.label}>

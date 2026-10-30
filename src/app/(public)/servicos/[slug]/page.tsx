@@ -11,7 +11,11 @@ export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
   const c = await getShowroomContent();
   const s = c.services.find((x) => x.id === slug && x.enabled);
-  return { title: s?.title ?? "Serviço indisponível", description: s?.summary };
+  return {
+    title: s?.title ?? "Serviço indisponível",
+    description: s?.summary,
+    ...(s && { alternates: { canonical: `/servicos/${s.id}` } }),
+  };
 }
 export default async function ServicePage({ params }: Props) {
   const { slug } = await params;

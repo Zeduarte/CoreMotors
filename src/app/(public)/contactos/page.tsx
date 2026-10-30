@@ -11,6 +11,7 @@ import { COMMON_MEDIA } from "@/lib/media";
 
 export const metadata: Metadata = {
   title: "Contactos",
+  alternates: { canonical: "/contactos" },
   description:
     "Fale connosco. Morada, horário, telefone, WhatsApp e mapa do showroom.",
 };

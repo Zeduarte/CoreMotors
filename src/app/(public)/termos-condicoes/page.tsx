@@ -5,6 +5,7 @@ import { LEGAL_NAME, NIF } from "@/lib/legal";
 
 export const metadata: Metadata = {
   title: "Termos e Condições",
+  alternates: { canonical: "/termos-condicoes" },
   description:
     "Condições de utilização deste site e da relação comercial com os nossos clientes.",
 };
