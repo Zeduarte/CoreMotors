@@ -174,6 +174,11 @@ export function HoursList({
                     {people && e.personId && (
                       <span className="text-xs text-paper/50">{people[e.personId] ?? "—"}</span>
                     )}
+                    {people && !e.personId && (
+                      <span className="text-xs text-paper/50">
+                        {e.personName ? `${e.personName} (apagado)` : "Utilizador apagado"}
+                      </span>
+                    )}
                   </div>
                   <p className="mt-1 text-sm text-paper/60">{e.description}</p>
                 </div>

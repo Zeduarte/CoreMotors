@@ -8,6 +8,12 @@ import { CHAT_RULES, buildContextBlock } from "@/lib/chat/prompt";
 import { SEARCH_TOOL, SEARCH_TOOL_NAME, SearchInput, runSearch } from "@/lib/chat/tools";
 import { resolveActions, splitActionMarker } from "@/lib/chat/actions";
 import { MarkerBuffer } from "@/lib/chat/stream-marker";
+import { chatSecret, signReply, validateHistory } from "@/lib/chat/history";
+import {
+  ASSISTANT_MAX_CHARS,
+  HISTORY_MAX_MESSAGES,
+  USER_MAX_CHARS,
+} from "@/lib/chat/conversation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,11 +27,16 @@ export const dynamic = "force-dynamic";
  * Resposta: NDJSON (uma linha JSON por evento) —
  *   {"type":"text","value":"…"}      pedaço de texto
  *   {"type":"actions","value":[…]}   botões de encaminhamento
+ *   {"type":"sig","value":"…"}       assinatura da resposta (ver chat/history.ts)
  *   {"type":"error","value":"…"}     falha depois de o stream ter começado
  */
 
-const MODEL = "claude-haiku-4-5-20251001";
-const MAX_TOKENS = 1024;
+// O mesmo modelo e configuração do assistente do WhatsApp. O Haiku 5.5 pensa
+// por defeito e o pensamento conta para o limite de tokens: esforço baixo
+// (respostas curtas, uma pesquisa) e folga para o texto não ser cortado.
+const MODEL = "claude-haiku-5-5";
+const EFFORT = "low";
+const MAX_TOKENS = 2048;
 /** Uma resposta precisa de 1 pesquisa; 3 dá folga sem permitir um ciclo caro. */
 const MAX_TOOL_ROUNDS = 3;
 
@@ -34,11 +45,12 @@ const Body = z.object({
     .array(
       z.object({
         role: z.enum(["user", "assistant"]),
-        content: z.string().min(1).max(1000),
+        content: z.string().min(1).max(Math.max(USER_MAX_CHARS, ASSISTANT_MAX_CHARS)),
+        sig: z.string().max(100).optional(),
       }),
     )
     .min(1)
-    .max(40),
+    .max(HISTORY_MAX_MESSAGES),
   pathname: z.string().max(300).default("/"),
 });
 
@@ -59,10 +71,13 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
   }
-  const { messages, pathname } = parsed.data;
-  if (messages[messages.length - 1]?.role !== "user") {
+  const secret = chatSecret()!;
+  // Só respostas assinadas por este servidor, a alternar com as perguntas.
+  const history = validateHistory(parsed.data.messages, secret);
+  if (!history) {
     return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
   }
+  const { pathname } = parsed.data;
 
   try {
     await publicSubmissionClient("chat");
@@ -92,6 +107,8 @@ export async function POST(request: Request) {
 
   // As regras vão num bloco próprio com cache: são iguais em todos os pedidos,
   // por isso a partir da segunda mensagem são lidas da cache (~90% mais baratas).
+  // Ferramenta + regras passam o mínimo que o Haiku 5.5 guarda em cache (512
+  // tokens; no Haiku 4.5 eram 4096 e a marca não tinha efeito).
   const system: Anthropic.TextBlockParam[] = [
     { type: "text", text: CHAT_RULES, cache_control: { type: "ephemeral" } },
     {
@@ -105,10 +122,7 @@ export async function POST(request: Request) {
     },
   ];
 
-  const conversation: Anthropic.MessageParam[] = messages.map((m) => ({
-    role: m.role,
-    content: m.content,
-  }));
+  const conversation: Anthropic.MessageParam[] = history;
 
   // Slugs que o servidor realmente devolveu — só estes podem virar links.
   const knownSlugs = new Map<string, string>();
@@ -127,6 +141,7 @@ export async function POST(request: Request) {
           const stream = client.messages.stream({
             model: MODEL,
             max_tokens: MAX_TOKENS,
+            output_config: { effort: EFFORT },
             system,
             tools: [SEARCH_TOOL],
             messages: conversation,
@@ -140,6 +155,7 @@ export async function POST(request: Request) {
           const message = await stream.finalMessage();
 
           if (message.stop_reason === "refusal") break;
+          if (round >= MAX_TOOL_ROUNDS) break;
           if (message.stop_reason === "pause_turn") {
             conversation.push({ role: "assistant", content: message.content });
             continue;
@@ -152,7 +168,6 @@ export async function POST(request: Request) {
 
           // Um input cortado a meio ainda pode parecer válido — não o corremos.
           if (message.stop_reason === "max_tokens") break;
-          if (round >= MAX_TOOL_ROUNDS) break;
 
           conversation.push({ role: "assistant", content: message.content });
 
@@ -174,6 +189,10 @@ export async function POST(request: Request) {
         }
         const actions = resolveActions(keys, branding, knownSlugs, !!vehicle);
         if (actions.length) send({ type: "actions", value: actions });
+        // A assinatura deixa o browser devolver esta resposta no histórico.
+        if (text.trim() && text.length <= ASSISTANT_MAX_CHARS) {
+          send({ type: "sig", value: signReply(text, secret) });
+        }
       } catch (error) {
         // A mensagem real fica no log do servidor; o visitante vê texto neutro.
         console.error("api/chat:", error);

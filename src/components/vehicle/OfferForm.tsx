@@ -1,5 +1,6 @@
 "use client";
 
+import { isValidPhone } from "@/lib/phone";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
@@ -48,7 +49,7 @@ export function OfferForm({
     if (!data.name?.trim()) next.name = "Indique o seu nome.";
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email ?? ""))
       next.email = "Email inválido.";
-    if (!/^[\d\s+]{9,}$/.test(data.phone ?? ""))
+    if (!isValidPhone(data.phone ?? ""))
       next.phone = "Telefone inválido.";
     if (!amount || Number(amount) <= 0)
       next.amount = "Indique o valor proposto.";
@@ -142,7 +143,7 @@ export function OfferForm({
       <Field id="name" label="Nome" error={errors.name}>
         <input
           id="name"
-          name="name"
+          name="name" required minLength={2} maxLength={120}
           type="text"
           autoComplete="name"
           className="field"
@@ -153,7 +154,7 @@ export function OfferForm({
         <Field id="email" label="Email" error={errors.email}>
           <input
             id="email"
-            name="email"
+            name="email" required maxLength={254}
             type="email"
             autoComplete="email"
             className="field"
@@ -162,7 +163,7 @@ export function OfferForm({
         <Field id="phone" label="Telefone" error={errors.phone}>
           <input
             id="phone"
-            name="phone"
+            name="phone" required maxLength={40}
             type="tel"
             autoComplete="tel"
             className="field"

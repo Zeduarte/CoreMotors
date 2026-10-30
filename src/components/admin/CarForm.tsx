@@ -2,9 +2,11 @@
 
 import {
   MOTORCYCLE_BRANDS,
+  VEHICLE_TYPES,
   bodiesFor,
   type VehicleType,
 } from "@/lib/vehicle-categories";
+import { manualStatusOptions, UNSELL_CONFIRM } from "@/lib/car-status";
 import { BodyPicker } from "@/components/ui/BodyPicker";
 import type { PointOfSale } from "@/lib/showroom";
 import { useState } from "react";
@@ -17,7 +19,6 @@ import {
   type CarFormValues,
   FUEL_TYPES,
   TRANSMISSIONS,
-  CAR_STATUSES,
   CHANNELS,
   COMING_SOON,
 } from "@/lib/schemas";
@@ -57,7 +58,13 @@ export function CarForm({
   locations = [],
   olxFields,
   badgeOptions = [],
+  allowedTypes = VEHICLE_TYPES,
+  isAdmin = false,
 }: {
+  /** Tipos de viatura que o utilizador pode gerir (Utilizadores). */
+  allowedTypes?: readonly VehicleType[];
+  /** Só o administrador pode tirar uma viatura de «Vendida» (car-status.ts). */
+  isAdmin?: boolean;
   locations?: PointOfSale[];
   carId?: string;
   defaults?: Partial<CarFormValues>;
@@ -245,6 +252,7 @@ export function CarForm({
   }
 
   async function onSubmit(values: CarFormValues) {
+    if (defaults?.status === "sold" && values.status !== "sold" && !window.confirm(UNSELL_CONFIRM)) return;
     const payload = { ...values, extras, channels, olx_attributes: olxValues, badges };
     const res = carId
       ? await updateCar(carId, payload)
@@ -255,7 +263,8 @@ export function CarForm({
       return;
     }
     if (values.vehicle_type !== defaults?.vehicle_type) {
-      window.location.assign(`/api/vehicle-context?area=admin&type=${values.vehicle_type}&target=${encodeURIComponent(`/admin/carros/${carId ?? res.id}`)}`);
+      // Pela rota do backoffice: dentro do âmbito da app instalada (PWA).
+      window.location.assign(`/admin/vehicle-context?type=${values.vehicle_type}&target=${encodeURIComponent(`/admin/carros/${carId ?? res.id}`)}`);
       return;
     }
     if (carId) {
@@ -290,7 +299,7 @@ export function CarForm({
             { value: "car", label: "Carro" },
             { value: "motorcycle", label: "Mota" },
           ] as const
-        ).map((option) => (
+        ).filter((option) => allowedTypes.includes(option.value) || option.value === vehicleType && !!carId).map((option) => (
           <button
             key={option.value}
             type="button"
@@ -568,9 +577,8 @@ export function CarForm({
           </div>
           <Field label="Estado" error={errors.status?.message}>
             <select className="field" {...register("status")}>
-              {CAR_STATUSES.filter(
-                (s) => s !== "workshop" || defaults?.status === "workshop",
-              ).map((s) => (
+              {/* Vendida e reservada só pelo contacto do cliente (car-status.ts). */}
+              {manualStatusOptions(defaults?.status ?? "draft", isAdmin).map((s) => (
                 <option key={s} value={s}>
                   {CAR_STATUS_LABEL[s]}
                 </option>

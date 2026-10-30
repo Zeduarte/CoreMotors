@@ -1,5 +1,6 @@
 "use client";
 
+import { isValidPhone } from "@/lib/phone";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
@@ -45,7 +46,7 @@ export function InfoForm({
     const email = data.email?.trim() ?? "";
     if (!data.name?.trim()) next.name = "Indique o seu nome.";
     if (!phone && !email) next.phone = "Indique o telefone ou o email, para lhe respondermos.";
-    else if (phone && !/^[\d\s+]{9,}$/.test(phone)) next.phone = "Telefone inválido.";
+    else if (phone && !isValidPhone(phone)) next.phone = "Telefone inválido.";
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) next.email = "Email inválido.";
     if (!data.message?.trim()) next.message = "Escreva a sua questão.";
     setErrors(next);
@@ -81,7 +82,7 @@ export function InfoForm({
       <Field id="name" label="Nome" error={errors.name}>
         <input
           id="name"
-          name="name"
+          name="name" required minLength={2} maxLength={120}
           type="text"
           autoComplete="name"
           className="field"

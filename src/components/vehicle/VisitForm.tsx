@@ -1,5 +1,6 @@
 "use client";
 
+import { isValidPhone } from "@/lib/phone";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
@@ -82,7 +83,7 @@ export function VisitForm({
     const next: Record<string, string> = {};
     if (!at) next.at = "Escolha a hora da visita.";
     if (!data.name?.trim()) next.name = "Indique o seu nome.";
-    if (!/^[\d\s+]{9,}$/.test(data.phone?.trim() ?? "")) next.phone = "Indique um telemóvel válido, para confirmarmos a visita.";
+    if (!isValidPhone(data.phone?.trim() ?? "")) next.phone = "Indique um telemóvel válido, para confirmarmos a visita.";
     setErrors(next);
     if (Object.keys(next).length) e.preventDefault();
   }
@@ -96,9 +97,9 @@ export function VisitForm({
       >
         <CalendarIcon className="mx-auto h-9 w-9 text-accent" />
         <p className="mt-3 text-lg font-semibold text-paper">Pedido de visita enviado</p>
-        <p className="mt-1 text-sm text-paper/70">{visitWhenLabel(state.at)}</p>
-        <p className="mx-auto mt-3 max-w-xs text-sm text-paper/55">
-          Vamos confirmar a hora consigo em breve. Até já!
+        <p className="mx-auto mt-3 max-w-xs text-sm text-paper/70">
+          Recebemos o pedido para {visitWhenLabel(state.at)}. A equipa confirma a hora consigo por WhatsApp ou
+          telefone; só fica marcada depois dessa confirmação.
         </p>
         {ics && (
           <a
@@ -208,12 +209,12 @@ export function VisitForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-paper/45">Nome</span>
-          <input name="name" autoComplete="name" className="field" placeholder="O seu nome" />
+          <input name="name" required minLength={2} maxLength={120} autoComplete="name" className="field" placeholder="O seu nome" />
           {errors.name && <span className="mt-1 block text-xs text-red-400">{errors.name}</span>}
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-paper/45">Telemóvel</span>
-          <input name="phone" type="tel" inputMode="tel" autoComplete="tel" className="field" placeholder="912 345 678" />
+          <input name="phone" required maxLength={40} type="tel" inputMode="tel" autoComplete="tel" className="field" placeholder="912 345 678" />
           {errors.phone && <span className="mt-1 block text-xs text-red-400">{errors.phone}</span>}
         </label>
       </div>

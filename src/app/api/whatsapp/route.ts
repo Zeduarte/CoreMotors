@@ -9,6 +9,7 @@ import { deliverReply, recoverFailedImages } from "@/lib/whatsapp/delivery";
 import { handleInbound, toActor, type HandleResult } from "@/lib/whatsapp/handle";
 import { extractFailedStatuses, extractMessages, type InboundMessage } from "@/lib/whatsapp/payload";
 import { REPLIES } from "@/lib/whatsapp/replies";
+import { handleVisitButton, isVisitPayload } from "@/lib/whatsapp/visit-button";
 import { markReadAndTyping } from "@/lib/whatsapp/send";
 import { verifyChallenge, verifySignature } from "@/lib/whatsapp/signature";
 
@@ -176,6 +177,13 @@ async function processOne(
   // (contact.ts) e recebem só as frases fixas da apresentação — nunca o
   // assistente, que escreve na base de dados.
   const { data: actorId } = await db.rpc("wa_actor_for_phone", { raw_phone: msg.from });
+  // Os botões do aviso de visita só valem para colaboradores: de um número
+  // desconhecido ignoram-se (não são um contacto externo a registar).
+  const visitButton = isVisitPayload(msg.button?.payload) ? msg.button!.payload : null;
+  if (!actorId && visitButton) {
+    await finish({ actor_id: null, last_error: "botão de visita de um número que não é de colaborador" });
+    return;
+  }
   if (!actorId) {
     const reply = await handleExternal(db, {
       from: msg.from,
@@ -202,6 +210,25 @@ async function processOne(
     .maybeSingle();
   if (!profile) {
     await finish({ actor_id: null, last_error: "perfil não encontrado" });
+    return;
+  }
+
+  // Resposta a um botão do aviso de visita: não passa pelo assistente. A base
+  // de dados confere as permissões do colaborador; aqui só se responde.
+  if (visitButton) {
+    const reply = await handleVisitButton({
+      db,
+      actorId,
+      phone: msg.from,
+      payload: visitButton,
+      now: new Date(),
+    });
+    const { sent } = await deliverReply(db, msg.from, reply, undefined, number);
+    await finish({
+      actor_id: actorId,
+      reply_sent_at: sent.ok ? new Date().toISOString() : null,
+      last_error: sent.ok ? null : `resposta não enviada: ${sent.error}`,
+    });
     return;
   }
 

@@ -5,6 +5,7 @@ import { LEGAL_NAME, NIF } from "@/lib/legal";
 
 export const metadata: Metadata = {
   title: "Política de Privacidade",
+  alternates: { canonical: "/politica-de-privacidade" },
   description:
     "Como recolhemos, usamos e protegemos os seus dados pessoais, e os direitos que lhe assistem ao abrigo do RGPD.",
 };

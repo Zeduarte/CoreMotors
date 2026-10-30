@@ -11,7 +11,7 @@ import type { TemplateDefinition } from "@/lib/whatsapp/send-template";
  * A Meta não aceita modelos que comecem ou acabem numa variável: há sempre
  * texto antes de {{1}} e depois da última.
  */
-export type CustomerTemplate = "alerta" | "visita";
+export type CustomerTemplate = "alerta" | "visita" | "visita_cancelada" | "visita_pedido";
 
 export const CUSTOMER_TEMPLATES: Record<CustomerTemplate, TemplateDefinition> = {
   alerta: {
@@ -43,6 +43,22 @@ export const CUSTOMER_TEMPLATES: Record<CustomerTemplate, TemplateDefinition> = 
       "Yamaha MT-07 · 2021",
       "Av. da Liberdade 100, 1250-096 Lisboa",
     ],
+  },
+  visita_cancelada: {
+    name: "engineline_visita_cancelada",
+    env: "WHATSAPP_TEMPLATE_VISITA_CANCELADA",
+    body:
+      "Olá {{1}}! Infelizmente não conseguimos receber a sua visita à {{2}} em {{3}}.\n\n" +
+      "Entraremos em contacto consigo para combinar outra hora que lhe convenha.",
+    example: ["Maria", "Supermotas", "terça-feira, 21 de outubro, às 10:30"],
+  },
+  visita_pedido: {
+    name: "engineline_visita_pedido",
+    env: "WHATSAPP_TEMPLATE_VISITA_PEDIDO",
+    body:
+      "Olá {{1}}! Recebemos o seu pedido de visita à {{2}} para {{3}}.\n\n" +
+      "Vamos confirmar a hora consigo em breve.",
+    example: ["Maria", "Supermotas", "terça-feira, 21 de outubro, às 10:30"],
   },
 };
 

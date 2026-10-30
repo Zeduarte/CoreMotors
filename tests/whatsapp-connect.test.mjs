@@ -349,12 +349,12 @@ await test('disconnecting forgets the number here',async()=>{
 });
 
 const {createMessageTemplates}=load('src/lib/whatsapp/templates-create.ts');
-await test('creating the templates submits all six as Utility in pt_PT, and skips the ones that exist',async()=>{
+await test('creating the templates submits all nine as Utility in pt_PT, and skips the ones that exist',async()=>{
  reset();meta.templates.length=0;meta.existing.clear();
  const numero={phoneNumberId:'222',accessToken:TOKEN,source:'backoffice'};
  const r=await createMessageTemplates(numero,'111');
  assert.equal(r.ok,true);
- assert.deepEqual(meta.templates.map(t=>t.name),['engineline_contacto','engineline_novidade','engineline_testemunho_novo','engineline_aviso_geral','engineline_alerta_stock','engineline_visita']);
+ assert.deepEqual(meta.templates.map(t=>t.name),['engineline_contacto','engineline_novidade','engineline_testemunho_novo','engineline_visita_equipa','engineline_aviso_geral','engineline_alerta_stock','engineline_visita','engineline_visita_cancelada','engineline_visita_pedido']);
  for(const t of meta.templates){
   assert.equal(t.waba,'111');assert.equal(t.category,'UTILITY');assert.equal(t.language,'pt_PT');
   const [body]=t.components;assert.equal(body.type,'BODY');
@@ -382,7 +382,7 @@ await test('a template Meta reports as already there (subcodes 2388024/2388026) 
  meta.dupSub=undefined;
  assert.equal(r.ok,true);
  assert.match(r.lines[0],/engineline_contacto: já existia/);assert.match(r.lines[1],/engineline_novidade: já existia/);
- assert.equal(meta.templates.length,4);
+ assert.equal(meta.templates.length,7);
 });
 
 server.close();

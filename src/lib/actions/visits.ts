@@ -7,8 +7,9 @@ import { createClient } from "@/lib/supabase/server";
 import { publicSubmissionClient } from "@/lib/public-submissions";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 import { requireSection } from "@/lib/guard";
+import { compactPhone, isValidPhone } from "@/lib/phone";
 import { getAdminVehicleType } from "@/lib/vehicle-context";
-import { getCustomerSettings, sendVisitMessage, takenSlots, visitContext } from "@/lib/visit-run";
+import { getCustomerSettings, sendVisitMessage, sendVisitTemplate, takenSlots, visitContext } from "@/lib/visit-run";
 import { isBookable, visitDays, visitWhenLabel, zonedParts, type VisitDay } from "@/lib/visits";
 import type { VisitStatus } from "@/lib/supabase/database.types";
 
@@ -46,7 +47,9 @@ const requestSchema = z.object({
   phone: z
     .string()
     .trim()
-    .regex(/^[\d\s+]{9,}$/, "Indique um telefone válido, para confirmarmos a visita"),
+    .max(40)
+    .refine(isValidPhone, "Indique um telefone válido, para confirmarmos a visita")
+    .transform(compactPhone),
   email: z.string().trim().email("Email inválido").optional().or(z.literal("")),
   message: z.string().trim().max(1000).optional().or(z.literal("")),
 });
@@ -115,16 +118,47 @@ export async function requestVisit(_prev: VisitRequestState, formData: FormData)
     },
   });
   if (error) {
+    // A vaga encheu entre a verificação e a gravação (garantido na BD pela 0047).
+    if (/ocupada/.test(error.message)) return { ok: false, error: "Essa hora acabou de ficar ocupada. Escolha outra, por favor." };
     console.error("requestVisit:", error.message);
     return { ok: false, error: "Não foi possível marcar. Tente novamente ou ligue-nos." };
   }
   deliverNotificationsSoon();
+  await acknowledgeRequest(settings, {
+    id: "",
+    name: v.name,
+    phone: v.phone,
+    car_label: `${car.make} ${car.model} ${car.year}`,
+    car_details: optIn ? { whatsapp_opt_in_at: now.toISOString() } : {},
+    visit_at: at.toISOString(),
+  });
   return { ok: true, at: at.toISOString() };
+}
+
+/**
+ * «Recebemos o seu pedido»: o cliente sabe logo que o pedido chegou e que a
+ * hora ainda vai ser confirmada. Só sai se ele aceitou o WhatsApp e o stand
+ * ligou as mensagens aos clientes; uma falha nunca estraga o pedido. Lê o
+ * número da empresa, por isso usa o cliente de serviço (o visitante é anónimo).
+ */
+async function acknowledgeRequest(
+  settings: Awaited<ReturnType<typeof getCustomerSettings>>,
+  lead: Parameters<typeof sendVisitTemplate>[2],
+): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    if (!admin) return;
+    const result = await sendVisitTemplate(admin, "visita_pedido", lead, await visitContext(), settings);
+    if (result && !result.ok) console.error("requestVisit (pedido recebido):", result.error);
+  } catch (e) {
+    console.error("requestVisit (pedido recebido):", e instanceof Error ? e.message : e);
+  }
 }
 
 // ---- Agenda (equipa) --------------------------------------------------------
 
 const uuid = z.string().uuid();
+const PAST_ERROR = "Escolha uma hora que ainda não passou.";
 type Result = { ok: boolean; error?: string };
 
 function refresh(id?: string) {
@@ -186,6 +220,7 @@ export async function scheduleVisit(data: FormData): Promise<Result> {
   const me = await requireSection("leads");
   const parsed = z.object({ id: uuid, at: z.string().min(10).max(40) }).safeParse(Object.fromEntries(data));
   if (!parsed.success || !Number.isFinite(Date.parse(parsed.data.at))) return { ok: false, error: "Escolha o dia e a hora." };
+  if (Date.parse(parsed.data.at) < Date.now()) return { ok: false, error: PAST_ERROR };
   const db = await createClient();
   const { error } = await db
     .from("leads")
@@ -208,8 +243,13 @@ export async function setVisitOutcome(data: FormData): Promise<Result> {
     .safeParse(Object.fromEntries(data));
   if (!parsed.success) return { ok: false, error: "Escolha o resultado da visita." };
   const db = await createClient();
-  const { data: lead } = await db.from("leads").select("next_action, status").eq("id", parsed.data.id).maybeSingle();
+  const { data: lead } = await db
+    .from("leads")
+    .select("name, phone, car_label, car_details, visit_at, visit_status, next_action, status")
+    .eq("id", parsed.data.id)
+    .maybeSingle();
   if (!lead) return { ok: false, error: "Contacto não encontrado." };
+  const wasOpen = lead.visit_status === "requested" || lead.visit_status === "confirmed";
   const visitAction = lead.next_action === "Visita ao stand" || lead.next_action === "Confirmar a visita ao stand";
   const { error } = await db
     .from("leads")
@@ -221,7 +261,27 @@ export async function setVisitOutcome(data: FormData): Promise<Result> {
     })
     .eq("id", parsed.data.id);
   if (error) return { ok: false, error: error.message };
-  await logActivity(db, parsed.data.id, me.id, OUTCOME_LABEL[parsed.data.status]!);
+  let notified = false;
+  // Recusada ou cancelada pela equipa: o cliente sabe que tem de combinar outra hora.
+  if (parsed.data.status === "cancelled" && wasOpen && lead.visit_at && Date.parse(lead.visit_at) > Date.now()) {
+    try {
+      const sent = await sendVisitTemplate(
+        db,
+        "visita_cancelada",
+        { id: parsed.data.id, name: lead.name, phone: lead.phone, car_label: lead.car_label, car_details: lead.car_details, visit_at: lead.visit_at },
+        await visitContext(),
+      );
+      notified = Boolean(sent?.ok);
+    } catch (e) {
+      console.error("setVisitOutcome (cancelada):", e instanceof Error ? e.message : e);
+    }
+  }
+  await logActivity(
+    db,
+    parsed.data.id,
+    me.id,
+    `${parsed.data.status === "cancelled" && lead.visit_status === "requested" ? "Pedido de visita recusado." : OUTCOME_LABEL[parsed.data.status]!}${notified ? " Cliente avisado por WhatsApp." : ""}`,
+  );
   refresh(parsed.data.id);
   return { ok: true };
 }
@@ -241,6 +301,7 @@ export async function createVisit(data: FormData): Promise<Result> {
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   const v = parsed.data;
   if (!Number.isFinite(Date.parse(v.at))) return { ok: false, error: "Escolha o dia e a hora." };
+  if (Date.parse(v.at) < Date.now()) return { ok: false, error: PAST_ERROR };
   const db = await createClient();
   let carLabel: string | null = null;
   let vehicleType: "car" | "motorcycle" = await getAdminVehicleType();

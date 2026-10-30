@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
 import { useIsomorphicLayoutEffect } from "@/hooks/useIsomorphicLayoutEffect";
-import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { prefersReducedMotionNow, usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { asset } from "@/lib/asset";
 
 interface VideoSource {
@@ -82,7 +82,7 @@ export function HeroVideo({
       if (!duration || Number.isNaN(duration)) return;
 
       // Sem movimento: mostra um frame estático e não liga o scroll.
-      if (prefersReduced || !trigger) {
+      if (prefersReduced || prefersReducedMotionNow() || !trigger) {
         video.currentTime = Math.min(0.1, duration);
         return;
       }

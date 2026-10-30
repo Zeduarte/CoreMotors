@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database, WhatsAppNotificationClaimRow } from "@/lib/supabase/database.types";
 import { site } from "@/lib/site";
+import { webhookUrlProblem } from "@/lib/webhook-url";
 import {
   buildDigest,
   buildNotification,
@@ -36,10 +37,10 @@ async function processWebhookJobs(db: Db) {
   if (configError) return {ok:false,error:"Não foi possível ler a configuração."};
   const webhook = config.data.lead_webhook;
   if (typeof webhook !== "string" || !webhook) return {ok:true};
-  let url: URL;
-  try { url = new URL(webhook); } catch { return {ok:false,error:"URL do webhook inválido."}; }
-  const allowed = (process.env.NOTIFICATION_WEBHOOK_HOSTS ?? "hooks.slack.com,discord.com,discordapp.com,hook.eu1.make.com,hook.us1.make.com,hooks.zapier.com").split(",").map(x => x.trim());
-  if (url.protocol !== "https:" || url.username || url.password || !allowed.includes(url.hostname)) return {ok:false,error:"Domínio do webhook não autorizado no servidor."};
+  // A mesma verificação de quando se grava nas Integrações (webhook-url.ts).
+  const problem = webhookUrlProblem(webhook);
+  if (problem) return {ok:false,error:problem};
+  const url = new URL(webhook);
   const {data: jobs,error} = await db.rpc("claim_notification_jobs");
   if (error) return {ok:false,error:"Não foi possível obter notificações pendentes."};
   for (const job of jobs ?? []) {
@@ -91,6 +92,20 @@ interface Delivery {
   event: string;
   to: string | null;
   message: NotificationMessage | null;
+  /** Botões de resposta rápida do modelo (o aviso de visita), por ordem. */
+  buttons?: { payload: string }[];
+  /** Porque é que este aviso não se envia (não é uma falha a repetir). */
+  skip?: string;
+}
+
+const UUID = /^[0-9a-f-]{36}$/i;
+
+/** Os botões «Confirmar visita» / «Não posso nessa hora», com o contacto no payload. */
+function visitButtons(details: Record<string, unknown> | null): { payload: string }[] | null {
+  const id = details?.lead_id;
+  return typeof id === "string" && UUID.test(id)
+    ? [{ payload: `visit:ok:${id.toLowerCase()}` }, { payload: `visit:no:${id.toLowerCase()}` }]
+    : null;
 }
 
 /**
@@ -118,13 +133,21 @@ export function planDeliveries(jobs: ClaimedNotification[]): Delivery[] {
       });
       continue;
     }
+    // Os pedidos de visita nunca se juntam (não estão em DIGEST): cada um leva
+    // os seus botões, ligados ao seu contacto.
     for (const job of group) {
-      out.push({
+      const delivery: Delivery = {
         jobs: [job],
         event: job.event_kind,
         to: job.to_phone,
         message: buildNotification(job.event_kind, job.subject, job.details ?? {}),
-      });
+      };
+      if (job.event_kind === "lead_visit") {
+        const buttons = visitButtons(job.details);
+        if (buttons) delivery.buttons = buttons;
+        else delivery.skip = "Pedido de visita sem identificação do contacto: os botões não funcionariam";
+      }
+      out.push(delivery);
     }
   }
   return out;
@@ -138,7 +161,7 @@ export function planDeliveries(jobs: ClaimedNotification[]): Delivery[] {
  */
 const LEAD_EVENTS = new Set([
   "lead_contact", "lead_test_drive", "lead_offer", "lead_reservation",
-  "lead_trade_in", "lead_order", "lead_alert", "lead_assigned",
+  "lead_trade_in", "lead_order", "lead_alert", "lead_assigned", "lead_visit",
 ]);
 
 export async function enrichLeadDetails(db: Db, jobs: ClaimedNotification[]): Promise<void> {
@@ -151,7 +174,7 @@ export async function enrichLeadDetails(db: Db, jobs: ClaimedNotification[]): Pr
   if (ids.length === 0) return;
   let data;
   try {
-    const res = await db.from("leads").select("id,phone,email,message,preferred_date").in("id", ids);
+    const res = await db.from("leads").select("id,phone,email,message,preferred_date,visit_at,visit_status").in("id", ids);
     if (res.error || !res.data) return;
     data = res.data;
   } catch {
@@ -167,6 +190,8 @@ export async function enrichLeadDetails(db: Db, jobs: ClaimedNotification[]): Pr
       email: lead.email,
       message: lead.message,
       preferred_date: lead.preferred_date,
+      visit_at: lead.visit_at ?? (job.details ?? {}).visit_at ?? null,
+      visit_status: lead.visit_status ?? (job.details ?? {}).visit_status ?? null,
     };
   }
 }
@@ -259,6 +284,10 @@ export async function processWhatsAppNotifications(
         await finish("skipped", "Sem telefone válido no perfil");
         return;
       }
+      if (delivery.skip) {
+        await finish("skipped", delivery.skip);
+        return;
+      }
       if (!delivery.message) {
         await finish("skipped", `Aviso desconhecido: ${delivery.event}`);
         return;
@@ -269,6 +298,7 @@ export async function processWhatsAppNotifications(
           name: templateName(delivery.message.family),
           language: templateLanguage(),
           params: delivery.message.params,
+          ...(delivery.buttons ? { buttons: delivery.buttons } : {}),
         },
         number,
       );

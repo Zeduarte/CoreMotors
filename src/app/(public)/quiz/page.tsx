@@ -8,6 +8,7 @@ export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Encontre a sua viatura ideal",
+  alternates: { canonical: "/quiz" },
   description:
     "Responda a 5 perguntas rápidas e descubra as viaturas do nosso stand mais indicadas para si.",
 };

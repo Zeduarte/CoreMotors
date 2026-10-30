@@ -1,6 +1,5 @@
 "use client";
 
-import { useVehicleWorld } from "@/components/site/VehicleWorld";
 import { useCallback, useEffect, useState } from "react";
 
 /**
@@ -18,8 +17,32 @@ import { useCallback, useEffect, useState } from "react";
 
 const EVENT = "sf:local-list";
 
+/**
+ * As listas eram guardadas por mundo (`sf:favorites:car`,
+ * `sf:favorites:motorcycle`): uma mota guardada nos carros nunca aparecia.
+ * Agora há uma lista só; à 1.ª leitura junta as duas antigas (que ficam
+ * intactas), para ninguém perder o que já tinha guardado.
+ */
+export function migrateWorldLists(key: string): void {
+  try {
+    const storage = window.localStorage;
+    if (storage.getItem(key) !== null) return;
+    const merged: string[] = [];
+    for (const world of ["car", "motorcycle"]) {
+      const raw = storage.getItem(`${key}:${world}`);
+      const old: unknown = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(old))
+        for (const x of old) if (typeof x === "string" && !merged.includes(x)) merged.push(x);
+    }
+    if (merged.length) storage.setItem(key, JSON.stringify(merged));
+  } catch {
+    // Armazenamento indisponível ou dados estragados — começa vazia.
+  }
+}
+
 function read(key: string): string[] {
   if (typeof window === "undefined") return [];
+  migrateWorldLists(key);
   try {
     const raw = window.localStorage.getItem(key);
     if (!raw) return [];
@@ -54,7 +77,8 @@ export function useLocalList(
   baseKey: string,
   options: { max?: number; prepend?: boolean } = {},
 ): UseLocalList {
-  const key = `${baseKey}:${useVehicleWorld()}`;
+  // Uma lista para os dois mundos: cada viatura é identificada pelo slug.
+  const key = baseKey;
   const { max, prepend = false } = options;
   const [items, setItems] = useState<string[]>([]);
   const [ready, setReady] = useState(false);

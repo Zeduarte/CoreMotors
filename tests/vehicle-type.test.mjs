@@ -210,25 +210,40 @@ await test("public and admin categories stay independent across every vehicle li
  publicType="car";
  assert.deepEqual((await getSoldVehicles()).map(v=>v.id),[car.id]);
 });
+// Para onde a rota do mundo manda: o `Location` (destinos com pesquisa) ou a
+// página mínima que segue sozinha (destinos sem pesquisa — no Netlify, um
+// `Location` sem pesquisa recebia a do pedido: /?type=…&area=…&target=…).
+async function destinationOf(response){
+ const location=response.headers.get("location");
+ if(location)return location;
+ const html=await response.clone().text();
+ return /http-equiv="refresh" content="0;url=([^"]*)"/.exec(html)?.[1]?.replace(/&amp;/g,"&")??null;
+}
 await test("selection endpoint stores only the requested area and rejects unsafe types and redirects",async()=>{
  const {NextRequest}=require("next/server");
  const {GET}=load("src/app/api/vehicle-context/route.ts");
  const result=await GET(new NextRequest("https://example.test/api/vehicle-context?type=motorcycle&area=public&target=%2Finventario"));
- assert.equal(result.status,303);
- assert.equal(result.headers.get("location"),"/inventario");
+ assert.equal(result.status,200);
+ assert.equal(result.headers.get("location"),null,"sem Location: o Netlify juntava-lhe a pesquisa do pedido");
+ assert.equal(await destinationOf(result),"/inventario");
+ assert.match(await result.clone().text(),/location\.replace\("\/inventario"\)/);
  assert.equal(result.cookies.get("coremotors_public_type").value,"motorcycle");
  assert.equal(result.cookies.get("coremotors_admin_type"),undefined);
  assert.match(result.headers.get("set-cookie"),/HttpOnly/);
  const unsafe=await GET(new NextRequest("https://example.test/api/vehicle-context?type=car&area=admin&target=https://evil.test"));
- assert.equal(unsafe.headers.get("location"),"/admin/carros");
+ assert.equal(await destinationOf(unsafe),"/admin/carros");
  assert.equal(unsafe.cookies.get("coremotors_admin_type").value,"car");
  const invalid=await GET(new NextRequest("https://example.test/api/vehicle-context?type=truck"));
  assert.equal(invalid.status,400);
  // As páginas por marca e o stock com uma pesquisa voltam para onde estavam.
- const go=async(target)=>(await GET(new NextRequest(`https://example.test/api/vehicle-context?type=motorcycle&area=public&target=${encodeURIComponent(target)}`))).headers.get("location");
+ const go=async(target)=>destinationOf(await GET(new NextRequest(`https://example.test/api/vehicle-context?type=motorcycle&area=public&target=${encodeURIComponent(target)}`)));
  assert.equal(await go("/motas/yamaha"),"/motas/yamaha");
- assert.equal(await go("/inventario?marca=Yamaha&preco_max=8000"),"/inventario?marca=Yamaha&preco_max=8000");
- for(const bad of ["//evil.test","/motas/../admin","/inventario?x=<script>","/carros/a/b"]) assert.equal(await go(bad),"/",bad);
+ const withQuery=await GET(new NextRequest(`https://example.test/api/vehicle-context?type=motorcycle&area=public&target=${encodeURIComponent("/inventario?marca=Yamaha&preco_max=8000")}`));
+ assert.equal(withQuery.status,303);
+ assert.equal(withQuery.headers.get("location"),"/inventario?marca=Yamaha&preco_max=8000");
+ // Só caminhos deste site: nada de outros domínios, esquemas, "..", nem a
+ // própria API ou o backoffice.
+ for(const bad of ["//evil.test","/\\evil.test","/%2F%2Fevil.test","https://evil.test","javascript:alert(1)","/motas/../admin","/motas/%2e%2e/admin","/inventario?x=<script>","/api/vehicle-context?type=car","/admin","/a b","/x\nLocation: //evil.test"]) assert.equal(await go(bad),"/",bad);
 });
 
 await test("a stock alert keeps what the person is looking for, with the type of the page it came from",async()=>{
@@ -248,7 +263,7 @@ await test("a stock alert keeps what the person is looking for, with the type of
  assert.match(empty.error,/marca, a categoria ou o preço/);
 });
 
-await test("public enquiries inherit the chosen world and cannot bind to the other category",async()=>{
+await test("public enquiries inherit the chosen world, and a vehicle enquiry takes the vehicle's own type",async()=>{
  const {submitLead}=load("src/lib/actions/leads.ts");
  publicType="motorcycle";
  const car=rows.find(r=>r.vehicle_type==="car"),bike=rows.find(r=>r.vehicle_type==="motorcycle");
@@ -256,9 +271,11 @@ await test("public enquiries inherit the chosen world and cannot bind to the oth
  function form(id){const f=new FormData();for(const[k,v]of Object.entries({privacy_acknowledged:"yes",kind:"contact",name:"Cliente Teste",email:"cliente@example.test",message:"Pretendo mais informações",...(id?{car_id:id}:{})}))f.set(k,v);return f;}
  assert.equal((await submitLead({ok:false},form())).ok,true);
  assert.equal(leadRows.at(-1).vehicle_type,"motorcycle");
- const before=leadRows.length;
- assert.equal((await submitLead({ok:false},form(car.id))).ok,false);
- assert.equal(leadRows.length,before);
+ // Um carro pedido a partir do mundo das motas (link partilhado, favoritos):
+ // antes era recusado («já não está disponível»).
+ assert.equal((await submitLead({ok:false},form(car.id))).ok,true);
+ assert.equal(leadRows.at(-1).car_id,car.id);
+ assert.equal(leadRows.at(-1).vehicle_type,"car");
  assert.equal((await submitLead({ok:false},form(bike.id))).ok,true);
  assert.equal(leadRows.at(-1).car_id,bike.id);
  assert.equal(leadRows.at(-1).vehicle_type,"motorcycle");
@@ -275,7 +292,7 @@ await test("per-user vehicle access limits the backoffice world and the switch e
  adminType="motorcycle";
  assert.equal(await getAdminVehicleType(),"car");
  assert.equal((await GET(url("motorcycle"))).status,403);
- assert.equal((await GET(url("car"))).status,303);
+ assert.equal((await GET(url("car"))).status,200);
 
  // Só motas: o inverso.
  profile={id:"staff-test",role:"vendedor",allowed_vehicle_types:["motorcycle"]};
@@ -287,7 +304,7 @@ await test("per-user vehicle access limits the backoffice world and the switch e
  profile={id:"staff-test",role:"admin",allowed_vehicle_types:["car"]};
  adminType="motorcycle";
  assert.equal(await getAdminVehicleType(),"motorcycle");
- assert.equal((await GET(url("motorcycle"))).status,303);
+ assert.equal((await GET(url("motorcycle"))).status,200);
 
  profile={id:"staff-test",role:"admin",allowed_vehicle_types:null};
  adminType="car";
@@ -301,14 +318,17 @@ await test("first visit keeps the page the visitor arrived on",async()=>{
  const entrar=alvo=>GET(new NextRequest(
   `https://example.test/api/vehicle-context?type=car&area=public&target=${encodeURIComponent(alvo)}`));
 
- for(const alvo of ["/viaturas/bmw-116d","/contactos","/inventario","/vendidos","/servicos","/politica-de-privacidade"]){
+ // …incluindo o link de cancelar o alerta (WhatsApp/email, num telemóvel
+ // novo), um serviço e a ficha impressa — antes iam todos para a homepage.
+ for(const alvo of ["/viaturas/bmw-116d","/contactos","/inventario","/vendidos","/servicos","/politica-de-privacidade",
+  "/alertas/cancelar/0f8fad5b-d9cb-469f-a165-70867728950e.AbCdEfGhIjKlMnOpQrSt_-","/servicos/financiamento","/viaturas/bmw-116d/ficha","/carros/a/b"]){
   const r=await entrar(alvo);
-  assert.equal(r.headers.get("location"),alvo,alvo);
+  assert.equal(await destinationOf(r),alvo,alvo);
  }
 
  // Sem destino continua a ir para a homepage, e um destino externo é ignorado.
  const semAlvo=await GET(new NextRequest("https://example.test/api/vehicle-context?type=car&area=public"));
- assert.equal(semAlvo.headers.get("location"),"/");
+ assert.equal(await destinationOf(semAlvo),"/");
  const externo=await entrar("https://evil.test/phish");
- assert.equal(externo.headers.get("location"),"/");
+ assert.equal(await destinationOf(externo),"/");
 });

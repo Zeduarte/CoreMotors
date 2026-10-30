@@ -6,6 +6,7 @@ import type { VehicleType } from "@/lib/vehicle-categories";
 import { asset } from "@/lib/asset";
 import { mediaFor } from "@/lib/media";
 import { markWorldArrival, runWorldProgress } from "@/lib/world-arrival";
+import { needsWorldChoice, worldFromPath } from "@/lib/world";
 import { WorldProgress } from "./WorldProgress";
 import styles from "./WorldEntrance.module.css";
 
@@ -19,28 +20,26 @@ export function WorldEntrance({ name, selected }: { name: string; selected: Vehi
   const router = useRouter();
   // As páginas por marca e categoria (/motas/yamaha, /carros/suv) já dizem o
   // mundo: quem chega do Google vê logo a página, sem ecrã de escolha por cima.
-  const urlWorld: VehicleType | null = /^\/carros(\/|$)/.test(pathname)
-    ? "car"
-    : /^\/motas(\/|$)/.test(pathname)
-      ? "motorcycle"
-      : null;
-  // A ficha de uma viatura também já diz o mundo (o tipo da própria viatura,
-  // gravado por `VehicleWorldSync`): quem abre um link partilhado não escolhe.
-  const onVehicle = /^\/viaturas\/[^/]+/.test(pathname);
-  const [entered, setEntered] = useState(Boolean(selected) || Boolean(urlWorld) || onVehicle);
+  const urlWorld = worldFromPath(pathname);
+  // Também não aparece na ficha de uma viatura nem nas páginas comuns aos dois
+  // mundos (contactos, serviços, legais, cancelar o alerta) — ver
+  // `needsWorldChoice`. Se a pessoa seguir daí para o stock, aparece então.
+  const entered = Boolean(selected) || !needsWorldChoice(pathname);
 
   // …e a escolha fica guardada, para o resto do site seguir o mesmo mundo.
+  const savedWorld = useRef(false);
   useEffect(() => {
-    if (selected || !urlWorld) return;
+    if (selected || !urlWorld || savedWorld.current) return;
+    savedWorld.current = true;
     fetch(`/api/vehicle-context?type=${urlWorld}&area=public&target=${encodeURIComponent(pathname)}`, {
       redirect: "manual",
       credentials: "same-origin",
     })
       .then(() => router.refresh())
       .catch(() => {});
-    // Só à chegada.
+    // Uma vez, na 1.ª página que diz o mundo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selected, urlWorld]);
   const [leaving, setLeaving] = useState<string | null>(null);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exiting = useRef(false);

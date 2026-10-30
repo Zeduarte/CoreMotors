@@ -1,16 +1,11 @@
 "use server";
 
 import { getPublicVehicleType } from "@/lib/vehicle-context";
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { publicSubmissionClient } from "@/lib/public-submissions";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
-import { requireSection } from "@/lib/guard";
-import { z } from "zod";
 import { leadSchema } from "@/lib/schemas";
 import { criteriaLabel } from "@/lib/stock-alerts";
 import { alertCriteriaSchema } from "@/lib/stock-alert-schema";
-import type { LeadStatus } from "@/lib/supabase/database.types";
 
 export interface LeadActionState {
   ok: boolean;
@@ -78,7 +73,7 @@ export async function submitLead(
   }
   const formType = formData.get("vehicle_type");
   // As páginas por marca (/motas/yamaha) dizem o tipo; o resto segue o mundo escolhido.
-  const vehicleType =
+  let vehicleType =
     v.kind === "alert" && (formType === "car" || formType === "motorcycle")
       ? formType
       : await getPublicVehicleType();
@@ -105,9 +100,12 @@ export async function submitLead(
   }
   let carLabel = v.car_label || null;
   if (v.car_id) {
+    // A viatura diz o tipo, não o mundo guardado no browser: quem está nos
+    // carros e pergunta por uma mota (link partilhado, favoritos) não pode
+    // ficar com «já não está disponível».
     const { data: car } = await supabase
       .from("cars")
-      .select("make,model,status").eq("vehicle_type",vehicleType)
+      .select("make,model,status,vehicle_type")
       .eq("id", v.car_id)
       .in("status", ["published", "reserved"])
       .maybeSingle();
@@ -117,6 +115,7 @@ export async function submitLead(
         error: "Esta viatura já não está disponível para este pedido.",
       };
     carLabel = `${car.make} ${car.model}`;
+    if (car.vehicle_type === "car" || car.vehicle_type === "motorcycle") vehicleType = car.vehicle_type;
   }
   if (v.kind === "reservation") {
     const { data: settings } = await supabase
@@ -155,49 +154,5 @@ export async function submitLead(
   // mesma gravação; saem depois de o cliente ter a resposta, sem o fazer
   // esperar — e se o WhatsApp falhar, o contacto já está gravado.
   deliverNotificationsSoon();
-  return { ok: true };
-}
-
-// ---- Gestão (staff) -------------------------------------------------------
-export async function setLeadStatus(id: string, status: LeadStatus) {
-  if (
-    !z.string().uuid().safeParse(id).success ||
-    !z.enum(["new", "contacted", "proposal", "closed"]).safeParse(status)
-      .success
-  )
-    return {
-      ok: false,
-      error: "Abra o contacto para registar a venda ou o motivo de perda.",
-    };
-  await requireSection("leads");
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("leads")
-    .update({ status })
-    .eq("id", id);
-  if (error) return { ok: false, error: error.message };
-  revalidatePath("/admin/leads");
-  revalidatePath("/admin");
-  return { ok: true };
-}
-
-export async function deleteLead(id: string) {
-  await requireSection("leads");
-  const supabase = await createClient();
-  const { error } = await supabase.from("leads").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
-  revalidatePath("/admin/leads");
-  return { ok: true };
-}
-
-export async function saveLeadNotes(id: string, notes: string) {
-  await requireSection("leads");
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("leads")
-    .update({ notes: notes || null })
-    .eq("id", id);
-  if (error) return { ok: false, error: error.message };
-  revalidatePath("/admin/leads");
   return { ok: true };
 }

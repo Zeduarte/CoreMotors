@@ -23,6 +23,13 @@ export interface InboundMessage {
    * descarregado depois, pelo id (src/lib/whatsapp/photos.ts).
    */
   media?: InboundMedia;
+  /**
+   * A resposta a um botão: `button` (botão de resposta rápida de um modelo) ou
+   * `interactive.button_reply`. O `payload` é o que o site pôs no botão ao enviar.
+   */
+  button?: { payload: string; text: string };
+  /** O id da mensagem nossa a que a resposta se refere (`context.id`). */
+  contextId?: string;
 }
 
 export interface InboundMedia {
@@ -79,6 +86,21 @@ export function extractFailedStatuses(payload: unknown): { id: string; error: st
   return out;
 }
 
+/** O botão carregado, em `button` (modelos) ou `interactive.button_reply`. */
+function buttonOf(type: string, m: Record<string, unknown>): { payload: string; text: string } | undefined {
+  if (type === "button") {
+    const b = asRecord(m.button);
+    const payload = typeof b.payload === "string" ? b.payload.slice(0, 256) : "";
+    return payload ? { payload, text: typeof b.text === "string" ? b.text.slice(0, 200) : "" } : undefined;
+  }
+  if (type === "interactive") {
+    const reply = asRecord(asRecord(m.interactive).button_reply);
+    const payload = typeof reply.id === "string" ? reply.id.slice(0, 256) : "";
+    return payload ? { payload, text: typeof reply.title === "string" ? reply.title.slice(0, 200) : "" } : undefined;
+  }
+  return undefined;
+}
+
 /** Extrai as mensagens de um corpo da Meta. Nunca lança. */
 export function extractMessages(payload: unknown): InboundMessage[] {
   const out: InboundMessage[] = [];
@@ -101,6 +123,8 @@ export function extractMessages(payload: unknown): InboundMessage[] {
         const type = typeof m.type === "string" ? m.type : "unknown";
         const body = asRecord(m.text).body;
         const media = mediaOf(type, m);
+        const button = buttonOf(type, m);
+        const contextId = asRecord(m.context).id;
         out.push({
           wamId,
           from,
@@ -109,6 +133,8 @@ export function extractMessages(payload: unknown): InboundMessage[] {
           phoneNumberId,
           ...(names.get(from) ? { profileName: names.get(from) } : {}),
           ...(media ? { media } : {}),
+          ...(button ? { button } : {}),
+          ...(typeof contextId === "string" && contextId ? { contextId } : {}),
         });
       }
     }

@@ -19,6 +19,7 @@ import {
 } from "@/lib/branding";
 import { publicMediaUrl } from "@/lib/storage";
 import { toListVehicle } from "@/lib/vehicle-list";
+import { PUBLIC_CAR_SELECT } from "@/lib/public-columns";
 
 /**
  * Leituras PÚBLICAS do inventário (Supabase).
@@ -40,7 +41,8 @@ async function mapPublicCars(rows: CarWithMedia[]): Promise<Vehicle[]> {
   });
 }
 
-const CAR_SELECT = "*, car_media(*)";
+// Colunas explícitas: com a 0045 o público já não lê a tabela inteira.
+const CAR_SELECT = PUBLIC_CAR_SELECT;
 
 const fetchVehicles = cachedPublic(async (vehicleType: VehicleType) => {
   const { data, error } = await supabasePublic
@@ -144,8 +146,11 @@ const fetchBySlug = cachedPublic(async (vehicleType: VehicleType, slug: string) 
 
 export async function getVehicleBySlug(
   slug: string,
+  /** O mundo a procurar primeiro. Sem ele, o do cookie — que as rotas de
+   * imagem (Open Graph) não podem ler: lá passa-se um tipo fixo. */
+  preferred?: VehicleType,
 ): Promise<Vehicle | undefined> {
-  const type = await getPublicVehicleType();
+  const type = preferred ?? (await getPublicVehicleType());
   const found = await safely("getVehicleBySlug", () => fetchBySlug(type, slug), null);
   if (found) return found;
   // Quem chega sem a escolha certa guardada (o Google, que não guarda
@@ -196,7 +201,7 @@ export async function getHomeContent(): Promise<HomeContent> {
  * gravar invalida essa cache. Cai nos defaults se ainda não definida (ou se a
  * tabela ainda não existir).
  */
-export const getBranding = unstable_cache(
+const fetchBranding = unstable_cache(
   async (): Promise<Branding> => {
     const { data, error } = await supabasePublic
       .from("site_settings")
@@ -206,9 +211,11 @@ export const getBranding = unstable_cache(
       .eq("id", 1)
       .maybeSingle();
 
-    if (error || !data) {
-      return DEFAULT_BRANDING;
-    }
+    // Um erro LANÇA (não fica em cache); só a ausência de linha dá os
+    // defaults. Antes, um erro passageiro do Supabase guardava os contactos
+    // de exemplo (telefone e morada falsos) no site inteiro durante 5 min.
+    if (error) throw new Error(error.message);
+    if (!data) return DEFAULT_BRANDING;
 
     const d = DEFAULT_COMPANY;
     const phone = data.phone || d.phone;
@@ -248,6 +255,10 @@ export const getBranding = unstable_cache(
   ["site-branding"],
   { tags: ["branding"], revalidate: 300 },
 );
+
+export async function getBranding(): Promise<Branding> {
+  return safely("getBranding", fetchBranding, DEFAULT_BRANDING);
+}
 
 export interface Testimonial {
   id: string;

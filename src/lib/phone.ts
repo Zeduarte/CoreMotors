@@ -18,3 +18,24 @@ export function normalizeWhatsApp(raw: string): string {
   if (/^[29]\d{8}$/.test(digits)) return `351${digits}`;
   return digits;
 }
+
+/**
+ * Telefone escrito por um cliente nos formulários públicos, sem separadores:
+ * "912-345-678", "912.345.678", "+351 912 345 678" e "(+351) 912345678"
+ * ficam "912345678" / "+351912345678". Só fica o "+" inicial e os dígitos.
+ */
+export function compactPhone(raw: string): string {
+  const trimmed = raw.trim();
+  const digits = trimmed.replace(/\D/g, "");
+  return /^\(?\+/.test(trimmed) ? `+${digits}` : digits;
+}
+
+/**
+ * Telefone aceitável (o mesmo critério no browser e no servidor): 9 a 15
+ * dígitos, com espaços, hífenes, pontos ou parênteses pelo meio e um "+" no
+ * início. Antes, só dígitos, espaços e "+" — "912-345-678" era recusado.
+ */
+export function isValidPhone(raw: string): boolean {
+  if (!/^[\d\s+().-]+$/.test(raw.trim())) return false;
+  return /^\+?\d{9,15}$/.test(compactPhone(raw));
+}
