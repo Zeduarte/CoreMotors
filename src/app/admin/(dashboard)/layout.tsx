@@ -49,7 +49,8 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-dvh bg-ink text-paper">
-      <div className="md:hidden"><MobileNav user={user} sections={sections} companyName={companyName} newLeads={count ?? 0}/></div>
+      {/* Sem invólucro: o `sticky` da barra precisa de ter como pai a página inteira. */}
+      <MobileNav user={user} sections={sections} companyName={companyName} newLeads={count ?? 0}/>
       <div className="md:grid md:grid-cols-[248px_1fr]">
         {/* Safe-area insets: em modo app (viewport-fit=cover) nada fica por baixo
             do notch, da barra de estado ou da barra inicial do iPhone/iPad. */}
