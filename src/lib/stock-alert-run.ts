@@ -7,6 +7,7 @@ import { customerTemplateName, firstName } from "@/lib/customer-templates";
 import { alertCancelToken } from "@/lib/alert-token";
 import { backofficeBaseUrl } from "@/lib/notifications";
 import { site } from "@/lib/site";
+import { templateParam } from "@/lib/notification-events";
 import {
   ALERT_MAX_AGE_DAYS,
   alertCarLabel,
@@ -188,8 +189,8 @@ export async function processStockAlerts(
         language: templateLanguage(),
         params: [
           firstName(alert.name),
-          options.companyName,
-          alertCarLabel(car),
+          templateParam(options.companyName, 80),
+          templateParam(alertCarLabel(car), 120),
           `${options.baseUrl}/viaturas/${car.slug}`,
           token ? `${options.baseUrl}/alertas/cancelar/${token}` : `${options.baseUrl}/contactos`,
         ],

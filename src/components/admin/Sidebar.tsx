@@ -4,106 +4,47 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/lib/actions/auth";
 import type { Section } from "@/lib/permissions";
-import { Avatar } from "./Avatar";
+import { AdminIcon } from "./AdminIcon";
+import { ADMIN_NAV, isAdminNavActive } from "./admin-nav";
 
-const NAV: {
-  href: string;
-  label: string;
-  icon: string;
-  exact: boolean;
-  section: Section;
-}[] = [
-  { href: "/admin", label: "Dashboard", icon: "▨", exact: true, section: "dashboard" },
-  { href: "/admin/carros", label: "Viaturas", icon: "▦", exact: false, section: "carros" },
-  { href: "/admin/carros/novo", label: "Nova viatura", icon: "＋", exact: true, section: "carros" },
-  { href: "/admin/pagina-inicial", label: "Página inicial", icon: "◧", exact: false, section: "pagina-inicial" },
-  { href: "/admin/leads", label: "Leads", icon: "✉", exact: false, section: "leads" },
-  { href: "/admin/leads/agenda", label: "Agenda de visitas", icon: "▣", exact: false, section: "leads" },
-  { href: "/admin/testemunhos", label: "Testemunhos", icon: "★", exact: false, section: "testemunhos" },
-  { href: "/admin/integracoes", label: "Integrações", icon: "⇄", exact: false, section: "integracoes" },
-  { href: "/admin/anuncios", label: "Plataformas de anúncios", icon: "⊞", exact: false, section: "anuncios" },
-  { href: "/admin/utilizadores", label: "Utilizadores", icon: "◑", exact: false, section: "utilizadores" },
-  { href: "/admin/definicoes", label: "Definições", icon: "⚙", exact: false, section: "definicoes" },
-  { href: "/admin/financeiro", label: "Custos e margens", icon: "€", exact: false, section: "financeiro" },
-  { href: "/admin/oficina", label: "Oficina", icon: "⚒", exact: false, section: "oficina" },
-  { href: "/admin/horas", label: "Horas", icon: "◷", exact: false, section: "horas" },
-];
+const ITEM =
+  "relative flex min-h-12 w-full shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 transition-colors";
+const LABEL = "max-w-full truncate text-[9.5px] font-medium leading-tight";
 
+/**
+ * Barra lateral de vidro, arredondada, à esquerda: ícone com o nome curto por
+ * baixo, para ninguém se perder. O separador ativo fica em branco (ou escuro,
+ * no tema claro). Se o ecrã for baixo, a lista faz scroll.
+ */
 export function Sidebar({
-  user,
   sections,
-  companyName = "Supermotas",
   newLeads = 0,
 }: {
-  user: { name: string; role: string };
   sections: Section[];
-  companyName?: string;
   newLeads?: number;
 }) {
   const pathname = usePathname();
-  const items = NAV.filter((i) => sections.includes(i.section));
-
-  const isActive = (href: string, exact: boolean) =>
-    exact
-      ? pathname === href
-      : pathname.startsWith(href) && !(href === "/admin/leads" && pathname.startsWith("/admin/leads/agenda"));
+  const items = ADMIN_NAV.filter((i) => sections.includes(i.section));
 
   return (
-    <aside className="flex h-full flex-col gap-6 border-r border-white/10 bg-ink-soft p-5">
-      <Link href="/admin" className="flex items-center gap-2 px-2">
-        <span className="truncate text-lg font-bold tracking-tight text-paper">
-          {companyName}
-        </span>
-        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-paper/60">
-          Admin
-        </span>
-      </Link>
-
-      {/* A área pessoal fica destacada no topo, separada dos separadores de
-          trabalho: é aqui que cada um trata dos seus dados e das suas férias,
-          e no rodapé passava despercebida. */}
-      <Link
-        href="/admin/perfil"
-        aria-current={pathname.startsWith("/admin/perfil") ? "page" : undefined}
-        className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${
-          pathname.startsWith("/admin/perfil")
-            ? "border-accent/40 bg-accent/15"
-            : "border-white/10 hover:border-white/25 hover:bg-white/5"
-        }`}
-      >
-        <Avatar name={user.name} size={40} />
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-medium text-paper">
-            {user.name}
-          </span>
-          <span className="block text-xs text-paper/50">
-            O meu perfil e férias
-          </span>
-        </span>
-      </Link>
-
-      <nav className="flex flex-1 flex-col gap-1">
+    <aside className="flex h-full w-[80px] flex-col items-center gap-1 rounded-[2rem] border border-white/10 bg-white/[0.04] px-2 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_30px_60px_-30px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+      <nav aria-label="Backoffice" className="flex min-h-0 w-full flex-1 flex-col items-center gap-0.5 overflow-y-auto [scrollbar-width:none]">
         {items.map((item) => {
-          const active = isActive(item.href, item.exact);
+          const active = isAdminNavActive(pathname, item);
           return (
             <Link
               key={item.href}
               href={item.href}
+              aria-label={item.label}
               aria-current={active ? "page" : undefined}
-              className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
-                active
-                  ? "bg-accent/15 font-medium text-accent"
-                  : "text-paper/70 hover:bg-white/5 hover:text-paper"
+              className={`${ITEM} ${
+                active ? "bg-paper text-ink shadow-md" : "text-paper/60 hover:bg-white/10 hover:text-paper"
               }`}
             >
-              <span className="flex items-center gap-3">
-                <span aria-hidden className="w-4 text-center">
-                  {item.icon}
-                </span>
-                {item.label}
-              </span>
+              <AdminIcon name={item.icon} />
+              <span className={LABEL}>{item.short}</span>
               {item.href === "/admin/leads" && newLeads > 0 && (
-                <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-ink">
+                <span className="absolute right-1.5 top-1 grid min-w-4 place-items-center rounded-full bg-accent px-1 text-[9px] font-bold leading-4 text-ink">
                   {newLeads}
                 </span>
               )}
@@ -112,20 +53,24 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className="border-t border-white/10 pt-4">
+      <div className="flex w-full flex-col items-center gap-0.5 border-t border-white/10 pt-2">
         <Link
           href="/"
           target="_blank"
-          className="mb-1 block rounded-lg px-2 py-2 text-xs text-paper/60 transition-colors hover:text-paper"
+          aria-label="Ver site público"
+          className={`${ITEM} text-paper/60 hover:bg-white/10 hover:text-paper`}
         >
-          ↗ Ver site público
+          <AdminIcon name="external" />
+          <span className={LABEL}>Site</span>
         </Link>
-        <form action={logout}>
+        <form action={logout} className="w-full">
           <button
             type="submit"
-            className="w-full rounded-lg px-2 py-2 text-left text-xs text-paper/60 transition-colors hover:text-red-300"
+            aria-label="Terminar sessão"
+            className={`${ITEM} text-paper/60 hover:bg-red-500/15 hover:text-red-300`}
           >
-            ⏻ Terminar sessão
+            <AdminIcon name="logout" />
+            <span className={LABEL}>Sair</span>
           </button>
         </form>
       </div>

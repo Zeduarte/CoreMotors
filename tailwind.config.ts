@@ -15,12 +15,13 @@ const config: Config = {
       colors: {
         // Paleta escura com um único acento. Definida via CSS vars para ser
         // trivialmente re-tematizável (ver globals.css).
+        // Variáveis RGB (ver globals.css) para o backoffice poder ter tema claro.
         ink: {
-          DEFAULT: "#0A0A0A",
-          soft: "#111112",
-          muted: "#18181B",
+          DEFAULT: "rgb(var(--ink) / <alpha-value>)",
+          soft: "rgb(var(--ink-soft) / <alpha-value>)",
+          muted: "rgb(var(--ink-muted) / <alpha-value>)",
         },
-        paper: "#F5F5F4",
+        paper: "rgb(var(--paper) / <alpha-value>)",
         accent: {
           DEFAULT: "var(--accent)",
           soft: "var(--accent-soft)",

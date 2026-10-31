@@ -151,7 +151,7 @@ export async function enrichLeadDetails(db: Db, jobs: ClaimedNotification[]): Pr
   if (ids.length === 0) return;
   let data;
   try {
-    const res = await db.from("leads").select("id,phone,email,message,preferred_date").in("id", ids);
+    const res = await db.from("leads").select("id,phone,email,message,preferred_date,visit_at").in("id", ids);
     if (res.error || !res.data) return;
     data = res.data;
   } catch {
@@ -167,6 +167,7 @@ export async function enrichLeadDetails(db: Db, jobs: ClaimedNotification[]): Pr
       email: lead.email,
       message: lead.message,
       preferred_date: lead.preferred_date,
+      visit_at: lead.visit_at,
     };
   }
 }

@@ -1,4 +1,5 @@
 import { getVehicleSelection } from "@/lib/vehicle-context";
+import { requireSection } from "@/lib/guard";
 import { getShowroomContent } from "@/lib/showroom-queries";
 import Link from "next/link";
 import { CarForm } from "@/components/admin/CarForm";
@@ -8,6 +9,7 @@ import { getBadges } from "@/lib/queries";
 export const dynamic = "force-dynamic";
 
 export default async function NewCarPage() {
+  await requireSection("carros");
   const vehicleType = await getVehicleSelection("admin");
   const [showroom, olxFields, badgeOptions] = await Promise.all([getShowroomContent(), getOlxFieldsForForm(), getBadges()]);
   return (

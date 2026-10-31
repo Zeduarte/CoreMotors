@@ -70,6 +70,8 @@ export async function saveVehicleRate(data: FormData) {
 
   let value: number | null = null;
   if (parsed.data.override === "on") {
+    // Campo vazio não é 0 €/h: sem isto a margem ficava sem mão de obra sem ninguém reparar.
+    if (!String(parsed.data.hourly_rate_override ?? "").trim()) return {ok:false,error:"Indique o valor por hora."};
     const n = Number(parsed.data.hourly_rate_override);
     if (!Number.isFinite(n) || n < 0 || n > 1000) {
       return {ok:false,error:"Indique um valor por hora entre 0 e 1000 €."};

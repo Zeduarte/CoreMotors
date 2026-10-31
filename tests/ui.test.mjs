@@ -30,6 +30,7 @@ function load(file){file=resolve(file);if(cache.has(file))return cache.get(file)
   if(id.endsWith('.css'))return new Proxy({}, {get:(_,key)=>key==='__esModule'?undefined:String(key)});
   if(id==='next/headers')return {cookies:async()=>({get:()=>({value:'car'})})};
   if(id==='next/navigation')return {usePathname:()=>pathname,useRouter:()=>({refresh(){}}),notFound(){throw Error('404');}};
+  if(id==='next/image')return {__esModule:true,default:({src,alt})=>React.createElement('img',{src,alt})};
   if(id==='next/link')return {__esModule:true,default:({href,children,scroll,...props})=>React.createElement('a',{href,...props},children)};
   if(id==='@/lib/supabase/server')return {createClient:async()=>db};
   if(id==='@/lib/guard')return {requireSection:async()=>({id:'me',role,allowed_sections:null})};
@@ -46,6 +47,14 @@ function load(file){file=resolve(file);if(cache.has(file))return cache.get(file)
 }
 async function expand(node){if(Array.isArray(node))return Promise.all(node.map(async(child,i)=>{const el=await expand(child);return React.isValidElement(el)&&el.key===null?React.cloneElement(el,{key:`fixture-${i}`}):el;}));if(!React.isValidElement(node))return node;if(typeof node.type==='function'&&node.type.constructor.name==='AsyncFunction')return expand(await node.type(node.props));if(node.props.children!==undefined)return React.cloneElement(node,{},await expand(node.props.children));return node;}
 async function render(file,props={}){const Page=load(file).default;return renderToStaticMarkup(await expand(await Page(props)));}
+await test('leads list shows what matters and the quick actions without opening the lead',async()=>{
+ role='admin';
+ const html=await render('src/app/admin/(dashboard)/leads/page.tsx',{searchParams:Promise.resolve({})});
+ for(const text of ['Cliente de teste','BMW 320','Gostava de marcar uma visita','910000000','Sem resposta','Por atribuir','Ligar','wa.me/351910000000','Já contactei','Atribuir-me','Adiar','Abrir →'])
+  assert.ok(html.includes(text),text);
+ assert.ok(html.includes('href="/admin/leads/'+lead+'"'),'continua a dar para abrir o contacto');
+});
+
 await test('CRM detail renders linked forms and administrative sale controls',async()=>{
  role='admin';const html=await render('src/app/admin/(dashboard)/leads/[id]/page.tsx',{params:Promise.resolve({id:lead})});
  for(const text of ['Cliente de teste','Guardar acompanhamento','Confirmar reserva','Concluir venda','Registar atividade'])assert.ok(html.includes(text),text);
@@ -108,20 +117,38 @@ await test('world switch offers only the other world, and not on shared pages',(
  pathname='/inventario';
 });
 
-await test('admin world bar hides on shared sections and without access to the other type',()=>{
- const Bar=load('src/components/admin/AdminWorldBar.tsx').AdminWorldBar;
+await test('admin world banner shows the context, flags the other world, and marks shared sections',()=>{
+ const Banner=load('src/components/admin/AdminWorldBanner.tsx').AdminWorldBanner;
+ const images={car:'/car.jpg',motorcycle:'/moto.jpg'};
+ const props=(extra)=>({world:'car',allowed:['car','motorcycle'],newByWorld:{car:0,motorcycle:0},images,...extra});
  pathname='/admin/carros';
- const both=renderToStaticMarkup(React.createElement(Bar,{world:'car',allowed:['car','motorcycle']}));
- assert.ok(both.includes('Passar para motas'));
+ const both=renderToStaticMarkup(React.createElement(Banner,props()));
+ assert.ok(both.includes('A gerir')&&both.includes('Carros')&&both.includes('Motas'));
+ assert.ok(both.includes('type=motorcycle'),'dá para passar para as motas');
+ assert.ok(!both.includes('contacto'),'sem avisos quando não há nada novo');
 
- const onlyCars=renderToStaticMarkup(React.createElement(Bar,{world:'car',allowed:['car']}));
+ const pending=renderToStaticMarkup(React.createElement(Banner,props({newByWorld:{car:0,motorcycle:3}})));
+ assert.ok(pending.includes('3 contactos novos em motas'),'avisa dos contactos novos no outro mundo');
+ pathname='/admin/financeiro';
+ const fromCosts=renderToStaticMarkup(React.createElement(Banner,props({newByWorld:{car:0,motorcycle:3}})));
+ assert.ok(fromCosts.includes('type=motorcycle&amp;target=%2Fadmin%2Fleads"'),'o aviso leva às leads do outro mundo, mesmo vindo dos Custos');
+ pathname='/admin/carros';
+
+ const onlyCars=renderToStaticMarkup(React.createElement(Banner,props({allowed:['car'],newByWorld:{car:1,motorcycle:5}})));
  assert.ok(onlyCars.includes('A gerir'),'continua a dizer onde está');
- assert.ok(!onlyCars.includes('Passar para'),'sem passagem para o que não pode ver');
+ assert.ok(!onlyCars.includes('type=motorcycle'),'sem passagem para o que não pode ver');
+ assert.ok(!onlyCars.includes('em motas'),'não avisa do que não pode ver');
+
+ pathname='/admin/leads/agenda';
+ assert.ok(renderToStaticMarkup(React.createElement(Banner,props())).includes('target=%2Fadmin%2Fleads%2Fagenda'),'a agenda mantém-se ao trocar de mundo');
 
  for(const shared of ['/admin/utilizadores','/admin/testemunhos','/admin/definicoes','/admin/integracoes','/admin/anuncios','/admin/horas']){
   pathname=shared;
-  assert.equal(renderToStaticMarkup(React.createElement(Bar,{world:'car',allowed:['car','motorcycle']})),'',shared);
+  const html=renderToStaticMarkup(React.createElement(Banner,props()));
+  assert.ok(html.includes('Todo o site')&&!html.includes('A gerir'),shared);
  }
+ pathname='/admin/perfil';
+ assert.equal(renderToStaticMarkup(React.createElement(Banner,props())),'');
  pathname='/inventario';
 });
 
@@ -217,7 +244,7 @@ await test('visit agenda lists the requests to confirm and the lead page shows t
  fixtures.leads=[visit];
  try{
   const html=await render('src/app/admin/(dashboard)/leads/agenda/page.tsx',{searchParams:Promise.resolve({})});
-  for(const text of ['Agenda de visitas','Maria Visita','Por confirmar','Confirmar','Realizada','Não veio','Nova visita','https://wa.me/351912345678'])assert.ok(html.includes(text),text);
+  for(const text of ['Agenda de visitas','Maria Visita','Por confirmar','Confirmar','Realizada','Não veio','Nova visita','https://wa.me/351912345678','Ligar','Atribuir-me','Abrir →','pedida'])assert.ok(html.includes(text),text);
   const page=await render('src/app/admin/(dashboard)/leads/[id]/page.tsx',{params:Promise.resolve({id:visit.id})});
   for(const text of ['Visita ao stand','Por confirmar','Confirmar visita','Enviar confirmação pelo WhatsApp','Mudar a visita'])assert.ok(page.includes(text),text);
   fixtures.leads=[{...visit,kind:'alert',visit_at:null,visit_status:null,car_details:{criteria:{vehicle_type:'car',make:'BMW',max_price:30000},whatsapp_opt_in_at:'x'}}];

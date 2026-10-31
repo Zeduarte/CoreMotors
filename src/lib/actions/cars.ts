@@ -1,11 +1,12 @@
 "use server";
 
-import { requireSection } from "@/lib/guard";
+import { requireCarsAccess, requireSection, requireVehicleType } from "@/lib/guard";
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { PUBLIC_DATA_TAG } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
-import { carFormSchema } from "@/lib/schemas";
+import { z } from "zod";
+import { CAR_STATUSES, carFormSchema } from "@/lib/schemas";
 import { vehicleSlug } from "@/lib/slug";
 import { MEDIA_BUCKET } from "@/lib/storage";
 import type { CarInsert, CarStatus } from "@/lib/supabase/database.types";
@@ -96,6 +97,9 @@ function toRow(
   };
 }
 
+const IDS = z.array(z.string().uuid()).max(200);
+const STATUS = z.enum(CAR_STATUSES);
+
 export async function createCar(input: unknown): Promise<SaveResult> {
   await requireSection("carros");
   const parsed = carFormSchema.safeParse(input);
@@ -106,6 +110,7 @@ export async function createCar(input: unknown): Promise<SaveResult> {
       fieldErrors: flatten(parsed),
     };
   }
+  await requireVehicleType(parsed.data.vehicle_type);
 
   const supabase = await createClient();
   const {
@@ -151,6 +156,8 @@ export async function updateCar(
       fieldErrors: flatten(parsed),
     };
   }
+  await requireCarsAccess([id]);
+  await requireVehicleType(parsed.data.vehicle_type);
 
   const supabase = await createClient();
   const row = toRow(parsed.data);
@@ -201,6 +208,8 @@ export async function setCarStatus(
   status: CarStatus,
 ): Promise<SaveResult> {
   await requireSection("carros");
+  if (!IDS.safeParse([id]).success || !STATUS.safeParse(status).success) return { ok: false, error: "Pedido inválido." };
+  await requireCarsAccess([id]);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("cars")
@@ -221,6 +230,8 @@ export async function toggleFeatured(
   featured: boolean,
 ): Promise<SaveResult> {
   await requireSection("carros");
+  if (!IDS.safeParse([id]).success) return { ok: false, error: "Pedido inválido." };
+  await requireCarsAccess([id]);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("cars")
@@ -236,6 +247,8 @@ export async function toggleFeatured(
 /** Duplica um carro como rascunho (sem media, sem destaque). */
 export async function duplicateCar(id: string): Promise<SaveResult> {
   await requireSection("carros");
+  if (!IDS.safeParse([id]).success) return { ok: false, error: "Pedido inválido." };
+  await requireCarsAccess([id]);
   const supabase = await createClient();
   const { data: src, error: readErr } = await supabase
     .from("cars")
@@ -283,6 +296,8 @@ export async function duplicateCar(id: string): Promise<SaveResult> {
 /** Apaga um carro e a sua media (BD + objetos no Storage). */
 export async function deleteCar(id: string): Promise<SaveResult> {
   await requireSection("carros");
+  if (!IDS.safeParse([id]).success) return { ok: false, error: "Pedido inválido." };
+  await requireCarsAccess([id]);
   const supabase = await createClient();
 
   const { data: media } = await supabase
@@ -314,6 +329,8 @@ export async function bulkSetStatus(
 ): Promise<SaveResult> {
   await requireSection("carros");
   if (!ids.length) return { ok: true };
+  if (!IDS.safeParse(ids).success || !STATUS.safeParse(status).success) return { ok: false, error: "Pedido inválido." };
+  await requireCarsAccess(ids);
   const supabase = await createClient();
   const { error } = await supabase
     .from("cars")
@@ -330,6 +347,8 @@ export async function bulkSetStatus(
 export async function bulkDelete(ids: string[]): Promise<SaveResult> {
   await requireSection("carros");
   if (!ids.length) return { ok: true };
+  if (!IDS.safeParse(ids).success) return { ok: false, error: "Pedido inválido." };
+  await requireCarsAccess(ids);
   const supabase = await createClient();
 
   const { data: media } = await supabase

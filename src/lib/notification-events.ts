@@ -131,6 +131,19 @@ function money(value: unknown): string | null {
   return Number.isFinite(n) && n > 0 ? eur.format(n) : null;
 }
 
+const hour = new Intl.DateTimeFormat("pt-PT", {
+  timeZone: "Europe/Lisbon",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** «23/10/2026 às 15:30», a hora marcada de uma visita (em Lisboa). */
+function visitWhen(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : `${day.format(d)} às ${hour.format(d)}`;
+}
+
 function date(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const d = new Date(value);
@@ -187,11 +200,11 @@ function text(value: unknown): string {
 /**
  * As variáveis do aviso de contacto: o tipo de pedido e todos os dados do
  * cliente, para quem recebe saber do que se trata sem abrir o backoffice.
- * O telemóvel, o email, a mensagem e a data pretendida não vão no aviso
+ * O telemóvel, o email, a mensagem, a data pretendida e a hora da visita não vão no aviso
  * guardado: juntam-se ao enviar (enrichLeadDetails, em notifications.ts).
  */
 function leadParams(label: string, payload: Payload): string[] {
-  const wanted = date(payload.preferred_date);
+  const wanted = (payload.kind === "visit" ? visitWhen(payload.visit_at) : null) ?? date(payload.preferred_date);
   return [
     templateParam(wanted ? `${label} para ${wanted}` : label, 160),
     templateParam(payload.name, 60),

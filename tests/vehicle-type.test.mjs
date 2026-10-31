@@ -101,6 +101,8 @@ function load(file) {
     if (id === "@/lib/guard")
       return {
         requireSection: async (section) => requestedSections.push(section),
+        requireVehicleType: async () => {},
+        requireCarsAccess: async () => {},
       };
     if (id === "@/lib/public-submissions") return {publicSubmissionClient:async()=>db};
     if (id === "@/lib/supabase/server") return { createClient: async () => db };
@@ -291,6 +293,15 @@ await test("per-user vehicle access limits the backoffice world and the switch e
 
  profile={id:"staff-test",role:"admin",allowed_vehicle_types:null};
  adminType="car";
+});
+
+await test("switching world in the backoffice stays on the same section",async()=>{
+ const {GET}=load("src/app/api/vehicle-context/route.ts");
+ const {NextRequest}=require("next/server");
+ profile={id:"staff-test",role:"admin",allowed_vehicle_types:null};
+ const go=async(target)=>(await GET(new NextRequest(`https://example.test/api/vehicle-context?type=motorcycle&area=admin&target=${encodeURIComponent(target)}`))).headers.get("location");
+ for(const section of ["/admin","/admin/carros","/admin/leads","/admin/leads/agenda","/admin/oficina","/admin/financeiro","/admin/pagina-inicial"])
+  assert.equal(await go(section),section,section);
 });
 
 await test("first visit keeps the page the visitor arrived on",async()=>{

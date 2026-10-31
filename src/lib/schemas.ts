@@ -404,8 +404,8 @@ export type IntegrationsValues = z.infer<typeof integrationsSchema>;
 // ---- Novo utilizador (admin) ----------------------------------------------
 export const newUserSchema = z.object({
   full_name: z.string().trim().min(2, "Indique o nome").max(80),
-  // Opcional: há quem só deixe o telefone. Um dos dois é obrigatório (abaixo).
-  email: z.string().trim().email("Email inválido").optional().or(z.literal("")),
+  // O utilizador entra com o email: sem ele a conta não se cria.
+  email: z.string().trim().email("Email inválido"),
   password: z.string().min(8, "Mínimo 8 caracteres").max(72),
   role: z.enum(["admin", "chefe", "vendedor", "mecanico"]).default("vendedor"),
   /** Separadores a que o novo utilizador terá acesso (opcional). */

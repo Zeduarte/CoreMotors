@@ -2,6 +2,7 @@ import { getAdminVehicleType } from "@/lib/vehicle-context";
 import { showsInWorkshop } from "@/lib/vehicle-categories";
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { allRows } from "@/lib/pagination";
 import { coverImage } from "@/lib/mappers";
 import { publicMediaUrl } from "@/lib/storage";
 import type { CarWithMedia, VehicleTaskRow } from "@/lib/supabase/database.types";
@@ -26,15 +27,20 @@ export interface WorkshopVehicle {
 export async function getWorkshopVehicles(): Promise<WorkshopVehicle[]> {
   const supabase = await createClient();
   const vehicleType = await getAdminVehicleType();
-  const [{ data: cars }, { data: logs }] = await Promise.all([
-    supabase
-      .from("cars")
-      .select("*, car_media(*)").eq("vehicle_type", vehicleType)
-      .order("updated_at", { ascending: false }),
-    supabase.from("vehicle_tasks").select("car_id, hours"),
+  // Páginado: o Supabase corta nas 1000 primeiras linhas e as horas ficavam erradas.
+  const [cars, logs] = await Promise.all([
+    allRows((a, b) =>
+      supabase
+        .from("cars")
+        .select("*, car_media(*)").eq("vehicle_type", vehicleType)
+        .order("updated_at", { ascending: false })
+        .order("id")
+        .range(a, b),
+    ),
+    allRows((a, b) => supabase.from("vehicle_tasks").select("car_id, hours").order("id").range(a, b)),
   ]);
 
-  const logRows = (logs ?? []) as { car_id: string; hours: number }[];
+  const logRows = logs as { car_id: string; hours: number }[];
   const hoursByCar = new Map<string, number>();
   const countByCar = new Map<string, number>();
   for (const l of logRows) {

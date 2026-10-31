@@ -107,7 +107,9 @@ export function CarsTable({ items }: { items: CarListItem[] }) {
     });
   }
 
-  const selectedIds = [...selected];
+  // Só as que se veem: depois de mudar o filtro, as escondidas não entram no lote.
+  const visibleIds = new Set(filtered.map((i) => i.id));
+  const selectedIds = [...selected].filter((id) => visibleIds.has(id));
 
   return (
     <div className="space-y-4">

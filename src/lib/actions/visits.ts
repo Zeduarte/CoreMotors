@@ -147,10 +147,11 @@ async function confirmAndNotify(id: string, me: string, activity: string): Promi
   const db = await createClient();
   const { data: lead } = await db
     .from("leads")
-    .select("id, name, phone, car_label, car_details, visit_at, next_action")
+    .select("id, name, phone, car_label, car_details, visit_at, visit_status, next_action")
     .eq("id", id)
     .maybeSingle();
   if (!lead?.visit_at) return { ok: false, error: "Contacto sem visita marcada." };
+  if (lead.visit_status !== "requested" && lead.visit_status !== "confirmed") return { ok: false, error: "Esta visita já está fechada." };
   const result = await sendVisitMessage(db, lead, await visitContext());
   const details: Record<string, unknown> = { ...(lead.car_details ?? {}) };
   if (result?.ok || result?.uncertain) details.visit_message_sent_at = new Date().toISOString();
@@ -208,8 +209,9 @@ export async function setVisitOutcome(data: FormData): Promise<Result> {
     .safeParse(Object.fromEntries(data));
   if (!parsed.success) return { ok: false, error: "Escolha o resultado da visita." };
   const db = await createClient();
-  const { data: lead } = await db.from("leads").select("next_action, status").eq("id", parsed.data.id).maybeSingle();
+  const { data: lead } = await db.from("leads").select("next_action, status, visit_status").eq("id", parsed.data.id).maybeSingle();
   if (!lead) return { ok: false, error: "Contacto não encontrado." };
+  if (lead.visit_status !== "requested" && lead.visit_status !== "confirmed") return { ok: false, error: "Esta visita já está fechada." };
   const visitAction = lead.next_action === "Visita ao stand" || lead.next_action === "Confirmar a visita ao stand";
   const { error } = await db
     .from("leads")
