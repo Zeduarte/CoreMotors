@@ -31,14 +31,21 @@ export async function requireVehicleType(type: VehicleType): Promise<void> {
   if (!canAccessVehicleType(profile.role, profile.allowed_vehicle_types, type)) redirect("/admin");
 }
 
-/** O mesmo, para viaturas que já existem: lê o tipo de cada uma. */
+/**
+ * O mesmo, para viaturas que já existem: lê o tipo de cada uma. Um id que não
+ * volta na consulta (não existe, ou a RLS esconde-o por ser do outro tipo)
+ * também é recusado: senão passava sem verificação e a media dessa viatura,
+ * cujas políticas só olham ao separador, ficava à mercê de quem soubesse o id.
+ */
 export async function requireCarsAccess(ids: string[]): Promise<void> {
   if (!ids.length) return;
   const profile = await getCurrentProfile();
   if (!profile) redirect("/admin/login");
   const db = await createClient();
-  const { data } = await db.from("cars").select("vehicle_type").in("id", ids);
-  for (const row of data ?? []) {
+  const wanted = new Set(ids);
+  const { data, error } = await db.from("cars").select("id, vehicle_type").in("id", [...wanted]);
+  if (error || !data || data.length < wanted.size) redirect("/admin");
+  for (const row of data) {
     if (!canAccessVehicleType(profile.role, profile.allowed_vehicle_types, row.vehicle_type as VehicleType)) redirect("/admin");
   }
 }

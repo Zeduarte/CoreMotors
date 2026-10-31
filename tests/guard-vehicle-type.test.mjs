@@ -67,6 +67,16 @@ await test("quem só tem carros não cria nem mexe em motas", async () => {
   await denied(() => requireCarsAccess(["car-1", "bike-1"]));
 });
 
+await test("um id escondido pela RLS (ou que não existe) também é recusado", async () => {
+  profile = { id: "u1", role: "vendedor", allowed_sections: null, allowed_vehicle_types: ["car"] };
+  // A RLS por tipo esconde a mota: a consulta só devolve a linha do carro.
+  carTypes = { "car-1": "car" };
+  await denied(() => requireCarsAccess(["hidden-bike"]));
+  await denied(() => requireCarsAccess(["car-1", "hidden-bike"]));
+  // O mesmo id repetido não conta como em falta.
+  await requireCarsAccess(["car-1", "car-1"]);
+});
+
 await test("o admin e quem não tem restrição acedem aos dois tipos", async () => {
   carTypes = { "car-1": "car", "bike-1": "motorcycle" };
   profile = { id: "u2", role: "admin", allowed_sections: null, allowed_vehicle_types: ["car"] };
