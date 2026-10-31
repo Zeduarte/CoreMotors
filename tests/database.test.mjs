@@ -1339,4 +1339,24 @@ await test('0042: visits need a date and a state, and stock alert matches are st
  assert.equal((await db.query('select count(*)::int n from stock_alert_matches where lead_id=$1',[alert])).rows[0].n,0,'apagar o contacto apaga as correspondências');
 });
 
+await test('VERIFICAR_migracoes.sql: uma linha por migração, tudo aplicado aqui, e diz o que falta',async()=>{
+ const check=await readFile('supabase/VERIFICAR_migracoes.sql','utf8');
+ const files=(await readdir('supabase/migrations')).filter(f=>f.endsWith('.sql')).map(f=>f.replace(/\.sql$/,'')).sort();
+ const listed=[...check.matchAll(/^\s*\('(\d{4}_[a-z0-9_]+)',/gm)].map(m=>m[1]);
+ assert.deepEqual([...new Set(listed)].sort(),files,'cada ficheiro de supabase/migrations tem a sua linha');
+
+ const run=async()=>Object.fromEntries((await db.query(check)).rows.map(r=>[r.migracao,r.estado]));
+ const all=await run();
+ assert.deepEqual(Object.entries(all).filter(([,e])=>e!=='aplicada'&&e!=='tudo aplicado'),[],'com todas aplicadas nada falta');
+ assert.equal(all.RESUMO,'tudo aplicado');
+
+ // Sem o que a 0047 cria, essa linha e o resumo dizem que falta.
+ await db.exec('begin; drop function public.car_has_sales_history(uuid) cascade;');
+ try {
+  const missing=await run();
+  assert.equal(missing['0047_backoffice_sales_visits'],'FALTA');
+  assert.match(missing.RESUMO,/^1 em falta/);
+ } finally { await db.exec('rollback;'); }
+});
+
 await db.close();

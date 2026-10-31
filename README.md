@@ -66,6 +66,10 @@ npm install
 > Alternativa com a Supabase CLI: `supabase db push` (migrations) e
 > `supabase db execute -f supabase/seed.sql`.
 
+Para saber que migrações já estão aplicadas numa base de dados, corra
+`supabase/VERIFICAR_migracoes.sql` no SQL Editor: dá uma linha por migração
+(«aplicada» ou «FALTA») e um resumo no fim. Só lê, não altera nada.
+
 ### 3. Variáveis de ambiente
 
 ```bash
