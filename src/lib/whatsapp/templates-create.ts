@@ -6,9 +6,9 @@ import type { WhatsAppNumber } from "./account";
 import { NOTIFICATION_TEMPLATES, templateLanguage, templateName, type TemplateDefinition } from "./send-template";
 
 /**
- * Submete à Meta os modelos de mensagem do site (os quatro avisos à equipa e os
- * dois dos clientes), em vez de os criar à mão no WhatsApp Manager. É o mesmo
- * que docs/WHATSAPP_TEMPLATES.md descreve: categoria Utility, só corpo, texto e
+ * Submete à Meta os modelos de mensagem do site (os cinco avisos à equipa e os
+ * quatro dos clientes), em vez de os criar à mão no WhatsApp Manager. É o mesmo
+ * que docs/WHATSAPP_TEMPLATES.md descreve: categoria Utility, corpo (e os botões do aviso das visitas), texto e
  * exemplos de src/lib/whatsapp/send-template.ts e customer-templates.ts.
  *
  * Continua a ser a Meta a aprová-los (minutos a horas). Um modelo que já existe
@@ -62,7 +62,12 @@ export async function createMessageTemplates(
         name,
         language,
         category: "UTILITY",
-        components: [{ type: "BODY", text: def.body, example: { body_text: [def.example] } }],
+        components: [
+          { type: "BODY", text: def.body, example: { body_text: [def.example] } },
+          ...(def.buttons?.length
+            ? [{ type: "BUTTONS", buttons: def.buttons.map((text) => ({ type: "QUICK_REPLY", text })) }]
+            : []),
+        ],
       },
     });
     if (r.ok) lines.push(`${name}: enviado para aprovação.`);

@@ -7,7 +7,7 @@ import { CarsTable, type CarListItem } from "@/components/admin/CarsTable";
 export const dynamic = "force-dynamic";
 
 export default async function CarsPage() {
-  await requireSection("carros");
+  const me = await requireSection("carros");
   const cars = await getAdminCars();
 
   const items: CarListItem[] = cars.map((c) => ({
@@ -45,7 +45,7 @@ export default async function CarsPage() {
         </Link>
       </div>
 
-      <CarsTable items={items} />
+      <CarsTable items={items} isAdmin={me.role === "admin"} />
     </>
   );
 }

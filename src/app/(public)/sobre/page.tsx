@@ -8,6 +8,7 @@ import { COMMON_MEDIA } from "@/lib/media";
 
 export const metadata: Metadata = {
   title: "Sobre",
+  alternates: { canonical: "/sobre" },
   description:
     "Conheça o nosso stand de motas e automóveis — curadoria rigorosa, histórico transparente e uma experiência de compra sem fricção.",
 };

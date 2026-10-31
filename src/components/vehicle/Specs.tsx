@@ -34,7 +34,9 @@ export function Specs({ vehicle }: { vehicle: Vehicle }) {
     ...(vehicle.doors > 0
       ? [{ label: "Portas", value: String(vehicle.doors) }]
       : []),
-    { label: "Lugares", value: String(vehicle.seats) },
+    ...(vehicle.seats > 0
+      ? [{ label: "Lugares", value: String(vehicle.seats) }]
+      : []),
   ];
 
   return (

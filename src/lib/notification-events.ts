@@ -1,5 +1,6 @@
 import { describeRange } from "@/lib/leave";
 import type { Role, Section } from "@/lib/permissions";
+import { visitWhenLabel } from "@/lib/visits";
 
 /**
  * Os avisos por WhatsApp aos colaboradores: o catálogo e o texto de cada um.
@@ -12,16 +13,16 @@ import type { Role, Section } from "@/lib/permissions";
  *
  * A Meta só deixa a empresa iniciar uma conversa com modelos aprovados, por
  * isso o texto fixo está nos modelos (src/lib/whatsapp/send-template.ts e
- * docs/WHATSAPP_TEMPLATES.md) e aqui só se calculam as variáveis. Há quatro
+ * docs/WHATSAPP_TEMPLATES.md) e aqui só se calculam as variáveis. Há cinco
  * modelos para todos os avisos — cada modelo novo é mais um pedido de
  * aprovação para o administrador de cada stand.
  *
  * A migração 0041 acrescentou os avisos do que acontece DEPOIS (contactos
  * atribuídos, vendas, reservas que terminam, preços, viaturas que saem da
- * oficina) e os das férias — todos nos mesmos quatro modelos.
+ * oficina) e os das férias — todos nos mesmos modelos de aviso.
  */
 
-export type TemplateFamily = "lead" | "viatura" | "testemunho" | "aviso";
+export type TemplateFamily = "lead" | "viatura" | "testemunho" | "aviso" | "visita_equipa";
 
 /**
  * Separador do backoffice a que o aviso pertence: só o recebe quem o tem.
@@ -44,6 +45,7 @@ export interface NotificationEventInfo {
 export const NOTIFICATION_EVENTS = [
   { key: "lead_contact", section: "leads", family: "lead", label: "Pedidos de contacto e de financiamento", defaultOn: true },
   { key: "lead_test_drive", section: "leads", family: "lead", label: "Pedidos de test drive", defaultOn: true },
+  { key: "lead_visit", section: "leads", family: "visita_equipa", label: "Pedidos de visita ao stand", defaultOn: true },
   { key: "lead_offer", section: "leads", family: "lead", label: "Propostas de preço", defaultOn: true },
   { key: "lead_reservation", section: "leads", family: "lead", label: "Pedidos de reserva com sinal", defaultOn: true },
   { key: "lead_trade_in", section: "leads", family: "lead", label: "Pedidos de venda ou retoma", defaultOn: true },
@@ -131,19 +133,6 @@ function money(value: unknown): string | null {
   return Number.isFinite(n) && n > 0 ? eur.format(n) : null;
 }
 
-const hour = new Intl.DateTimeFormat("pt-PT", {
-  timeZone: "Europe/Lisbon",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-/** «23/10/2026 às 15:30», a hora marcada de uma visita (em Lisboa). */
-function visitWhen(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : `${day.format(d)} às ${hour.format(d)}`;
-}
-
 function date(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const d = new Date(value);
@@ -197,14 +186,25 @@ function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/** «terça-feira, 27 de outubro, às 10:30» (Lisboa), se o contacto tem a hora da visita. */
+function visitWhen(payload: Payload): string | null {
+  const at = text(payload.visit_at);
+  return at && !Number.isNaN(Date.parse(at)) ? visitWhenLabel(at) : null;
+}
+
+/** Só a data, quando o aviso antigo não traz a hora. */
+function visitWhenOrDate(payload: Payload): string {
+  return visitWhen(payload) ?? date(payload.preferred_date) ?? "data a combinar";
+}
+
 /**
  * As variáveis do aviso de contacto: o tipo de pedido e todos os dados do
  * cliente, para quem recebe saber do que se trata sem abrir o backoffice.
- * O telemóvel, o email, a mensagem, a data pretendida e a hora da visita não vão no aviso
+ * O telemóvel, o email, a mensagem e a data pretendida não vão no aviso
  * guardado: juntam-se ao enviar (enrichLeadDetails, em notifications.ts).
  */
 function leadParams(label: string, payload: Payload): string[] {
-  const wanted = (payload.kind === "visit" ? visitWhen(payload.visit_at) : null) ?? date(payload.preferred_date);
+  const wanted = visitWhen(payload) ?? date(payload.preferred_date);
   return [
     templateParam(wanted ? `${label} para ${wanted}` : label, 160),
     templateParam(payload.name, 60),
@@ -274,6 +274,19 @@ export function buildNotification(
     case "lead_order":
     case "lead_alert":
       return { family: "lead", params: leadParams(leadLabel(payload), payload) };
+    case "lead_visit":
+      // A hora e a pergunta «pode receber?» vão no modelo, com dois botões
+      // (notifications.ts). O telemóvel, a mensagem e a hora juntam-se ao enviar.
+      return {
+        family: "visita_equipa",
+        params: [
+          templateParam(visitWhenOrDate(payload), 100),
+          templateParam(payload.name, 60),
+          templateParam(text(payload.phone) || "não indicado", 30),
+          templateParam(text(payload.car_label) || "sem viatura associada", 80),
+          templateParam(text(payload.message) || "sem mensagem", 300),
+        ],
+      };
     case "testimonial_pending": {
       const rating = Number(payload.rating);
       return {

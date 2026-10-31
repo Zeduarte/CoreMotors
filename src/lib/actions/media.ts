@@ -144,15 +144,19 @@ export async function updateMediaAlt(
   alt: string,
 ): Promise<MediaResult> {
   await requireSection("carros");
+  // Descrição da foto para quem não a vê (leitores de ecrã) e para o Google.
+  const text = alt.trim().slice(0, 200);
   const supabase = await createClient();
   const { data: row } = await supabase.from("car_media").select("car_id").eq("id", mediaId).maybeSingle();
-  if (!row) return { ok: false, error: "Imagem não encontrada." };
+  if (!row) return { ok: false, error: "Fotografia não encontrada." };
   await requireCarsAccess([row.car_id]);
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("car_media")
-    .update({ alt: alt.slice(0, 300) })
-    .eq("id", mediaId);
+    .update({ alt: text })
+    .eq("id", mediaId)
+    .select("id");
   if (error) return { ok: false, error: error.message };
+  if (!data?.length) return { ok: false, error: "Fotografia não encontrada." };
   // O texto alternativo também aparece na página pública da viatura.
   await revalidateCar(row.car_id);
   return { ok: true };

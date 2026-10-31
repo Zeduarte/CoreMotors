@@ -202,9 +202,9 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                         <ActionForm
                           key={s}
                           action={setVisitOutcome}
-                          label={s === "done" ? "Realizada" : s === "no_show" ? "Não veio" : "Cancelar"}
+                          label={s === "done" ? "Realizada" : s === "no_show" ? "Não veio" : v.visit_status === "requested" ? "Recusar pedido" : "Cancelar"}
                           success="Registado."
-                          confirm={s === "cancelled" ? "Cancelar esta visita?" : undefined}
+                          confirm={s === "cancelled" ? (v.visit_status === "requested" ? "Recusar este pedido? O cliente é avisado para combinar outra hora." : "Cancelar esta visita?") : undefined}
                           className="[&_button]:!bg-transparent [&_button]:!border [&_button]:!border-white/15 [&_button]:!px-3 [&_button]:!py-2 [&_button]:!text-sm [&_button]:!text-paper/70"
                         >
                           <input type="hidden" name="id" value={v.id} />

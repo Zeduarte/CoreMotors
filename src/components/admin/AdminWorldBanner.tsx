@@ -87,7 +87,8 @@ export function AdminWorldBanner({
               return (
                 <a
                   key={w}
-                  href={`/api/vehicle-context?area=admin&type=${w}&target=${target}`}
+                  // Rota dentro de /admin: na app instalada a troca não sai da app.
+                  href={`/admin/vehicle-context?type=${w}&target=${target}`}
                   className={`${base} text-paper/75 hover:bg-white/10 hover:text-paper`}
                 >
                   {NAME[w]}
@@ -100,7 +101,7 @@ export function AdminWorldBanner({
             <a
               // Leva aos contactos novos do outro mundo, esteja-se em que ecrã
               // for (nos Custos, por exemplo, ficar na mesma página não mostrava nada).
-              href={`/api/vehicle-context?area=admin&type=${other}&target=${encodeURIComponent("/admin/leads")}`}
+              href={`/admin/vehicle-context?type=${other}&target=${encodeURIComponent("/admin/leads")}`}
               className="inline-flex items-center gap-2 rounded-full bg-accent px-3.5 py-1.5 text-xs font-semibold text-ink shadow-[0_8px_24px_-10px_var(--accent)] transition-transform hover:scale-[1.03]"
             >
               <span className="relative flex h-2 w-2">

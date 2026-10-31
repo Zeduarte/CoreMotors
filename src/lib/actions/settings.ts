@@ -19,6 +19,7 @@ import {
   companySchema,
   workshopSchema,
 } from "@/lib/schemas";
+import { webhookUrlProblem } from "@/lib/webhook-url";
 
 export interface SettingsResult {
   ok: boolean;
@@ -190,7 +191,7 @@ export async function saveMarketing(input: unknown): Promise<SettingsResult> {
   return { ok: true };
 }
 
-/** Guarda credenciais das plataformas de exportação e do pagamento. Apenas admin. */
+/** Guarda credenciais das plataformas de exportação e o webhook dos contactos. Apenas admin. */
 export async function saveIntegrations(input: unknown): Promise<SettingsResult> {
   if (!(await requireAdmin())) {
     return { ok: false, error: "Sem permissão. Apenas administradores." };
@@ -203,10 +204,23 @@ export async function saveIntegrations(input: unknown): Promise<SettingsResult> 
       error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
     };
   }
+  // O envio só aceita HTTPS e os domínios autorizados no servidor: um URL que
+  // nunca ia sair é recusado já, em vez de encher a fila em silêncio.
+  const webhookProblem = parsed.data.lead_webhook
+    ? webhookUrlProblem(parsed.data.lead_webhook)
+    : null;
+  if (webhookProblem) return { ok: false, error: webhookProblem };
 
   const supabase = await createClient();
+  // Junta ao que já está guardado: chaves que o formulário já não mostra
+  // (`stripe_secret`, `feed_token`) não se perdem ao gravar.
+  const { data: stored } = await supabase
+    .from("integration_secrets")
+    .select("data")
+    .eq("id", 1)
+    .maybeSingle();
   const { error } = await supabase.from("integration_secrets").upsert(
-    { id: 1, data: parsed.data as Record<string, unknown> },
+    { id: 1, data: { ...((stored?.data as Record<string, unknown>) ?? {}), ...parsed.data } },
     { onConflict: "id" },
   );
 

@@ -37,6 +37,7 @@ export function LeaveCalendar({
   days,
   extras,
   readOnly = false,
+  selfApproves = false,
 }: {
   year: number;
   years: number[];
@@ -44,6 +45,8 @@ export function LeaveCalendar({
   days: LeaveDay[];
   extras: CompanyDay[];
   readOnly?: boolean;
+  /** Quem aprova o próprio plano (o administrador) pode retirar dias aprovados. */
+  selfApproves?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -62,13 +65,15 @@ export function LeaveCalendar({
     const base = days.filter(
       (d) => !toRemove.has(d.day) && !toAdd.has(d.day),
     );
-    const juntos = [...toAdd.entries()].map(([day, half]) => ({
+    // O que se junta conta já no estado com que vai ficar — um dia recusado
+    // que se volta a pedir passa a contar no saldo.
+    const juntos = [...toAdd.entries()].map(([day, half]): LeaveDay => ({
       day,
       half,
-      status: (days.find((d) => d.day === day)?.status ?? "draft") as LeaveDay["status"],
+      status: selfApproves ? "approved" : "pending",
     }));
     return [...base, ...juntos];
-  }, [days, toAdd, toRemove]);
+  }, [days, toAdd, toRemove, selfApproves]);
 
   const resumo = summarise(balance, editing ? previstos : days);
   const alteracoes = toAdd.size + toRemove.size;
@@ -77,8 +82,15 @@ export function LeaveCalendar({
     if (readOnly || !editing || pending) return;
     const marcado = marcados.get(day);
 
+    // Um dia aprovado é um compromisso com a equipa: só sai por quem o aprovou.
+    if (marcado?.status === "approved" && !selfApproves) {
+      toast.info("Este dia já está aprovado. Para o cancelar, fale com quem o aprovou.");
+      return;
+    }
+
     // Um dia já marcado: primeiro clique risca-o (vermelho), segundo repõe.
-    if (marcado && !toAdd.has(day)) {
+    // O recusado não conta — clicar nele volta a pedi-lo, como num dia livre.
+    if (marcado && marcado.status !== "rejected" && !toAdd.has(day)) {
       setToRemove((prev) => {
         const next = new Set(prev);
         if (next.has(day)) next.delete(day);
@@ -111,9 +123,11 @@ export function LeaveCalendar({
         return;
       }
       toast.success(
-        res.approved
-          ? "Férias registadas e aprovadas."
-          : "Alterações enviadas para aprovação.",
+        toAdd.size === 0
+          ? "Dias retirados."
+          : res.approved
+            ? "Férias registadas e aprovadas."
+            : "Alterações enviadas para aprovação.",
       );
       setToAdd(new Map());
       setToRemove(new Set());
@@ -175,8 +189,8 @@ export function LeaveCalendar({
               Cancelar
             </button>
             <p className="text-xs text-paper/50">
-              Clique num dia livre para o juntar, ou num dia marcado para o
-              retirar.
+              Clique num dia livre (ou recusado) para o pedir, ou num dia por
+              aprovar para o retirar.
             </p>
           </>
         )}

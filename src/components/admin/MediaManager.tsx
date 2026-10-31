@@ -12,6 +12,7 @@ import {
   registerMedia,
   reorderMedia,
   setCover,
+  updateMediaAlt,
 } from "@/lib/actions/media";
 
 export interface MediaItem {
@@ -238,6 +239,18 @@ export function MediaManager({
     });
   }
 
+  // Texto alternativo: grava ao sair do campo, só se mudou.
+  function saveAlt(id: string, alt: string) {
+    const before = items.find((m) => m.id === id)?.alt ?? "";
+    if (alt.trim() === before.trim()) return;
+    setItems((prev) => prev.map((m) => (m.id === id ? { ...m, alt } : m)));
+    startTransition(async () => {
+      const res = await updateMediaAlt(id, alt);
+      if (res.ok) toast.success("Descrição guardada.");
+      else toast.error(res.error ?? "Não foi possível guardar a descrição.");
+    });
+  }
+
   // Apaga SEM confirmação (rápido). Remove logo do ecrã (otimista).
   function remove(id: string) {
     setItems((prev) => prev.filter((m) => m.id !== id));
@@ -312,8 +325,8 @@ export function MediaManager({
       {items.length > 0 && (
         <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {items.map((m, i) => (
-            <li
-              key={m.id}
+            <li key={m.id} className="space-y-1.5">
+            <div
               draggable
               onDragStart={() => onCardDragStart(i)}
               onDragOver={(e) => e.preventDefault()}
@@ -356,6 +369,17 @@ export function MediaManager({
                   </button>
                 </div>
               )}
+            </div>
+            {m.kind === "image" && (
+              <input
+                className="field !h-8 !px-2 !py-1 text-xs"
+                defaultValue={m.alt}
+                maxLength={200}
+                placeholder="Descrição da foto"
+                aria-label="Descrição da foto (texto alternativo)"
+                onBlur={(e) => saveAlt(m.id, e.currentTarget.value)}
+              />
+            )}
             </li>
           ))}
         </ul>

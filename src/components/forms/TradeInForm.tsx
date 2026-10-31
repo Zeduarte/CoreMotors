@@ -113,7 +113,7 @@ export function TradeInForm() {
               Contacto
             </p>
             <Field label="Nome" error={errors.name}>
-              <input name="name" autoComplete="name" className="field" />
+              <input name="name" required minLength={2} maxLength={120} autoComplete="name" className="field" />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Email" error={errors.email}>

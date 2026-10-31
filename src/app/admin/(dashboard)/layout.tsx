@@ -67,7 +67,8 @@ export default async function DashboardLayout({
 
   return (
     <div className="admin-shell min-h-dvh text-paper">
-      <div className="contents md:hidden"><MobileNav user={user} sections={sections} companyName={companyName} newLeads={count ?? 0}/></div>
+      {/* Sem invólucro: o `sticky` da barra precisa de ter como pai a página inteira. */}
+      <MobileNav user={user} sections={sections} companyName={companyName} newLeads={count ?? 0}/>
       {/* Em desktop: faixa de vidro no topo, barra de ícones à esquerda e pílula
           de atalhos em baixo, todas a flutuar. Safe-area para o modo app. */}
       <div className="hidden md:block">

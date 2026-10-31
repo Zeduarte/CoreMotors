@@ -21,6 +21,7 @@ import {
 } from "@/lib/actions/cars";
 import { CAR_STATUS_LABEL } from "./StatusBadge";
 import { brandOptions, sameBrand } from "@/lib/brand-name";
+import { manualStatusOptions, UNSELL_CONFIRM } from "@/lib/car-status";
 
 export interface CarListItem {
   vehicleType: "car" | "motorcycle";
@@ -45,7 +46,7 @@ export interface CarListItem {
 
 type SortKey = "recent" | "price-desc" | "price-asc" | "year-desc";
 
-export function CarsTable({ items }: { items: CarListItem[] }) {
+export function CarsTable({ items, isAdmin = false }: { items: CarListItem[]; isAdmin?: boolean }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<CarStatus | "">("");
   const [fuel, setFuel] = useState<FuelType | "">("");
@@ -99,11 +100,12 @@ export function CarsTable({ items }: { items: CarListItem[] }) {
     });
   }
 
-  function run(fn: () => Promise<{ ok: boolean; error?: string }>, msg: string) {
+  function run(fn: () => Promise<{ ok: boolean; error?: string; message?: string }>, msg: string) {
     startTransition(async () => {
       const res = await fn();
-      if (res.ok) toast.success(msg);
-      else toast.error(res.error ?? "Ocorreu um erro.");
+      if (res.ok) toast.success(res.message ?? msg);
+      // Nas ações em lote o texto explica uma a uma o que ficou por fazer.
+      else toast.error(res.error ?? "Ocorreu um erro.", { duration: 12000 });
     });
   }
 
@@ -213,6 +215,7 @@ export function CarsTable({ items }: { items: CarListItem[] }) {
                   `Apagar ${selectedIds.length} viatura(s)? Esta ação é irreversível.`,
                 )
               ) {
+                // Só as que têm histórico de vendas ou reservas ficam: o resumo diz quais.
                 run(() => bulkDelete(selectedIds), "Viaturas apagadas.");
                 setSelected(new Set());
               }
@@ -306,20 +309,16 @@ export function CarsTable({ items }: { items: CarListItem[] }) {
                       <select
                         value={car.status}
                         disabled={pending}
-                        onChange={(e) =>
-                          run(
-                            () =>
-                              setCarStatus(
-                                car.id,
-                                e.target.value as CarStatus,
-                              ),
-                            "Estado atualizado.",
-                          )
-                        }
+                        onChange={(e) => {
+                          const next = e.target.value as CarStatus;
+                          if (car.status === "sold" && !confirm(UNSELL_CONFIRM)) return;
+                          run(() => setCarStatus(car.id, next), "Estado atualizado.");
+                        }}
                         className="rounded-lg border border-white/10 bg-ink px-2 py-1 text-xs text-paper"
                         aria-label="Mudar estado"
                       >
-                        {LISTING_STATUSES.map((s) => (
+                        {/* Vendida e reservada só pelo contacto do cliente. */}
+                        {manualStatusOptions(car.status, isAdmin).map((s) => (
                           <option key={s} value={s}>
                             {CAR_STATUS_LABEL[s]}
                           </option>

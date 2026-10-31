@@ -13,7 +13,7 @@ import { formatKm, priceLabel } from "@/lib/format";
 import { CompareButton } from "@/components/inventory/CompareButton";
 import { FavoriteButton } from "@/components/inventory/FavoriteButton";
 import { badgesFor } from "@/lib/badges";
-import { useBadges } from "@/components/site/BadgesContext";
+import { useBadgeNow, useBadges } from "@/components/site/BadgesContext";
 import { setVehiclePreview } from "@/lib/vehicle-preview";
 
 interface VehicleCardProps {
@@ -42,7 +42,7 @@ interface VehicleCardProps {
  */
 /** Etiquetas da viatura, com o texto e a cor de Definições → Etiquetas. */
 function useVehicleBadges(vehicle: Vehicle) {
-  return badgesFor(vehicle, useBadges());
+  return badgesFor(vehicle, useBadges(), useBadgeNow());
 }
 
 export function VehicleCard({

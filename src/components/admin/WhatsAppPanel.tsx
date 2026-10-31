@@ -12,7 +12,7 @@ import { WhatsAppSimulator } from "./WhatsAppSimulator";
  * O simulador não é um extra: é a forma de ver isto a funcionar sem depender do
  * número da Meta, que leva dias a aprovar. Corre o mesmo código do webhook.
  */
-export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
+export async function WhatsAppPanel({ baseUrl, isAdmin = false }: { baseUrl: string; isAdmin?: boolean }) {
   // Da app da Meta, não do número: são precisas qualquer que seja o número.
   const variaveis = [
     ["WHATSAPP_VERIFY_TOKEN", !!process.env.WHATSAPP_VERIFY_TOKEN],
@@ -143,6 +143,8 @@ export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
           ) : (
             <p className="mt-1 text-amber-300">Nenhum número ligado.</p>
           )}
+          {/* Ligar o número e o perfil: só o administrador (as ações também o exigem). */}
+          {isAdmin ? <>
           <div className="mt-3">
             <WhatsAppConnect signup={signup} connected={!!ligacao} />
           </div>
@@ -155,6 +157,9 @@ export async function WhatsAppPanel({ baseUrl }: { baseUrl: string }) {
               <code>WHATSAPP_APP_ID</code> e <code>WHATSAPP_CONFIG_ID</code> (o ID da app da Meta e
               o da configuração do Embedded Signup), além das duas abaixo, e faça um novo deploy.
             </p>
+          )}
+          </> : (
+            <p className="mt-3 text-xs text-paper/50">Ligar ou trocar o número e aplicar a marca: só administradores.</p>
           )}
         </div>
 

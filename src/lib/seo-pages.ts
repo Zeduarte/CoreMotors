@@ -183,10 +183,20 @@ export function seoPath(page: Pick<SeoPage, "type" | "slug">): string {
   return `/${TYPE_PATH[page.type]}/${page.slug}`;
 }
 
+/**
+ * Primeira letra em minúscula, para o título caber a meio de uma frase —
+ * exceto siglas e nomes em maiúsculas ("SUV usados", "BMW…"), que ficam.
+ */
+export function midSentence(title: string): string {
+  const first = title.split(/\s/, 1)[0] ?? "";
+  if (/^[A-ZÀ-Ý0-9]{2,}$/.test(first.replace(/[^\p{L}\p{N}]/gu, ""))) return title;
+  return title.charAt(0).toLowerCase() + title.slice(1);
+}
+
 /** Texto de abertura da página, com os números do stock. */
 export function seoIntro(page: SeoPage | null, type: VehicleType, count: number, from: number | null, company: string): string {
   const w = WORDS[type];
-  const what = page ? page.title.charAt(0).toLowerCase() + page.title.slice(1) : w.used.toLowerCase();
+  const what = page ? midSentence(page.title) : w.used.toLowerCase();
   if (count === 0) {
     return `De momento não temos ${what} em stock na ${company}. Deixe um alerta e avisamos assim que entrar.`;
   }

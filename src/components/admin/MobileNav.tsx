@@ -26,8 +26,9 @@ export function MobileNav({
 
   return (
     // Em modo app (iPhone, `viewport-fit=cover`) a barra estende o fundo por
-    // baixo da barra de estado e do notch; o conteúdo fica abaixo dela.
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-black/70 pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur-xl">
+    // baixo da barra de estado e do notch; o conteúdo fica abaixo dela. Só em
+    // mobile — e sem invólucro à volta, senão o `sticky` não acompanha a página.
+    <header className="sticky top-0 z-40 border-b md:hidden border-white/10 bg-black/70 pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur-xl">
       <div className="flex items-center justify-between px-4 py-3">
         <Link href="/admin" className="text-base font-bold tracking-tight">
           <span className="text-paper">{companyName}</span>

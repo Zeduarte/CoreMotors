@@ -1,6 +1,7 @@
 import { site } from "@/lib/site";
 import { safeJsonLd } from "@/lib/json-ld";
 import { normalizeWhatsApp, type Branding } from "@/lib/branding";
+import { parseOpeningHours } from "@/lib/opening-hours";
 
 /**
  * JSON-LD schema.org/AutoDealer — identidade do negócio para o Google
@@ -11,8 +12,9 @@ import { normalizeWhatsApp, type Branding } from "@/lib/branding";
 export function DealerJsonLd({ branding }: { branding: Branding }) {
   const { company, companyName, logoUrl } = branding;
 
-  // "Seg–Sáb · 09h00–19h00" → dias + horas de abertura (best-effort).
-  const openingHours = parseHours(company.hours);
+  // "Seg–Sáb · 09h00–12h30 e 14h00–19h00" → um intervalo por dia e horário
+  // (a pausa de almoço inclusive). Sem horário reconhecível, sai sem ele.
+  const openingHoursSpecification = parseOpeningHours(company.hours);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -23,7 +25,7 @@ export function DealerJsonLd({ branding }: { branding: Branding }) {
     ...(logoUrl && { logo: logoUrl, image: logoUrl }),
     telephone: company.phone,
     email: company.email,
-    priceRange: "€€€",
+    // Sem `priceRange`: um valor fixo ("€€€") não corresponde ao stock real.
     address: {
       "@type": "PostalAddress",
       streetAddress: company.address.street,
@@ -40,7 +42,7 @@ export function DealerJsonLd({ branding }: { branding: Branding }) {
           },
         }
       : {}),
-    ...(openingHours && { openingHours }),
+    ...(openingHoursSpecification && { openingHoursSpecification }),
     ...(company.whatsapp && {
       sameAs: [`https://wa.me/${normalizeWhatsApp(company.whatsapp)}`],
     }),
@@ -52,33 +54,4 @@ export function DealerJsonLd({ branding }: { branding: Branding }) {
       dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
     />
   );
-}
-
-/**
- * Converte "Seg–Sáb · 09h00–19h00" no formato schema.org
- * ("Mo-Sa 09:00-19:00"). Devolve null se não reconhecer o padrão.
- */
-function parseHours(hours: string): string | null {
-  const map: Record<string, string> = {
-    seg: "Mo",
-    ter: "Tu",
-    qua: "We",
-    qui: "Th",
-    sex: "Fr",
-    sáb: "Sa",
-    sab: "Sa",
-    dom: "Su",
-  };
-  const dayMatch = hours
-    .toLowerCase()
-    .match(/(seg|ter|qua|qui|sex|s[áa]b|dom)\s*[–-]\s*(seg|ter|qua|qui|sex|s[áa]b|dom)/);
-  const timeMatch = hours.match(/(\d{1,2})h?(\d{2})?\s*[–-]\s*(\d{1,2})h?(\d{2})?/);
-  if (!dayMatch || !timeMatch) return null;
-
-  const d1 = map[dayMatch[1]!];
-  const d2 = map[dayMatch[2]!];
-  const t1 = `${timeMatch[1]!.padStart(2, "0")}:${timeMatch[2] ?? "00"}`;
-  const t2 = `${timeMatch[3]!.padStart(2, "0")}:${timeMatch[4] ?? "00"}`;
-  if (!d1 || !d2) return null;
-  return `${d1}-${d2} ${t1}-${t2}`;
 }

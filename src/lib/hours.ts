@@ -13,12 +13,16 @@ export interface VehicleHoursRow {
   hours: number | string;
   description: string | null;
   created_by: string | null;
+  /** Nome de quem registou, guardado quando o utilizador foi apagado. */
+  created_by_name?: string | null;
   car?: { make: string; model: string; license_plate: string | null } | null;
 }
 
 export interface OtherHoursRow {
   id: string;
-  profile_id: string;
+  /** null quando o utilizador foi apagado (o nome fica em `profile_name`). */
+  profile_id: string | null;
+  profile_name?: string | null;
   work_date: string;
   start_time: string;
   end_time: string | null;
@@ -30,6 +34,8 @@ export interface HoursEntry {
   id: string;
   kind: "vehicle" | "other";
   personId: string | null;
+  /** Só quando a pessoa já foi apagada: o nome que ficou guardado. */
+  personName?: string | null;
   date: string;
   start: string;
   end: string | null;
@@ -54,6 +60,7 @@ export function mergeHours(vehicle: VehicleHoursRow[], other: OtherHoursRow[]): 
       id: v.id,
       kind: "vehicle" as const,
       personId: v.created_by,
+      personName: v.created_by ? null : v.created_by_name ?? null,
       date: v.work_date,
       start: hm(v.start_time)!,
       end: hm(v.end_time),
@@ -65,6 +72,7 @@ export function mergeHours(vehicle: VehicleHoursRow[], other: OtherHoursRow[]): 
       id: o.id,
       kind: "other" as const,
       personId: o.profile_id,
+      personName: o.profile_id ? null : o.profile_name ?? null,
       date: o.work_date,
       start: hm(o.start_time)!,
       end: hm(o.end_time),

@@ -11,7 +11,13 @@ export const metadata: Metadata = {
 export const revalidate = 60;
 
 export default async function FavoritesPage() {
-  const vehicles = await getVehicleList();
+  // Os favoritos são uma lista só para os dois mundos: uma mota guardada
+  // enquanto se viam carros também aparece aqui.
+  const [cars, motorcycles] = await Promise.all([
+    getVehicleList("car"),
+    getVehicleList("motorcycle"),
+  ]);
+  const vehicles = [...cars, ...motorcycles];
 
   return (
     <div className="container-px pb-24 pt-32 md:pt-40">

@@ -73,7 +73,11 @@ export function Filters({
   onChange,
   onSort,
   onReset,
-}: FiltersProps) {
+  embedded = false,
+}: FiltersProps & {
+  /** Dentro do cartão do topo (sem moldura própria), em vez de um cartão à parte. */
+  embedded?: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const active = activeFilterCount(filters);
   const isMoto = filters.vehicleType === "motorcycle";
@@ -85,7 +89,13 @@ export function Filters({
   };
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-ink-soft p-5 md:p-6">
+    <div
+      className={
+        embedded
+          ? "relative p-5 md:p-6"
+          : "rounded-2xl border border-white/10 bg-ink-soft p-5 md:p-6"
+      }
+    >
       {/* Categorias como no OLX: um quadrado por categoria com viaturas em
           stock, com a contagem. É a primeira escolha de quem procura. */}
       {filters.vehicleType && (

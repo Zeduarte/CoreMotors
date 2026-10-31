@@ -42,6 +42,26 @@ function warnMissingClientIp(header: string | undefined) {
   );
 }
 
+/**
+ * As quotas a gastar, pela ordem em que se pedem: por IP, por identidade e a
+ * global no fim. Cada uma só se gasta se as anteriores passaram (e a 0045 não
+ * conta um pedido recusado), por isso a global só conta pedidos aceites pelos
+ * limites de quem os fez.
+ */
+export function submissionKeys(
+  kind: SubmissionKind,
+  ipHash: string | null,
+  identityHash: string | null,
+) {
+  const [globalMax, ipMax, identityMax] = QUOTAS[kind];
+  const keys: { value: string; max: number }[] = [];
+  if (ipHash) keys.push({ value: `${kind}:ip:${ipHash}`, max: ipMax });
+  if (identityHash)
+    keys.push({ value: `${kind}:identity:${identityHash}`, max: identityMax });
+  keys.push({ value: `${kind}:global`, max: globalMax });
+  return keys;
+}
+
 /** Only the server can write public submissions; RLS denies direct anonymous inserts. */
 export async function publicSubmissionClient(
   kind: SubmissionKind,
@@ -62,14 +82,13 @@ export async function publicSubmissionClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const hash = (value: string) =>
     createHmac("sha256", secret).update(value).digest("hex");
-  const [globalMax, ipMax, identityMax] = QUOTAS[kind];
-  const keys = [{ value: `${kind}:global`, max: globalMax }];
-  if (ip) keys.push({ value: `${kind}:ip:${hash(ip)}`, max: ipMax });
-  if (identity)
-    keys.push({
-      value: `${kind}:identity:${hash(identity.toLowerCase())}`,
-      max: identityMax,
-    });
+  // A global vai em último: quem é travado pelo seu próprio limite (IP ou
+  // identidade) para antes de a gastar, e não bloqueia o site a toda a gente.
+  const keys = submissionKeys(
+    kind,
+    ip ? hash(ip) : null,
+    identity ? hash(identity.toLowerCase()) : null,
+  );
   for (const key of keys) {
     const { data, error } = await db.rpc("consume_submission", {
       key_value: key.value,

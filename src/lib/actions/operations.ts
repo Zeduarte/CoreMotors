@@ -5,12 +5,19 @@ import { createClient } from "@/lib/supabase/server";
 import { requireSection } from "@/lib/guard";
 import { worklogHours } from "@/lib/operations";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
+import { carsWithExpiredReservations, queueOlxSync } from "@/lib/olx/queue";
+import { carTypesError, leadTypeError } from "@/lib/vehicle-access";
 
 const uuid = z.string().uuid();
 const optionalId = z.union([uuid, z.literal("")]).transform(v => v || null);
 const optionalDate = z.union([z.string().date(), z.literal("")]).transform(v => v || null);
 const optionalMoney = z.preprocess(v => v === "" ? null : v, z.coerce.number().min(0).max(9999999999).nullable());
 const result = (error: {message: string} | null) => error ? {ok: false, error: error.message} : {ok: true};
+/** A viatura associada ao contacto (para o OLX acompanhar a reserva/venda). */
+async function leadCar(db: Awaited<ReturnType<typeof createClient>>, lead: string): Promise<string | null> {
+  const {data} = await db.from("leads").select("car_id").eq("id", lead).maybeSingle();
+  return data?.car_id ?? null;
+}
 function refresh() {
   revalidatePublic("/admin", "layout");
   revalidatePublic("/", "layout");
@@ -22,12 +29,14 @@ const crmSchema = z.object({
 }).refine(v => v.status !== "lost" || v.loss_reason.length > 0, "Indique o motivo de perda")
 .refine(v => (!v.next_action && !v.next_action_at) || (v.next_action && v.next_action_at), "Preencha a próxima ação e a data");
 export async function saveLeadFollowup(data: FormData) {
-  await requireSection("leads");
+  const me = await requireSection("leads");
   const parsed = crmSchema.safeParse(Object.fromEntries(data));
   if (!parsed.success) return {ok: false, error: parsed.error.issues[0]?.message};
   const {id, ...v} = parsed.data;
   if (v.next_action_at && !Number.isFinite(Date.parse(v.next_action_at))) return {ok: false, error: "Data inválida"};
   const db = await createClient();
+  const denied = await leadTypeError(db, me, id) ?? (v.car_id ? await carTypesError(db, me, [v.car_id]) : null);
+  if (denied) return {ok: false, error: denied};
   if (v.assigned_to) {
     const {data: staff} = await db.rpc("staff_directory");
     if (!staff?.some(p => p.id === v.assigned_to && p.role !== "mecanico")) return {ok: false, error: "Responsável inválido"};
@@ -44,6 +53,8 @@ export async function addLeadActivity(data: FormData) {
   const parsed = z.object({lead_id: uuid, kind: z.enum(["call","message","proposal","visit","note"]), body: z.string().trim().min(1).max(4000)}).safeParse(Object.fromEntries(data));
   if (!parsed.success) return {ok:false,error:"Preencha o tipo e o texto da atividade."};
   const db = await createClient();
+  const denied = await leadTypeError(db, me, parsed.data.lead_id);
+  if (denied) return {ok:false,error:denied};
   const {error} = await db.from("lead_activities").insert({...parsed.data, created_by: me.id});
   refresh(); return result(error);
 }
@@ -127,35 +138,61 @@ export async function finishWorklog(data: FormData) {
   refresh(); return result(error);
 }
 export async function reserveVehicle(data: FormData) {
-  await requireSection("leads"); await requireSection("carros");
+  const me = await requireSection("leads"); await requireSection("carros");
   const parsed = z.object({lead:uuid,expiry:z.string().min(1),deposit:z.coerce.number().min(0).max(9999999999)}).safeParse(Object.fromEntries(data));
   if (!parsed.success || !Number.isFinite(Date.parse(parsed.data.expiry))) return {ok:false,error:"Verifique o prazo e o sinal."};
   const db = await createClient();
+  const denied = await leadTypeError(db, me, parsed.data.lead);
+  if (denied) return {ok:false,error:denied};
+  const car = await leadCar(db, parsed.data.lead);
   const {error} = await db.rpc("reserve_vehicle", {...parsed.data,expiry:new Date(parsed.data.expiry).toISOString()});
-  // Os outros vendedores deixam de oferecer a viatura (aviso agendado pela base de dados).
-  if (!error) deliverNotificationsSoon();
+  if (!error) {
+    // Os outros vendedores deixam de oferecer a viatura (aviso agendado pela base de dados).
+    deliverNotificationsSoon();
+    // O anúncio do OLX acompanha o novo estado (lifecycle.ts decide o quê).
+    if (car) await queueOlxSync([car]);
+  }
   refresh(); return result(error);
 }
 export async function releaseReservation(data: FormData) {
-  await requireSection("leads"); await requireSection("carros");
+  const me = await requireSection("leads"); await requireSection("carros");
   const id = uuid.safeParse(data.get("id")); if (!id.success) return {ok:false,error:"Reserva inválida"};
-  const db = await createClient(); const {error} = await db.rpc("release_reservation",{reservation_id:id.data});
-  // A viatura volta a estar disponível: quem vende fica a saber (0041).
-  if (!error) deliverNotificationsSoon();
+  const db = await createClient();
+  const {data: reservation} = await db.from("reservations").select("car_id,lead_id").eq("id",id.data).maybeSingle();
+  const denied = reservation ? await leadTypeError(db, me, reservation.lead_id) : null;
+  if (denied) return {ok:false,error:denied};
+  const {error} = await db.rpc("release_reservation",{reservation_id:id.data});
+  if (!error) {
+    // A viatura volta a estar disponível: quem vende fica a saber (0041).
+    deliverNotificationsSoon();
+    if (reservation) await queueOlxSync([reservation.car_id]);
+  }
   refresh(); return result(error);
 }
 export async function confirmDeposit(data: FormData) {
-  await requireSection("leads");
+  const me = await requireSection("leads");
   const id = uuid.safeParse(data.get("id")); if (!id.success) return {ok:false,error:"Reserva inválida"};
-  const db = await createClient(); const {error} = await db.rpc("confirm_reservation_deposit",{reservation_id:id.data}); refresh(); return result(error);
+  const db = await createClient();
+  const {data: reservation} = await db.from("reservations").select("lead_id").eq("id",id.data).maybeSingle();
+  const denied = reservation ? await leadTypeError(db, me, reservation.lead_id) : null;
+  if (denied) return {ok:false,error:denied};
+  const {error} = await db.rpc("confirm_reservation_deposit",{reservation_id:id.data}); refresh(); return result(error);
 }
 export async function closeSale(data: FormData) {
-  await requireSection("leads"); await requireSection("carros"); await requireSection("financeiro");
+  const me = await requireSection("leads"); await requireSection("carros"); await requireSection("financeiro");
   const parsed = z.object({lead:uuid,amount:z.coerce.number().positive().max(9999999999),sale_date:z.string().date()}).safeParse(Object.fromEntries(data));
   if (!parsed.success) return {ok:false,error:"Verifique o preço de venda e a data."};
-  const db = await createClient(); const {error} = await db.rpc("close_vehicle_sale",parsed.data);
-  // Viatura vendida e contacto ganho (0041).
-  if (!error) deliverNotificationsSoon();
+  const db = await createClient();
+  const denied = await leadTypeError(db, me, parsed.data.lead);
+  if (denied) return {ok:false,error:denied};
+  const car = await leadCar(db, parsed.data.lead);
+  const {error} = await db.rpc("close_vehicle_sale",parsed.data);
+  if (!error) {
+    // Viatura vendida e contacto ganho (0041).
+    deliverNotificationsSoon();
+    // Vendida sai do OLX (marcada como vendida no OLX).
+    if (car) await queueOlxSync([car]);
+  }
   refresh(); return result(error);
 }
 
@@ -170,17 +207,20 @@ export async function expireReservationsNow() {
   if(me.role!=="admin")return {ok:false,error:"Apenas administradores."};
   const {createAdminClient}=await import("@/lib/supabase/admin");
   const db=createAdminClient();if(!db)return {ok:false,error:"Chave de administração não configurada."};
+  const cars=await carsWithExpiredReservations(db);
   const {error}=await db.rpc("expire_reservations");
-  // Reservas expiradas: a viatura volta a estar disponível (0041).
-  if(!error)deliverNotificationsSoon();
+  // Reservas expiradas: a viatura volta a estar disponível (0041) e o OLX acompanha.
+  if(!error){deliverNotificationsSoon();await queueOlxSync(cars);}
   refresh();return result(error);
 }
 
 export async function saveLeadNotesForm(data: FormData) {
-  await requireSection("leads");
+  const me=await requireSection("leads");
   const parsed=z.object({id:uuid,notes:z.string().max(5000)}).safeParse(Object.fromEntries(data));
   if(!parsed.success)return {ok:false,error:"Notas inválidas."};
   const db=await createClient();
+  const denied=await leadTypeError(db,me,parsed.data.id);
+  if(denied)return {ok:false,error:denied};
   const {error}=await db.from("leads").update({notes:parsed.data.notes||null}).eq("id",parsed.data.id).select("id").single();
   refresh();return result(error);
 }
@@ -192,4 +232,24 @@ export async function requeueNotification(data: FormData) {
   const db=createAdminClient();if(!db)return {ok:false,error:"Chave de administração não configurada."};
   const {error}=await db.from("notification_jobs").update({attempts:0,next_attempt_at:new Date().toISOString(),last_error:null}).eq("id",id.data).is("delivered_at",null).select("id").single();
   refresh();return result(error);
+}
+
+/**
+ * «Apagar dados pessoais» (RGPD), só o administrador. Sem reservas nem venda o
+ * contacto é apagado; com elas fica, anonimizado, para a venda e o histórico da
+ * viatura não perderem o registo (função `erase_lead_personal_data`, 0047).
+ */
+export async function eraseLeadPersonalData(data: FormData) {
+  const me = await requireSection("leads");
+  if (me.role !== "admin") return {ok:false,error:"Apenas administradores."};
+  const id = uuid.safeParse(data.get("id")); if (!id.success) return {ok:false,error:"Contacto inválido."};
+  const db = await createClient();
+  const {data: outcome, error} = await db.rpc("erase_lead_personal_data", {lead: id.data});
+  if (error) {
+    // Sem a migração 0047 a função não existe.
+    if (/erase_lead_personal_data|function|schema cache/i.test(error.message)) return {ok:false,error:"Falta aplicar a migração 0047 na base de dados."};
+    return {ok:false,error:error.message};
+  }
+  refresh();
+  return outcome === "deleted" ? {ok:true,redirect:"/admin/leads"} : {ok:true};
 }

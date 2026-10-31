@@ -87,12 +87,16 @@ export async function visitContext(): Promise<VisitContext> {
 
 type VisitLead = Pick<LeadRow, "id" | "name" | "phone" | "car_label" | "car_details" | "visit_at">;
 
+export type VisitMessageKind = "visita" | "visita_cancelada" | "visita_pedido";
+
 /**
- * Envia ao cliente a mensagem da visita (confirmação ou lembrete), se ele a
- * pediu e o stand ligou as mensagens aos clientes. `null` = não se tentou.
+ * Envia ao cliente uma mensagem sobre a visita — a confirmação (e o lembrete),
+ * o «pedido recebido» ou o «não podemos receber» — se ele a pediu e o stand
+ * ligou as mensagens aos clientes. `null` = não se tentou.
  */
-export async function sendVisitMessage(
+export async function sendVisitTemplate(
   db: Db,
+  kind: VisitMessageKind,
   lead: VisitLead,
   ctx: VisitContext,
   settings?: CustomerSettings,
@@ -103,22 +107,33 @@ export async function sendVisitMessage(
   if (!s.customerWhatsApp || !phone || !optIn || !lead.visit_at) return null;
   const number = await whatsAppNumber(db);
   if (!number?.accessToken) return null;
+  const when = visitWhenLabel(lead.visit_at);
+  const params =
+    kind === "visita"
+      ? [
+          firstName(lead.name),
+          // Sem quebras de linha nem espaços a mais: a Meta recusa-os nos parâmetros (#132018).
+          templateParam(ctx.companyName, 80),
+          when,
+          templateParam(lead.car_label || "a combinar no stand", 80),
+          templateParam(ctx.address || "a indicar", 120),
+        ]
+      : [firstName(lead.name), templateParam(ctx.companyName, 80), when];
   return sendWhatsAppTemplate(
     phone,
-    {
-      name: customerTemplateName("visita"),
-      language: templateLanguage(),
-      params: [
-        firstName(lead.name),
-        // Sem quebras de linha nem espaços a mais: a Meta recusa-os nos parâmetros (#132018).
-        templateParam(ctx.companyName, 80),
-        visitWhenLabel(lead.visit_at),
-        templateParam(lead.car_label || "a combinar no stand", 80),
-        templateParam(ctx.address || "a indicar", 120),
-      ],
-    },
+    { name: customerTemplateName(kind), language: templateLanguage(), params },
     number,
   );
+}
+
+/** A confirmação da visita (e o lembrete). */
+export function sendVisitMessage(
+  db: Db,
+  lead: VisitLead,
+  ctx: VisitContext,
+  settings?: CustomerSettings,
+): Promise<TemplateSendResult | null> {
+  return sendVisitTemplate(db, "visita", lead, ctx, settings);
 }
 
 /**

@@ -3,6 +3,10 @@ import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getConnection, olxConfigured, olxFetch } from "@/lib/olx/client";
 import { markPending, syncListing } from "@/lib/olx/sync";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/database.types";
+
+type Db = SupabaseClient<Database>;
 
 /**
  * Ponte entre o backoffice e a sincronização com o OLX.
@@ -30,25 +34,51 @@ export async function queueOlxSync(carIds: string[]): Promise<void> {
 }
 
 /**
- * Antes de apagar viaturas: tira os anúncios do OLX. Depois de apagada, a
- * linha de `channel_listings` desaparece em cascata e o anúncio ficava órfão
- * no OLX, a mostrar uma viatura que já não existe.
+ * Os anúncios do OLX destas viaturas, lidos ANTES de as apagar: ao apagar, a
+ * linha de `channel_listings` desaparece em cascata e o id do anúncio perde-se.
  */
-export async function retireOlxAdverts(carIds: string[]): Promise<void> {
-  if (!olxConfigured() || !carIds.length) return;
+export async function olxAdvertIds(carIds: string[]): Promise<string[]> {
+  if (!olxConfigured() || !carIds.length) return [];
   const db = createAdminClient();
-  if (!db || !(await getConnection(db))) return;
+  if (!db) return [];
   const { data } = await db
     .from("channel_listings")
     .select("external_id")
     .eq("channel", "olx")
     .in("car_id", carIds)
     .not("external_id", "is", null);
-  for (const row of data ?? []) {
-    const r = await olxFetch(db, `/adverts/${row.external_id}/commands`, {
+  return (data ?? []).flatMap((row) => (row.external_id ? [row.external_id] : []));
+}
+
+/**
+ * Tira do OLX os anúncios de viaturas que JÁ foram apagadas (ids lidos com
+ * `olxAdvertIds` antes de apagar). Só depois de o apagar correr bem: se
+ * falhasse, a viatura ficava no site e o anúncio desaparecia do OLX, com o
+ * backoffice a dizê-lo ainda publicado.
+ */
+export async function retireOlxAdverts(externalIds: string[]): Promise<void> {
+  if (!olxConfigured() || !externalIds.length) return;
+  const db = createAdminClient();
+  if (!db || !(await getConnection(db))) return;
+  for (const id of externalIds) {
+    const r = await olxFetch(db, `/adverts/${id}/commands`, {
       method: "POST",
       body: { command: "deactivate", is_success: false },
     });
-    if (!r.ok) console.error("retireOlxAdverts:", row.external_id, r.error);
+    if (!r.ok) console.error("retireOlxAdverts:", id, r.error);
   }
+}
+
+/**
+ * Viaturas com reservas ativas já fora do prazo — lidas antes de
+ * `expire_reservations`, que só devolve quantas expirou. Voltam a «publicada»
+ * e o anúncio do OLX tem de as acompanhar.
+ */
+export async function carsWithExpiredReservations(db: Db): Promise<string[]> {
+  const { data } = await db
+    .from("reservations")
+    .select("car_id")
+    .eq("status", "active")
+    .lte("expires_at", new Date().toISOString());
+  return [...new Set((data ?? []).map((r) => r.car_id))];
 }
