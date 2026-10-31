@@ -1,6 +1,7 @@
 "use server";
 
-import { requireSection } from "@/lib/guard";
+import { z } from "zod";
+import { requireCarsAccess, requireSection } from "@/lib/guard";
 
 import { revalidatePublic } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
@@ -47,6 +48,15 @@ export async function registerMedia(
 ): Promise<MediaResult> {
   await requireSection("carros");
   if (!items.length) return { ok: true };
+  // O ficheiro foi enviado pelo browser para a pasta desta viatura: só se aceita esse caminho.
+  const PATH = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.[a-z0-9]{2,5}$/i;
+  if (
+    !z.string().uuid().safeParse(carId).success ||
+    items.length > 50 ||
+    items.some((it) => (it.kind !== "image" && it.kind !== "video") || !PATH.test(it.storage_path) || !it.storage_path.startsWith(`${carId}/`))
+  )
+    return { ok: false, error: "Ficheiros inválidos." };
+  await requireCarsAccess([carId]);
   const supabase = await createClient();
 
   const { data: existing } = await supabase
@@ -89,6 +99,7 @@ export async function reorderMedia(
   orderedIds: string[],
 ): Promise<MediaResult> {
   await requireSection("carros");
+  await requireCarsAccess([carId]);
   const supabase = await createClient();
   const updates = await Promise.all(
     orderedIds.map((id, i) =>
@@ -107,7 +118,11 @@ export async function setCover(
   mediaId: string,
 ): Promise<MediaResult> {
   await requireSection("carros");
+  await requireCarsAccess([carId]);
   const supabase = await createClient();
+  // Primeiro confirma-se que a nova capa existe nesta viatura; só depois se tira a antiga.
+  const { data: target } = await supabase.from("car_media").select("id").eq("id", mediaId).eq("car_id", carId).maybeSingle();
+  if (!target) return { ok: false, error: "Imagem não encontrada nesta viatura." };
   const { error: clearErr } = await supabase
     .from("car_media")
     .update({ is_cover: false })
@@ -132,6 +147,9 @@ export async function updateMediaAlt(
   // Descrição da foto para quem não a vê (leitores de ecrã) e para o Google.
   const text = alt.trim().slice(0, 200);
   const supabase = await createClient();
+  const { data: row } = await supabase.from("car_media").select("car_id").eq("id", mediaId).maybeSingle();
+  if (!row) return { ok: false, error: "Fotografia não encontrada." };
+  await requireCarsAccess([row.car_id]);
   const { data, error } = await supabase
     .from("car_media")
     .update({ alt: text })
@@ -139,7 +157,8 @@ export async function updateMediaAlt(
     .select("id");
   if (error) return { ok: false, error: error.message };
   if (!data?.length) return { ok: false, error: "Fotografia não encontrada." };
-  revalidatePublic("/");
+  // O texto alternativo também aparece na página pública da viatura.
+  await revalidateCar(row.car_id);
   return { ok: true };
 }
 
@@ -149,6 +168,7 @@ export async function deleteMedia(
   mediaId: string,
 ): Promise<MediaResult> {
   await requireSection("carros");
+  await requireCarsAccess([carId]);
   const supabase = await createClient();
   const { data: row } = await supabase
     .from("car_media")

@@ -75,7 +75,7 @@ function load(file) {
   const mod = { exports: {} };
   const custom = (id) => {
     if (id === "server-only") return {};
-    if (id === "@/lib/guard") return { requireSection: async () => {} };
+    if (id === "@/lib/guard") return { requireSection: async () => {}, requireVehicleType: async () => {}, requireCarsAccess: async () => {} };
     if (id === "@/lib/supabase/server") return { createClient: async () => db };
     if (id === "@/lib/public-cache") return { revalidatePublic() {} };
     if (id.startsWith("@/") || id.startsWith(".")) {

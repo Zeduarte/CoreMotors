@@ -18,25 +18,53 @@ function Kpi({
   value,
   hint,
   accent,
+  featured,
 }: {
   label: string;
   value: string;
   hint?: string;
   accent?: boolean;
+  featured?: boolean;
 }) {
   return (
-    <div className="card p-5">
-      <p className="text-xs font-medium uppercase tracking-wider text-paper/40">
+    <div
+      className={
+        featured
+          ? "rounded-3xl border border-emerald-300/30 bg-gradient-to-br from-emerald-500 to-teal-700 p-5 shadow-[0_24px_48px_-24px_rgba(45,212,170,0.55)]"
+          : "card p-5"
+      }
+    >
+      <p
+        className={`text-xs font-medium uppercase tracking-wider ${featured ? "text-white/90" : "text-paper/40"}`}
+      >
         {label}
       </p>
       <p
-        className={`mt-2 text-3xl font-bold ${accent ? "text-accent" : "text-paper"}`}
+        className={`mt-3 text-3xl font-bold tracking-tight ${
+          featured ? "text-white" : accent ? "text-accent" : "text-paper"
+        }`}
       >
         {value}
       </p>
-      {hint && <p className="mt-1 text-xs text-paper/50">{hint}</p>}
+      {hint && (
+        <p
+          className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-[11px] ${
+            featured ? "bg-black/20 text-white/90" : "bg-white/[0.06] text-paper/55"
+          }`}
+        >
+          {hint}
+        </p>
+      )}
     </div>
   );
+}
+
+/** «Bom dia», «Boa tarde» ou «Boa noite», pela hora em Lisboa. */
+function greeting(): string {
+  const hour = Number(
+    new Intl.DateTimeFormat("pt-PT", { timeZone: "Europe/Lisbon", hour: "numeric", hourCycle: "h23" }).format(new Date()),
+  );
+  return hour < 6 ? "Boa noite" : hour < 13 ? "Bom dia" : hour < 20 ? "Boa tarde" : "Boa noite";
 }
 
 export default async function DashboardPage() {
@@ -57,7 +85,7 @@ export default async function DashboardPage() {
   if (stats.total === 0) {
     return (
       <>
-        <Header />
+        <Header name={profile?.full_name || profile?.email || ""} />
         <OperationalDashboard />
         <EmptyState />
       </>
@@ -68,11 +96,12 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <Header />
+      <Header name={profile?.full_name || profile?.email || ""} />
 
       <OperationalDashboard />
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi
+          featured
           label="Total de viaturas"
           value={String(stats.total)}
           hint={`${stats.createdThisMonth} criadas este mês`}
@@ -247,13 +276,17 @@ export default async function DashboardPage() {
   );
 }
 
-function Header() {
+function Header({ name }: { name: string }) {
+  const first = name.split(/[\s@]/)[0] ?? "";
   return (
     <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h1 className="text-2xl font-bold text-paper">Dashboard</h1>
-        <p className="mt-1 text-sm text-paper/50">
-          Visão geral do stock e da atividade recente.
+        <h1 className="text-3xl font-bold tracking-tight text-paper md:text-4xl">
+          {greeting()}
+          {first ? `, ${first}` : ""}
+        </h1>
+        <p className="mt-2 text-sm text-paper/50">
+          Acompanhe o stock, os contactos e a atividade recente do stand.
         </p>
       </div>
       <div className="flex gap-3">

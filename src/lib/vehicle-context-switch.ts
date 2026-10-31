@@ -6,6 +6,7 @@ import { safePublicTarget } from "@/lib/safe-target";
 
 const ADMIN_TARGETS = [
   "/admin", "/admin/carros", "/admin/carros/novo", "/admin/oficina",
+  "/admin/leads/agenda",
   "/admin/financeiro", "/admin/leads", "/admin/integracoes", "/admin/anuncios",
   "/admin/pagina-inicial", "/admin/definicoes", "/admin/testemunhos",
   "/admin/utilizadores",

@@ -1,10 +1,14 @@
 import { getAdminVehicleType, getAllowedVehicleTypes } from "@/lib/vehicle-context";
-import { AdminWorldBar } from "@/components/admin/AdminWorldBar";
+import { AdminWorldBanner } from "@/components/admin/AdminWorldBanner";
+import { mediaFor } from "@/lib/media";
+import { asset } from "@/lib/asset";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/admin-queries";
 import { effectiveSections } from "@/lib/permissions";
 import { Sidebar } from "@/components/admin/Sidebar";
+import { AdminTopBar } from "@/components/admin/AdminTopBar";
+import { AdminDock } from "@/components/admin/AdminDock";
 import { MobileNav } from "@/components/admin/MobileNav";
 
 export const dynamic = "force-dynamic";
@@ -28,17 +32,31 @@ export default async function DashboardLayout({
     <p>{schemaError.code === "PGRST202" ? "Esta versão precisa da atualização da base de dados antes de poder ser utilizada. Peça ao responsável técnico para concluir a ativação." : "Não foi possível verificar a ligação ao serviço. Tente novamente dentro de momentos."}</p>
     <p className="text-sm text-paper/60">Os dados existentes permanecem guardados.</p>
   </main>;
-  const [{ count }, settings] = await Promise.all([
-    supabase
-      .from("leads")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "new").eq("vehicle_type", vehicleType),
+  // Contactos novos por mundo (só dos mundos a que se tem acesso): o do mundo
+  // aberto vai no banner, e a soma dos dois no menu e no sino.
+  const newIn = (type: "car" | "motorcycle") =>
+    allowedTypes.includes(type)
+      ? supabase
+          .from("leads")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "new")
+          .eq("vehicle_type", type)
+      : Promise.resolve({ count: 0 });
+  const [cars, motos, settings] = await Promise.all([
+    newIn("car"),
+    newIn("motorcycle"),
     supabase
       .from("site_settings")
       .select("company_name")
       .eq("id", 1)
       .maybeSingle(),
   ]);
+  const newByWorld = { car: cars.count ?? 0, motorcycle: motos.count ?? 0 };
+  const count = newByWorld.car + newByWorld.motorcycle;
+  const images = {
+    car: asset(mediaFor("car").entrada),
+    motorcycle: asset(mediaFor("motorcycle").entrada),
+  };
 
   const companyName = settings.data?.company_name ?? "Supermotas";
   const user = {
@@ -48,15 +66,21 @@ export default async function DashboardLayout({
   const sections = effectiveSections(profile.role, profile.allowed_sections);
 
   return (
-    <div className="min-h-dvh bg-ink text-paper">
+    <div className="admin-shell min-h-dvh text-paper">
       {/* Sem invólucro: o `sticky` da barra precisa de ter como pai a página inteira. */}
       <MobileNav user={user} sections={sections} companyName={companyName} newLeads={count ?? 0}/>
-      <div className="md:grid md:grid-cols-[248px_1fr]">
-        {/* Safe-area insets: em modo app (viewport-fit=cover) nada fica por baixo
-            do notch, da barra de estado ou da barra inicial do iPhone/iPad. */}
-        <div className="sticky top-0 hidden h-dvh pl-[env(safe-area-inset-left)] pt-[env(safe-area-inset-top)] md:block bg-ink-soft"><Sidebar user={user} sections={sections} companyName={companyName} newLeads={count ?? 0}/></div>
-        <main className="min-w-0 pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] md:pl-0 md:pt-[env(safe-area-inset-top)]"><div className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8 lg:px-10"><AdminWorldBar world={vehicleType} allowed={allowedTypes} />{children}</div></main>
+      {/* Em desktop: faixa de vidro no topo, barra de ícones à esquerda e pílula
+          de atalhos em baixo, todas a flutuar. Safe-area para o modo app. */}
+      <div className="hidden md:block">
+        <div className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-30">
+          <AdminTopBar user={user} companyName={companyName} newLeads={count ?? 0} />
+        </div>
+        <div className="fixed bottom-24 left-[max(1rem,env(safe-area-inset-left))] top-[5.5rem] z-30">
+          <Sidebar sections={sections} newLeads={count ?? 0} />
+        </div>
+        <AdminDock sections={sections} />
       </div>
+      <main className="min-w-0 pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] md:pb-28 md:pl-[7.5rem] md:pt-[6rem]"><div className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-4 lg:px-10"><AdminWorldBanner world={vehicleType} allowed={allowedTypes} newByWorld={newByWorld} images={images} />{children}</div></main>
     </div>
   );
 }

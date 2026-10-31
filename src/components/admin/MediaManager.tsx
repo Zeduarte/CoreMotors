@@ -152,9 +152,10 @@ export function MediaManager({
             const { width, height } = await imageSize(file);
             return {
               storage_path: path,
-              kind: file.type.startsWith("video/")
-                ? ("video" as const)
-                : ("image" as const),
+              kind:
+                file.type.startsWith("video/") || /\.(mp4|webm|mov)$/i.test(file.name)
+                  ? ("video" as const)
+                  : ("image" as const),
               alt: "",
               width,
               height,

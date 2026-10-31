@@ -6,7 +6,10 @@ import { requireSection } from "@/lib/guard";
 import { revalidatePath } from "next/cache";
 import { revalidatePublic } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
 import { publicTestimonialSchema } from "@/lib/schemas";
+
+const UUID = z.string().uuid();
 
 export interface TResult {
   ok: boolean;
@@ -62,8 +65,8 @@ export async function createTestimonial(input: {
   body: string;
   role?: string;
 }): Promise<TResult> {
-  const name = input.name?.trim();
-  const body = input.body?.trim();
+  const name = input.name?.trim().slice(0, 80);
+  const body = input.body?.trim().slice(0, 1000);
   const rating = Math.min(5, Math.max(1, Number(input.rating) || 5));
   if (!name || !body) return { ok: false, error: "Nome e texto obrigatórios." };
 
@@ -73,7 +76,7 @@ export async function createTestimonial(input: {
     name,
     body,
     rating,
-    role: input.role?.trim() || null,
+    role: input.role?.trim().slice(0, 80) || null,
   });
   if (error) return { ok: false, error: error.message };
   refresh();
@@ -85,6 +88,7 @@ export async function setTestimonialPublished(
   published: boolean,
 ): Promise<TResult> {
   await requireSection("testemunhos");
+  if (!UUID.safeParse(id).success) return { ok: false, error: "Testemunho inválido." };
   const supabase = await createClient();
   const { error } = await supabase
     .from("testimonials")
@@ -97,6 +101,7 @@ export async function setTestimonialPublished(
 
 export async function deleteTestimonial(id: string): Promise<TResult> {
   await requireSection("testemunhos");
+  if (!UUID.safeParse(id).success) return { ok: false, error: "Testemunho inválido." };
   const supabase = await createClient();
   const { error } = await supabase.from("testimonials").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };

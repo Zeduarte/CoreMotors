@@ -7,6 +7,7 @@ import { whatsAppNumber } from "@/lib/whatsapp/account";
 import { sendWhatsAppTemplate, templateLanguage, type TemplateSendResult } from "@/lib/whatsapp/send-template";
 import { customerTemplateName, firstName } from "@/lib/customer-templates";
 import { customerPhone } from "@/lib/stock-alerts";
+import { templateParam } from "@/lib/notification-events";
 import { site } from "@/lib/site";
 import { DEFAULT_VISIT_SCHEDULE, parseVisitSchedule, slotKey, visitWhenLabel, type VisitSchedule } from "@/lib/visits";
 
@@ -111,12 +112,13 @@ export async function sendVisitTemplate(
     kind === "visita"
       ? [
           firstName(lead.name),
-          ctx.companyName,
+          // Sem quebras de linha nem espaços a mais: a Meta recusa-os nos parâmetros (#132018).
+          templateParam(ctx.companyName, 80),
           when,
-          lead.car_label || "a combinar no stand",
-          ctx.address || "a indicar",
+          templateParam(lead.car_label || "a combinar no stand", 80),
+          templateParam(ctx.address || "a indicar", 120),
         ]
-      : [firstName(lead.name), ctx.companyName, when];
+      : [firstName(lead.name), templateParam(ctx.companyName, 80), when];
   return sendWhatsAppTemplate(
     phone,
     { name: customerTemplateName(kind), language: templateLanguage(), params },
