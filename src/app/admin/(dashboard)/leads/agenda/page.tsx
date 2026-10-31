@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdminVehicleType } from "@/lib/vehicle-context";
 import { ActionForm, Field } from "@/components/admin/ActionForm";
 import { LocalDateTime } from "@/components/admin/LocalDateTime";
+import { VisitQuickActions } from "@/components/admin/VisitQuickActions";
 import { confirmVisit, createVisit, setVisitOutcome } from "@/lib/actions/visits";
 import { getCustomerSettings, visitContext } from "@/lib/visit-run";
 import { customerPhone } from "@/lib/stock-alerts";
@@ -30,7 +31,7 @@ const timeOf = new Intl.DateTimeFormat("pt-PT", { timeZone: VISIT_TZ, hour: "2-d
  * senão, o botão do WhatsApp abre a conversa com o texto já escrito.
  */
 export default async function AgendaPage({ searchParams }: { searchParams: Promise<{ ver?: string }> }) {
-  await requireSection("leads");
+  const me = await requireSection("leads");
   const { ver } = await searchParams;
   const past = ver === "anteriores";
   const db = await createClient();
@@ -41,7 +42,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
 
   let query = db
     .from("leads")
-    .select("id, name, phone, car_label, car_details, visit_at, visit_status, kind, assigned_to")
+    .select("id, name, phone, email, message, created_at, car_label, car_details, visit_at, visit_status, kind, assigned_to")
     .not("visit_at", "is", null)
     .or(`vehicle_type.eq.${vehicleType},vehicle_type.is.null`);
   query = past
@@ -63,6 +64,17 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
   }
   const pending = rows.filter((v) => v.visit_status === "requested").length;
   const today = zonedParts(now).date;
+  const team = (staff ?? []).filter((p) => p.role !== "mecanico").map((p) => ({ id: p.id, name: p.full_name }));
+  /** «há 5 min», «há 3 h», «há 2 dias»: quando o pedido chegou. */
+  const requestedAgo = (iso: string) => {
+    const min = Math.max(0, Math.round((now.getTime() - new Date(iso).getTime()) / 60000));
+    if (min < 2) return "agora";
+    if (min < 60) return `há ${min} min`;
+    const h = Math.round(min / 60);
+    if (h < 24) return `há ${h} h`;
+    const d = Math.round(h / 24);
+    return `há ${d} ${d === 1 ? "dia" : "dias"}`;
+  };
 
   return (
     <div className="space-y-6">
@@ -125,7 +137,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                   )}`
                 : null;
               return (
-                <li key={v.id} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center">
+                <li key={v.id} className="flex flex-col gap-3 p-4">
                   <div className="flex min-w-0 flex-1 items-start gap-4">
                     <p className="w-14 shrink-0 text-lg font-semibold tabular-nums text-paper">{timeOf.format(new Date(v.visit_at!))}</p>
                     <div className="min-w-0">
@@ -143,8 +155,18 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                           </>
                         )}
                       </p>
+                      {v.email && (
+                        <p className="truncate text-sm">
+                          <a href={`mailto:${v.email}`} className="text-paper/55 hover:text-accent">
+                            {v.email}
+                          </a>
+                        </p>
+                      )}
+                      {v.message && <p className="mt-1 line-clamp-2 max-w-xl whitespace-pre-wrap rounded-lg bg-white/[0.04] px-3 py-2 text-sm text-paper/70">{v.message}</p>}
                       <p className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                         <span className={`rounded-full border px-2 py-0.5 ${st.tone}`}>{st.label}</span>
+                        <span className="text-paper/40">pedida {requestedAgo(v.created_at)}</span>
+                        {v.visit_status === "requested" && !v.assigned_to && <span className="text-rose-300/80">Por atribuir</span>}
                         {staff?.find((p) => p.id === v.assigned_to) && (
                           <span className="text-paper/45">{staff.find((p) => p.id === v.assigned_to)!.full_name}</span>
                         )}
@@ -159,7 +181,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                     </div>
                   </div>
                   {open && (
-                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                    <div className="flex flex-wrap items-center gap-2 lg:pl-[4.5rem]">
                       {v.visit_status === "requested" && (
                         <ActionForm action={confirmVisit} label="Confirmar" success="Visita confirmada." className="[&_button]:!px-4 [&_button]:!py-2 [&_button]:!text-sm">
                           <input type="hidden" name="id" value={v.id} />
@@ -175,6 +197,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                           WhatsApp
                         </a>
                       )}
+                      <VisitQuickActions id={v.id} phone={v.phone} assignedTo={v.assigned_to} staff={team} meId={me.id} />
                       {(["done", "no_show", "cancelled"] as const).map((s) => (
                         <ActionForm
                           key={s}

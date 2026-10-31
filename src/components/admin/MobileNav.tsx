@@ -5,24 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/lib/actions/auth";
 import { Avatar } from "./Avatar";
+import { ThemeToggle } from "./ThemeToggle";
+import { ADMIN_NAV, isAdminNavActive } from "./admin-nav";
 import type { Section } from "@/lib/permissions";
-
-const NAV: { href: string; label: string; exact: boolean; section: Section }[] = [
-  { href: "/admin", label: "Dashboard", exact: true, section: "dashboard" },
-  { href: "/admin/carros", label: "Viaturas", exact: false, section: "carros" },
-  { href: "/admin/carros/novo", label: "Nova viatura", exact: true, section: "carros" },
-  { href: "/admin/pagina-inicial", label: "Página inicial", exact: false, section: "pagina-inicial" },
-  { href: "/admin/leads", label: "Leads", exact: false, section: "leads" },
-  { href: "/admin/leads/agenda", label: "Agenda de visitas", exact: false, section: "leads" },
-  { href: "/admin/testemunhos", label: "Testemunhos", exact: false, section: "testemunhos" },
-  { href: "/admin/integracoes", label: "Integrações", exact: false, section: "integracoes" },
-  { href: "/admin/anuncios", label: "Plataformas de anúncios", exact: false, section: "anuncios" },
-  { href: "/admin/utilizadores", label: "Utilizadores", exact: false, section: "utilizadores" },
-  { href: "/admin/definicoes", label: "Definições", exact: false, section: "definicoes" },
-  { href: "/admin/financeiro", label: "Custos e margens", exact: false, section: "financeiro" },
-  { href: "/admin/oficina", label: "Oficina", exact: false, section: "oficina" },
-  { href: "/admin/horas", label: "Horas", exact: false, section: "horas" },
-];
 
 export function MobileNav({
   user,
@@ -37,13 +22,13 @@ export function MobileNav({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const items = NAV.filter((i) => sections.includes(i.section));
+  const items = ADMIN_NAV.filter((i) => sections.includes(i.section));
 
   return (
     // Em modo app (iPhone, `viewport-fit=cover`) a barra estende o fundo por
     // baixo da barra de estado e do notch; o conteúdo fica abaixo dela. Só em
     // mobile — e sem invólucro à volta, senão o `sticky` não acompanha a página.
-    <header className="sticky top-0 z-40 border-b md:hidden border-white/10 bg-ink-soft/95 pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur">
+    <header className="sticky top-0 z-40 border-b md:hidden border-white/10 bg-black/70 pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur-xl">
       <div className="flex items-center justify-between px-4 py-3">
         <Link href="/admin" className="text-base font-bold tracking-tight">
           <span className="text-paper">{companyName}</span>
@@ -61,19 +46,16 @@ export function MobileNav({
       </div>
 
       {open && (
-        <nav className="border-t border-white/10 px-2 py-2">
+        <nav className="max-h-[calc(100dvh-4.5rem)] overflow-y-auto overscroll-contain border-t border-white/10 px-2 py-2">
           {items.map((item) => {
-            const active = item.exact
-              ? pathname === item.href
-              : pathname.startsWith(item.href) &&
-                !(item.href === "/admin/leads" && pathname.startsWith("/admin/leads/agenda"));
+            const active = isAdminNavActive(pathname, item);
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setOpen(false)}
                 className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-sm ${
-                  active ? "bg-accent/15 text-accent" : "text-paper/80"
+                  active ? "bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-accent" : "text-paper/80"
                 }`}
               >
                 {item.label}
@@ -85,6 +67,9 @@ export function MobileNav({
               </Link>
             );
           })}
+          <div className="mt-2 border-t border-white/10 px-3 pt-3">
+            <ThemeToggle />
+          </div>
           <div className="mt-2 flex items-center justify-between gap-3 border-t border-white/10 px-3 pt-3">
             {/* Avatar: entrada para a área pessoal, como na barra lateral. */}
             <Link href="/admin/perfil" className="flex min-w-0 items-center gap-2">

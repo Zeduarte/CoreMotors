@@ -1,3 +1,4 @@
+import { THEME_INIT_SCRIPT } from "@/components/admin/theme-init";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -52,8 +53,14 @@ export default async function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const branding = await getBranding();
 
+  // `data-admin-theme` é posto no <html> por um script antes da 1.ª pintura (backoffice);
+  // o React não o conhece, por isso a diferença é esperada (suppressHydrationWarning).
   return (
-    <html lang="pt-PT" className={inter.variable}>
+    <html lang="pt-PT" className={inter.variable} suppressHydrationWarning>
+      <head>
+        {/* Tema do backoffice antes da 1.ª pintura (também depois de um login sem recarregar). */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-dvh bg-ink font-sans antialiased">
         {/* Cores da marca escolhidas no backoffice — sobrepõem os defaults. */}
         <style

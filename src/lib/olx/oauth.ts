@@ -14,8 +14,9 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 const TTL_MS = 10 * 60 * 1000;
 /**
- * Só letras minúsculas e algarismos, com `z` a separar as partes (não é
- * hexadecimal nem base 36, por isso nunca aparece dentro delas). O formato
+ * Só letras minúsculas e algarismos, com `z` a separar as partes (o resto é
+ * hexadecimal, que não tem `z`; em base 36 o prazo às vezes tinha `z` e o
+ * `state` era recusado). O formato
  * anterior tinha `.`, `-` e `_`, que as firewalls às vezes tratam como
  * suspeitos; assim o `state` passa em qualquer filtro sem perder a proteção.
  */
@@ -26,7 +27,7 @@ function sign(payload: string, secret: string): string {
 }
 
 export function createState(secret: string, now = Date.now()): string {
-  const payload = `${randomBytes(16).toString("hex")}${SEP}${(now + TTL_MS).toString(36)}`;
+  const payload = `${randomBytes(16).toString("hex")}${SEP}${(now + TTL_MS).toString(16)}`;
   return `${payload}${SEP}${sign(payload, secret)}`;
 }
 
@@ -49,5 +50,5 @@ export function verifyState(
   const s = Buffer.from(sig);
   const e = Buffer.from(expected);
   if (s.length !== e.length || !timingSafeEqual(s, e)) return false;
-  return parseInt(exp, 36) > now;
+  return parseInt(exp, 16) > now;
 }

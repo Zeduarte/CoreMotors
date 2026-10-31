@@ -62,6 +62,8 @@ export async function saveMyProfile(
 
   if (error) {
     console.error("saveMyProfile:", error.message);
+    // Índice único do telefone (0044): o assistente de WhatsApp identifica a pessoa por ele.
+    if (error.code === "23505") return { ok: false, error: "Esse telefone já está associado a outro utilizador." };
     // Sem a migração aplicada, as colunas novas não existem. Dizer só "não
     // foi possível" deixava o utilizador sem saber o que fazer.
     const faltaMigracao =

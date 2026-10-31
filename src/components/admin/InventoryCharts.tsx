@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import type { DashboardStats } from "@/lib/admin-queries";
 
-const AXIS = { fill: "#a1a1aa", fontSize: 12 };
+const AXIS = { fill: "rgb(var(--paper) / 0.55)", fontSize: 12 };
 
 function ChartCard({
   title,

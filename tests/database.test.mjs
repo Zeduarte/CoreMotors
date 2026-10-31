@@ -354,12 +354,33 @@ await test('a phone identifies exactly one person, or nobody',async()=>{
   assert.equal((await db.query("select public.wa_actor_for_phone('') id")).rows[0].id,null);
   assert.equal((await db.query('select public.wa_actor_for_phone(null) id')).rows[0].id,null);
  });
- // Dois perfis com o mesmo número: falha fechada, para não atribuir a ordem à
- // pessoa errada.
- await db.query("update profiles set phone='+351 916 193 337' where id=$1",[seller]);
- await asServer(async()=>assert.equal(
-  (await db.query("select public.wa_actor_for_phone('916193337') id")).rows[0].id,null,'ambíguo'));
+ // Dois perfis com o mesmo número já nem se gravam (0044: índice único pela
+ // forma normalizada). A função continua a falhar fechada, por defesa.
+ await assert.rejects(()=>db.query("update profiles set phone='+351 916 193 337' where id=$1",[seller]),/unique|duplicate/i);
  await db.query('update profiles set phone=null where id=$1',[seller]);
+});
+
+await test('nobody approves their own leave days, and external WhatsApp contacts need Integrações',async()=>{
+ await asUser(seller,()=>db.query("insert into leave_days(profile_id,day,status) values($1,'2032-03-01','pending')",[seller]));
+ try{
+  // O dono não passa o próprio dia a «aprovado» (antes da 0044 a política deixava).
+  await assert.rejects(()=>asUser(seller,()=>db.query("update leave_days set status='approved',decided_by=$1 where profile_id=$1 and day='2032-03-01'",[seller])),/row-level security|violates/i);
+  assert.equal((await db.query("select status from leave_days where profile_id=$1 and day='2032-03-01'",[seller])).rows[0].status,'pending');
+  // Pode continuar a mexer no que ainda está pendente.
+  await asUser(seller,()=>db.query("update leave_days set status='draft' where profile_id=$1 and day='2032-03-01'",[seller]));
+  // O admin decide.
+  await asUser(admin,()=>db.query("update leave_days set status='approved',decided_by=$1 where profile_id=$2 and day='2032-03-01'",[admin,seller]));
+  assert.equal((await db.query("select status from leave_days where profile_id=$1 and day='2032-03-01'",[seller])).rows[0].status,'approved');
+ }finally{
+  await db.query("delete from leave_days where profile_id=$1 and day='2032-03-01'",[seller]);
+ }
+ await asServer(()=>db.query("insert into wa_contacts(phone,name,company) values('351911111111','Externo','Empresa X')"));
+ try{
+  assert.equal((await asUser(mechanic,()=>db.query('select phone from wa_contacts'))).rows.length,0,'o mecânico não vê contactos externos');
+  assert.equal((await asUser(admin,()=>db.query('select phone from wa_contacts'))).rows.length,1,'quem tem Integrações vê');
+ }finally{
+  await asServer(()=>db.query("delete from wa_contacts where phone='351911111111'"));
+ }
 });
 
 await test('the vehicle list a person sees respects their sections and vehicle types',async()=>{

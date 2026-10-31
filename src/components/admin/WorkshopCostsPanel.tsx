@@ -12,9 +12,9 @@ const CATEGORIES = [
   { value: "other", label: "Outros" },
 ];
 
+/** O dia de hoje em Lisboa (o do stand), não o do relógio de quem abre a página. */
 function todayISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Lisbon" }).format(new Date());
 }
 
 /**

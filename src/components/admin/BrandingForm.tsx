@@ -260,7 +260,7 @@ export function BrandingForm({
         </div>
       </section>
 
-      <div className="sticky bottom-0 -mx-2 flex items-center justify-end gap-3 border-t border-white/10 bg-ink/90 px-2 py-4 backdrop-blur">
+      <div className="sticky bottom-0 md:bottom-[4.75rem] -mx-2 flex items-center justify-end gap-3 border-t border-white/10 bg-ink/90 px-2 py-4 backdrop-blur">
         <button
           type="button"
           onClick={save}
