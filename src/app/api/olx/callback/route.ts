@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exchangeCode, olxConfigured, olxFetch } from "@/lib/olx/client";
 import { verifyState } from "@/lib/olx/oauth";
 import { unwrap } from "@/lib/olx/categories";
-import { localRedirect } from "@/lib/local-redirect";
+import { cleanLocalRedirect, localRedirect } from "@/lib/local-redirect";
 import { STATE_COOKIE, olxRedirectUri } from "../redirect";
 
 export const runtime = "nodejs";
@@ -29,7 +29,9 @@ export async function GET(request: Request) {
 
   const me = await getCurrentProfile();
   if (!me || !canAccess(me.role, me.allowed_sections, "anuncios")) {
-    return localRedirect("/admin/login");
+    // Sem a pesquisa deste pedido: o Netlify juntava o `code` e o `state` do
+    // OLX ao endereço do login.
+    return cleanLocalRedirect("/admin/login");
   }
   if (!olxConfigured()) return done("sem-credenciais");
 

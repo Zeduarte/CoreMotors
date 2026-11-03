@@ -44,12 +44,21 @@ export async function seoMetadata(type: VehicleType, slug: string | null): Promi
   const title = page?.title ?? usedLabel(type);
   const path = page ? seoPath(page) : `/${TYPE_PATH[type]}`;
   const description = seoIntro(page, type, vehicles.length, fromPrice(vehicles), branding.companyName);
+  const cover = vehicles.find((v) => v.images[0]?.src)?.images[0]?.src;
   return {
     title,
     description,
     alternates: { canonical: `${site.url}${path}` },
     robots: vehicles.length ? undefined : { index: false, follow: true },
-    openGraph: { title, description, type: "website", url: `${site.url}${path}` },
+    // Um `openGraph` próprio substitui o herdado, imagem incluída: sem isto,
+    // estas páginas partilhavam-se sem fotografia. Vai a da primeira viatura.
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: `${site.url}${path}`,
+      ...(cover ? { images: [{ url: cover }] } : {}),
+    },
   };
 }
 

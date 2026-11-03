@@ -138,7 +138,7 @@ src/
     admin-queries.ts         Leituras do backoffice + stats
     mappers.ts schemas.ts slug.ts storage.ts format.ts site.ts
   types/vehicle.ts           Modelo de domínio público
-middleware.ts                Refresh de sessão + guard de /admin
+src/middleware.ts            Refresh de sessão + guard de /admin
 ```
 
 ## Deploy (Netlify)

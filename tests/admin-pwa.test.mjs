@@ -189,7 +189,7 @@ test('the public site no longer unregisters the admin service worker or its cach
 });
 
 test('the session middleware skips the admin manifest and service worker, but still guards the backoffice', () => {
-  const { config } = load('middleware.ts', { '@/lib/supabase/middleware': { updateSession: async () => null } });
+  const { config } = load('src/middleware.ts', { '@/lib/supabase/middleware': { updateSession: async () => null } });
   const { getMiddlewareMatchers } = require('next/dist/build/analysis/get-page-static-info');
   const regexps = getMiddlewareMatchers(config.matcher, {}).map((m) => new RegExp(m.regexp));
   const guarded = (path) => regexps.some((r) => r.test(path));
