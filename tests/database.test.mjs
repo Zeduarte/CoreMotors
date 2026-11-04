@@ -1357,6 +1357,15 @@ await test('VERIFICAR_migracoes.sql: uma linha por migração, tudo aplicado aqu
   assert.equal(missing['0047_backoffice_sales_visits'],'FALTA');
   assert.match(missing.RESUMO,/^1 em falta/);
  } finally { await db.exec('rollback;'); }
+
+ // Um grant posterior da tabela inteira ao anon desfaz a privacidade da 0045
+ // (a política do Storage fica): o verificador tem de o dizer.
+ await db.exec('begin; grant select on public.cars to anon;');
+ try {
+  const reverted=await run();
+  assert.equal(reverted['0045_public_privacy (matrícula e custos privados)'],'FALTA');
+  assert.match(reverted.RESUMO,/^1 em falta/);
+ } finally { await db.exec('rollback;'); }
 });
 
 await db.close();

@@ -123,6 +123,12 @@ with m(migracao, aplicada) as (values
   ('0045_public_privacy',
     exists (select 1 from pg_policies
             where schemaname = 'storage' and tablename = 'objects' and policyname = 'car-media: staff read')),
+  -- Um `grant select on public.cars to anon` posterior (para repor um site
+  -- antigo que pede `select *`) desfaz a privacidade sem tirar a política:
+  -- volta a correr a 0045 depois do deploy.
+  ('0045_public_privacy (matrícula e custos privados)',
+    not has_table_privilege('anon', 'public.cars', 'SELECT')
+    and not has_table_privilege('anon', 'public.site_settings', 'SELECT')),
   ('0046_backoffice_rules',
     exists (select 1 from information_schema.columns
             where table_schema = 'public' and table_name = 'vehicle_tasks' and column_name = 'created_by_name')),
