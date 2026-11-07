@@ -151,7 +151,7 @@ function ScrollHint({
       tabIndex={-1}
       aria-hidden
       onClick={onClick}
-      className={`absolute left-1/2 z-10 grid h-6 w-10 -translate-x-1/2 place-items-center rounded-full border border-white/15 bg-ink/70 text-paper/80 shadow-md backdrop-blur-md transition-all duration-200 hover:bg-ink/90 hover:text-paper ${
+      className={`absolute left-1/2 z-10 grid h-6 w-10 -translate-x-1/2 place-items-center rounded-full bg-accent text-ink shadow-[0_4px_14px_-2px_rgba(0,0,0,0.7)] ring-2 ring-ink/60 transition-all duration-200 hover:brightness-110 ${
         dir === "up" ? "-top-1" : "-bottom-1"
       } ${show ? "opacity-100" : "pointer-events-none opacity-0"}`}
     >
