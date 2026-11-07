@@ -2,22 +2,27 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { logout } from "@/lib/actions/auth";
 import type { Section } from "@/lib/permissions";
 import { AdminIcon } from "./AdminIcon";
-import { ADMIN_NAV, isAdminNavActive } from "./admin-nav";
+import { ADMIN_NAV, ADMIN_NAV_GROUPS, isAdminNavActive, type AdminNavItem } from "./admin-nav";
 
 const ITEM =
   "relative flex min-h-12 w-full shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 transition-colors";
 const LABEL = "max-w-full truncate text-[9.5px] font-medium leading-tight";
+const IDLE = "text-paper/60 hover:bg-white/10 hover:text-paper";
+const ACTIVE = "bg-paper text-ink shadow-md";
+
+/** Tempo para o rato atravessar do ícone para o painel sem ele fechar. */
+const CLOSE_DELAY = 180;
 
 /**
  * Barra lateral de vidro, arredondada, à esquerda: ícone com o nome curto por
- * baixo, para ninguém se perder. O separador ativo fica em branco (ou escuro,
- * no tema claro). Se o ecrã for baixo, a lista faz scroll — e, como a barra
- * de scroll está escondida, as pontas esbatem-se e aparece uma seta a indicar
- * que há mais separadores (clicar na seta desliza a lista).
+ * baixo. Os separadores estão agrupados (`ADMIN_NAV_GROUPS`) para caberem
+ * todos sem scroll: um grupo com vários separadores abre um painel ao lado ao
+ * passar o rato ou ao clicar (no tátil, só ao tocar). O grupo da página
+ * aberta fica em branco (ou escuro, no tema claro).
  */
 export function Sidebar({
   sections,
@@ -27,97 +32,165 @@ export function Sidebar({
   newLeads?: number;
 }) {
   const pathname = usePathname();
-  const items = ADMIN_NAV.filter((i) => sections.includes(i.section));
-  const navRef = useRef<HTMLElement>(null);
-  const [more, setMore] = useState({ up: false, down: false });
+  const [open, setOpen] = useState<string | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Como foi o último toque/clique (o `click` do Safari antigo não o diz).
+  const lastPointer = useRef("");
+  const asideRef = useRef<HTMLElement>(null);
 
-  const measure = useCallback(() => {
-    const el = navRef.current;
-    if (!el) return;
-    const up = el.scrollTop > 2;
-    const down = el.scrollTop + el.clientHeight < el.scrollHeight - 2;
-    setMore((m) => (m.up === up && m.down === down ? m : { up, down }));
-  }, []);
+  const groups = ADMIN_NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.hrefs
+      .map((href) => ADMIN_NAV.find((i) => i.href === href))
+      .filter((i): i is AdminNavItem => !!i && sections.includes(i.section)),
+  })).filter((g) => g.items.length > 0);
 
-  useEffect(() => {
-    const el = navRef.current;
-    if (!el) return;
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [measure, items.length]);
-
-  // O separador ativo fica sempre à vista, ao centro (ex.: Definições, no fim
-  // da lista), em vez de cortado debaixo do esbatido.
-  useEffect(() => {
-    const el = navRef.current;
-    const active = el?.querySelector<HTMLElement>('[aria-current="page"]');
-    if (el && active) {
-      const n = el.getBoundingClientRect();
-      const a = active.getBoundingClientRect();
-      if (a.top < n.top || a.bottom > n.bottom) {
-        el.scrollTop += a.top - n.top - (n.height - a.height) / 2;
-      }
-    }
-    measure();
-  }, [pathname, measure]);
-
-  const scrollBy = (dir: 1 | -1) => {
-    const el = navRef.current;
-    if (!el) return;
-    el.scrollBy({ top: dir * Math.max(120, el.clientHeight * 0.6), behavior: "smooth" });
+  const cancelClose = () => clearTimeout(closeTimer.current);
+  const closeSoon = () => {
+    cancelClose();
+    closeTimer.current = setTimeout(() => setOpen(null), CLOSE_DELAY);
   };
 
-  const FADE = "28px";
-  const mask = `linear-gradient(to bottom, ${more.up ? "transparent" : "#000"} 0, #000 ${
-    more.up ? FADE : "0px"
-  }, #000 calc(100% - ${more.down ? FADE : "0px"}), ${more.down ? "transparent" : "#000"} 100%)`;
+  // Fecha ao mudar de página, com Esc e ao clicar fora.
+  useEffect(() => {
+    setOpen(null);
+  }, [pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null);
+    const onDown = (e: PointerEvent) => {
+      if (!asideRef.current?.contains(e.target as Node)) setOpen(null);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onDown);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onDown);
+    };
+  }, [open]);
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+
+  const badge = (item: AdminNavItem) => (item.href === "/admin/leads" ? newLeads : 0);
 
   return (
-    <aside className="flex h-full w-[80px] flex-col items-center gap-1 rounded-[2rem] border border-white/10 bg-white/[0.04] px-2 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_30px_60px_-30px_rgba(0,0,0,0.9)] backdrop-blur-xl">
-      <div className="relative flex min-h-0 w-full flex-1 flex-col">
-        <nav
-          ref={navRef}
-          onScroll={measure}
-          aria-label="Backoffice"
-          style={{ maskImage: mask, WebkitMaskImage: mask }}
-          className="flex min-h-0 w-full flex-1 flex-col items-center gap-0.5 overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          {items.map((item) => {
-            const active = isAdminNavActive(pathname, item);
+    <aside
+      ref={asideRef}
+      className="flex h-full w-[80px] flex-col items-center gap-1 rounded-[2rem] border border-white/10 bg-white/[0.04] px-2 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_30px_60px_-30px_rgba(0,0,0,0.9)] backdrop-blur-xl"
+    >
+      <nav aria-label="Backoffice" className="flex w-full flex-1 flex-col items-center gap-0.5">
+        {groups.map((group) => {
+          const active = group.items.some((i) => isAdminNavActive(pathname, i));
+          const count = group.items.reduce((n, i) => n + badge(i), 0);
+
+          // Um só separador: link direto, como antes.
+          if (group.items.length === 1) {
+            const item = group.items[0]!;
             return (
               <Link
-                key={item.href}
+                key={group.key}
                 href={item.href}
                 aria-label={item.label}
                 aria-current={active ? "page" : undefined}
-                className={`${ITEM} ${
-                  active ? "bg-paper text-ink shadow-md" : "text-paper/60 hover:bg-white/10 hover:text-paper"
-                }`}
+                className={`${ITEM} ${active ? ACTIVE : IDLE}`}
               >
-                <AdminIcon name={item.icon} />
-                <span className={LABEL}>{item.short}</span>
-                {item.href === "/admin/leads" && newLeads > 0 && (
-                  <span className="absolute right-1.5 top-1 grid min-w-4 place-items-center rounded-full bg-accent px-1 text-[9px] font-bold leading-4 text-ink">
-                    {newLeads}
-                  </span>
-                )}
+                <AdminIcon name={group.icon} />
+                <span className={LABEL}>{group.short}</span>
+                <Badge count={count} />
               </Link>
             );
-          })}
-        </nav>
-        <ScrollHint dir="up" show={more.up} onClick={() => scrollBy(-1)} />
-        <ScrollHint dir="down" show={more.down} onClick={() => scrollBy(1)} />
-      </div>
+          }
+
+          const isOpen = open === group.key;
+          return (
+            <div
+              key={group.key}
+              className="relative w-full"
+              onPointerEnter={(e) => {
+                if (e.pointerType !== "mouse") return;
+                cancelClose();
+                setOpen(group.key);
+              }}
+              onPointerLeave={(e) => e.pointerType === "mouse" && closeSoon()}
+            >
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={isOpen}
+                aria-label={group.label}
+                onPointerDown={(e) => (lastPointer.current = e.pointerType)}
+                onKeyDown={() => (lastPointer.current = "")}
+                onClick={() => {
+                  // Com rato o painel já abriu ao passar por cima: o clique deixa-o aberto.
+                  const mouse = lastPointer.current === "mouse";
+                  setOpen((cur) => (cur === group.key && !mouse ? null : group.key));
+                }}
+                className={`${ITEM} ${active ? ACTIVE : isOpen ? "bg-white/10 text-paper" : IDLE}`}
+              >
+                <AdminIcon name={group.icon} />
+                <span className={LABEL}>{group.short}</span>
+                <Badge count={count} />
+                {/* Seta pequena: indica que abre mais opções. */}
+                <svg
+                  aria-hidden
+                  viewBox="0 0 24 24"
+                  width="9"
+                  height="9"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 opacity-50"
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </button>
+
+              {isOpen && (
+                // `pl-3` em vez de margem: o rato atravessa o espaço sem sair do grupo.
+                <div className="absolute left-full top-0 z-40 pl-3">
+                  <div
+                    role="menu"
+                    aria-label={group.label}
+                    className="min-w-[13rem] rounded-2xl border border-white/10 bg-ink-muted p-1.5 shadow-[0_24px_48px_-16px_rgba(0,0,0,0.75)] backdrop-blur-xl"
+                  >
+                    <p className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-paper/45">
+                      {group.label}
+                    </p>
+                    {group.items.map((item) => {
+                      const on = isAdminNavActive(pathname, item);
+                      const n = badge(item);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          role="menuitem"
+                          aria-current={on ? "page" : undefined}
+                          onClick={() => setOpen(null)}
+                          className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
+                            on ? ACTIVE : "text-paper/75 hover:bg-white/10 hover:text-paper"
+                          }`}
+                        >
+                          <AdminIcon name={item.icon} />
+                          <span className="flex-1 whitespace-nowrap">{item.label}</span>
+                          {n > 0 && (
+                            <span className="grid min-w-5 place-items-center rounded-full bg-accent px-1.5 text-[10px] font-bold leading-5 text-ink">
+                              {n}
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
 
       <div className="flex w-full flex-col items-center gap-0.5 border-t border-white/10 pt-2">
-        <Link
-          href="/"
-          target="_blank"
-          aria-label="Ver site público"
-          className={`${ITEM} text-paper/60 hover:bg-white/10 hover:text-paper`}
-        >
+        <Link href="/" target="_blank" aria-label="Ver site público" className={`${ITEM} ${IDLE}`}>
           <AdminIcon name="external" />
           <span className={LABEL}>Site</span>
         </Link>
@@ -136,38 +209,11 @@ export function Sidebar({
   );
 }
 
-function ScrollHint({
-  dir,
-  show,
-  onClick,
-}: {
-  dir: "up" | "down";
-  show: boolean;
-  onClick: () => void;
-}) {
+function Badge({ count }: { count: number }) {
+  if (count <= 0) return null;
   return (
-    <button
-      type="button"
-      tabIndex={-1}
-      aria-hidden
-      onClick={onClick}
-      className={`absolute left-1/2 z-10 grid h-6 w-10 -translate-x-1/2 place-items-center rounded-full bg-accent text-ink shadow-[0_4px_14px_-2px_rgba(0,0,0,0.7)] ring-2 ring-ink/60 transition-all duration-200 hover:brightness-110 ${
-        dir === "up" ? "-top-1" : "-bottom-1"
-      } ${show ? "opacity-100" : "pointer-events-none opacity-0"}`}
-    >
-      <svg
-        viewBox="0 0 24 24"
-        width="14"
-        height="14"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={dir === "up" ? "rotate-180" : undefined}
-      >
-        <path d="m6 9 6 6 6-6" />
-      </svg>
-    </button>
+    <span className="absolute right-1.5 top-1 grid min-w-4 place-items-center rounded-full bg-accent px-1 text-[9px] font-bold leading-4 text-ink">
+      {count}
+    </span>
   );
 }

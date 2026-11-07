@@ -37,3 +37,46 @@ export function isAdminNavActive(pathname: string, item: Pick<AdminNavItem, "hre
         !(item.href === "/admin/leads" && pathname.startsWith("/admin/leads/agenda")) &&
         !(item.href === "/admin/carros" && pathname === "/admin/carros/novo");
 }
+
+export type AdminNavGroup = {
+  key: string;
+  /** O nome curto, por baixo do ícone na barra lateral. */
+  short: string;
+  /** O título do painel que abre ao lado (ao clicar ou passar o rato). */
+  label: string;
+  icon: AdminIconName;
+  /** Os separadores do grupo, pelo `href` de `ADMIN_NAV`. */
+  hrefs: string[];
+};
+
+/**
+ * Os separadores agrupados para a barra lateral: assim cabem todos no ecrã,
+ * sem scroll. Um grupo com um só separador (visível para o utilizador) é um
+ * link direto; com vários, abre um painel ao lado com todos.
+ */
+export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
+  { key: "dashboard", short: "Dashboard", label: "Dashboard", icon: "dashboard", hrefs: ["/admin"] },
+  {
+    key: "viaturas",
+    short: "Viaturas",
+    label: "Viaturas",
+    icon: "car",
+    hrefs: ["/admin/carros", "/admin/carros/novo", "/admin/oficina", "/admin/financeiro"],
+  },
+  { key: "leads", short: "Leads", label: "Leads", icon: "mail", hrefs: ["/admin/leads", "/admin/leads/agenda"] },
+  {
+    key: "marketing",
+    short: "Marketing",
+    label: "Site e anúncios",
+    icon: "layout",
+    hrefs: ["/admin/pagina-inicial", "/admin/testemunhos", "/admin/anuncios"],
+  },
+  { key: "equipa", short: "Equipa", label: "Equipa", icon: "users", hrefs: ["/admin/utilizadores", "/admin/horas"] },
+  {
+    key: "definicoes",
+    short: "Definições",
+    label: "Definições",
+    icon: "settings",
+    hrefs: ["/admin/definicoes", "/admin/integracoes"],
+  },
+];
