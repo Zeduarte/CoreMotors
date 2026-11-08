@@ -8,8 +8,14 @@ export type AdminNavItem = {
   short: string;
   icon: AdminIconName;
   exact: boolean;
-  section: Section;
+  /** A permissão que o mostra; `null` = toda a gente (ex.: o próprio perfil). */
+  section: Section | null;
 };
+
+/** Este separador aparece a quem tem estas permissões? */
+export function canSeeNavItem(item: Pick<AdminNavItem, "section">, sections: readonly Section[]): boolean {
+  return item.section === null || sections.includes(item.section);
+}
 
 /** Os separadores do backoffice, para a barra lateral de ícones e para a pílula de atalhos. */
 export const ADMIN_NAV: AdminNavItem[] = [
@@ -27,6 +33,8 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/financeiro", label: "Custos e margens", short: "Custos", icon: "euro", exact: false, section: "financeiro" },
   { href: "/admin/oficina", label: "Oficina", short: "Oficina", icon: "tool", exact: false, section: "oficina" },
   { href: "/admin/horas", label: "Horas", short: "Horas", icon: "clock", exact: false, section: "horas" },
+  // Dados pessoais e férias (/admin/perfil/…): de cada um, sem permissão própria.
+  { href: "/admin/perfil", label: "Os meus dados e férias", short: "Perfil", icon: "user", exact: false, section: null },
 ];
 
 /** A agenda vive debaixo de /admin/leads, mas é um separador à parte. */
@@ -71,7 +79,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     icon: "layout",
     hrefs: ["/admin/pagina-inicial", "/admin/testemunhos", "/admin/anuncios"],
   },
-  { key: "equipa", short: "Equipa", label: "Equipa", icon: "users", hrefs: ["/admin/utilizadores", "/admin/horas"] },
+  { key: "equipa", short: "Equipa", label: "Equipa", icon: "users", hrefs: ["/admin/utilizadores"] },
   {
     key: "definicoes",
     short: "Definições",
@@ -79,4 +87,6 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     icon: "settings",
     hrefs: ["/admin/definicoes", "/admin/integracoes"],
   },
+  // O que é de cada um: os dados pessoais e férias, e as horas registadas.
+  { key: "perfil", short: "Perfil", label: "O meu perfil", icon: "user", hrefs: ["/admin/perfil", "/admin/horas"] },
 ];

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { logout } from "@/lib/actions/auth";
 import { Avatar } from "./Avatar";
 import { ThemeToggle } from "./ThemeToggle";
-import { ADMIN_NAV, isAdminNavActive } from "./admin-nav";
+import { ADMIN_NAV, canSeeNavItem, isAdminNavActive } from "./admin-nav";
 import type { Section } from "@/lib/permissions";
 
 export function MobileNav({
@@ -22,7 +22,7 @@ export function MobileNav({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const items = ADMIN_NAV.filter((i) => sections.includes(i.section));
+  const items = ADMIN_NAV.filter((i) => canSeeNavItem(i, sections));
 
   return (
     // Em modo app (iPhone, `viewport-fit=cover`) a barra estende o fundo por

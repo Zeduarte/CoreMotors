@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { logout } from "@/lib/actions/auth";
 import type { Section } from "@/lib/permissions";
 import { AdminIcon } from "./AdminIcon";
-import { ADMIN_NAV, ADMIN_NAV_GROUPS, isAdminNavActive, type AdminNavItem } from "./admin-nav";
+import { ADMIN_NAV, ADMIN_NAV_GROUPS, canSeeNavItem, isAdminNavActive, type AdminNavItem } from "./admin-nav";
 
 const ITEM =
   "relative flex min-h-12 w-full shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 transition-colors";
@@ -42,7 +42,7 @@ export function Sidebar({
     ...g,
     items: g.hrefs
       .map((href) => ADMIN_NAV.find((i) => i.href === href))
-      .filter((i): i is AdminNavItem => !!i && sections.includes(i.section)),
+      .filter((i): i is AdminNavItem => !!i && canSeeNavItem(i, sections)),
   })).filter((g) => g.items.length > 0);
 
   const cancelClose = () => clearTimeout(closeTimer.current);

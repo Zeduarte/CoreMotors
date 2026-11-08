@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Section } from "@/lib/permissions";
 import { AdminIcon } from "./AdminIcon";
-import { ADMIN_NAV, isAdminNavActive } from "./admin-nav";
+import { ADMIN_NAV, canSeeNavItem, isAdminNavActive } from "./admin-nav";
 
 /** Os atalhos de todos os dias; o resto está na barra lateral. */
 const DOCK = ["/admin", "/admin/carros", "/admin/leads", "/admin/leads/agenda", "/admin/oficina"];
@@ -16,7 +16,7 @@ const DOCK = ["/admin", "/admin/carros", "/admin/leads", "/admin/leads/agenda", 
 export function AdminDock({ sections }: { sections: Section[] }) {
   const pathname = usePathname();
   const tabs = DOCK.map((href) => ADMIN_NAV.find((i) => i.href === href)).filter(
-    (i): i is (typeof ADMIN_NAV)[number] => !!i && sections.includes(i.section),
+    (i): i is (typeof ADMIN_NAV)[number] => !!i && canSeeNavItem(i, sections),
   );
   const create = sections.includes("carros");
 
