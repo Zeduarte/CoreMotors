@@ -1,12 +1,13 @@
 import { requireSection } from "@/lib/guard";
 import { getWorkshopVehicles } from "@/lib/workshop";
 import { WorkshopList } from "@/components/admin/WorkshopList";
+import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function OficinaPage() {
   await requireSection("oficina");
-  const vehicles = await getWorkshopVehicles();
+  const [vehicles, allowedTypes] = await Promise.all([getWorkshopVehicles(), getAllowedVehicleTypes()]);
 
   return (
     <>
@@ -18,7 +19,7 @@ export default async function OficinaPage() {
           preparada: sai da Oficina e passa para Viaturas.
         </p>
       </div>
-      <WorkshopList vehicles={vehicles} />
+      <WorkshopList vehicles={vehicles} allowedTypes={allowedTypes} />
     </>
   );
 }

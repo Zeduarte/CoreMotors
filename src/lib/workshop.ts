@@ -1,5 +1,5 @@
-import { getAdminVehicleType } from "@/lib/vehicle-context";
-import { showsInWorkshop } from "@/lib/vehicle-categories";
+import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import { showsInWorkshop, type VehicleType } from "@/lib/vehicle-categories";
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { coverImage } from "@/lib/mappers";
@@ -11,6 +11,7 @@ import type { CarWithMedia, VehicleTaskRow } from "@/lib/supabase/database.types
 /** Viatura como o mecânico a vê: identificação + capa + horas registadas. */
 export interface WorkshopVehicle {
   id: string;
+  vehicleType: VehicleType;
   make: string;
   model: string;
   plate: string | null;
@@ -30,14 +31,15 @@ export interface WorkshopVehicle {
  */
 export async function getWorkshopVehicles(): Promise<WorkshopVehicle[]> {
   const supabase = await createClient();
-  const vehicleType = await getAdminVehicleType();
+  // Carros e motas na mesma oficina.
+  const types = await getAllowedVehicleTypes();
   let cars: CarWithMedia[];
   try {
     cars = (await allRows((a, b) =>
       supabase
         .from("cars")
-        .select("id, make, model, license_plate, status, car_media(storage_path, is_cover, kind, position, alt)")
-        .eq("vehicle_type", vehicleType)
+        .select("id, vehicle_type, make, model, license_plate, status, car_media(storage_path, is_cover, kind, position, alt)")
+        .in("vehicle_type", types)
         .eq("status", "workshop")
         .order("updated_at", { ascending: false })
         .order("id")
@@ -53,6 +55,7 @@ export async function getWorkshopVehicles(): Promise<WorkshopVehicle[]> {
   const totals = await workshopTotals(cars.map((c) => c.id));
   return cars.filter((c) => showsInWorkshop(c.status)).map((c) => ({
     id: c.id,
+    vehicleType: c.vehicle_type ?? "car",
     make: c.make,
     model: c.model,
     plate: c.license_plate,
@@ -169,9 +172,9 @@ export async function getWorkshopVehicle(
   id: string,
 ): Promise<WorkshopVehicleDetail | null> {
   const supabase = await createClient();
-  const vehicleType = await getAdminVehicleType();
+  const types = await getAllowedVehicleTypes();
   const [{ data: car }, logRows, me] = await Promise.all([
-    supabase.from("cars").select("*, car_media(*)").eq("vehicle_type", vehicleType).eq("id", id).maybeSingle(),
+    supabase.from("cars").select("*, car_media(*)").in("vehicle_type", types).eq("id", id).maybeSingle(),
     allRows((a, b) =>
       supabase
         .from("vehicle_tasks")

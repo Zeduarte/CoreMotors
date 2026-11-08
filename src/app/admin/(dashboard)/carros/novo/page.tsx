@@ -1,4 +1,4 @@
-import { getAllowedVehicleTypes, getVehicleSelection } from "@/lib/vehicle-context";
+import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
 import { requireSection } from "@/lib/guard";
 import { getShowroomContent } from "@/lib/showroom-queries";
 import Link from "next/link";
@@ -8,11 +8,16 @@ import { getBadges } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewCarPage() {
+export default async function NewCarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tipo?: string }>;
+}) {
   const me = await requireSection("carros");
-  // O tipo escolhido no backoffice, só se o utilizador o puder gerir; com um
-  // único tipo permitido, é esse.
-  const [selected, allowedTypes] = await Promise.all([getVehicleSelection("admin"), getAllowedVehicleTypes()]);
+  // O tipo escolhe-se no próprio formulário. Vem já escolhido se o link o
+  // disser (`?tipo=motas`) ou se o utilizador só puder gerir um tipo.
+  const [{ tipo }, allowedTypes] = await Promise.all([searchParams, getAllowedVehicleTypes()]);
+  const selected = tipo === "motas" ? "motorcycle" : tipo === "carros" ? "car" : null;
   const vehicleType = selected && allowedTypes.includes(selected)
     ? selected
     : allowedTypes.length === 1 ? allowedTypes[0]! : null;

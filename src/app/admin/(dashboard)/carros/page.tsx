@@ -3,12 +3,23 @@ import { getAdminCars } from "@/lib/admin-queries";
 import { requireSection } from "@/lib/guard";
 import { coverImage } from "@/lib/mappers";
 import { CarsTable, type CarListItem } from "@/components/admin/CarsTable";
+import { typeChoice } from "@/components/admin/TypeFilter";
+import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
 
 export const dynamic = "force-dynamic";
 
-export default async function CarsPage() {
+export default async function CarsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tipo?: string }>;
+}) {
   const me = await requireSection("carros");
-  const cars = await getAdminCars();
+  // Carros e motas na mesma lista; o filtro «Todos · Carros · Motas» é local.
+  const [cars, allowedTypes, { tipo }] = await Promise.all([
+    getAdminCars(),
+    getAllowedVehicleTypes(),
+    searchParams,
+  ]);
 
   const items: CarListItem[] = cars.map((c) => ({
     id: c.id,
@@ -45,7 +56,12 @@ export default async function CarsPage() {
         </Link>
       </div>
 
-      <CarsTable items={items} isAdmin={me.role === "admin"} />
+      <CarsTable
+        items={items}
+        isAdmin={me.role === "admin"}
+        allowedTypes={allowedTypes}
+        initialType={typeChoice(tipo)}
+      />
     </>
   );
 }

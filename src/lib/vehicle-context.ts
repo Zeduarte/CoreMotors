@@ -3,12 +3,11 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { effectiveVehicleTypes } from "@/lib/permissions";
-import type { VehicleType } from "./vehicle-categories";
+import { VEHICLE_TYPES, type VehicleType } from "./vehicle-categories";
 
-export async function getVehicleSelection(
-  area: "public" | "admin" = "public",
-): Promise<VehicleType | null> {
-  const value = (await cookies()).get(`coremotors_${area}_type`)?.value;
+/** O tipo escolhido no site público (cookie), ou null se ainda não escolheu. */
+export async function getVehicleSelection(): Promise<VehicleType | null> {
+  const value = (await cookies()).get("coremotors_public_type")?.value;
   return value === "car" || value === "motorcycle" ? value : null;
 }
 
@@ -41,16 +40,55 @@ export const getAllowedVehicleTypes = cache(
   },
 );
 
+/** O valor de `?tipo=` nos ecrãs do backoffice. */
+export type AdminTypeParam = "carros" | "motas";
+
+export const ADMIN_TYPE_PARAM: Record<VehicleType, AdminTypeParam> = {
+  car: "carros",
+  motorcycle: "motas",
+};
+
 /**
- * Tipo de viatura ativo no backoffice, limitado ao que o utilizador pode ver.
- * Se o cookie apontar para um mundo a que perdeu acesso, cai no primeiro
- * permitido em vez de mostrar dados que não devia.
+ * O backoffice é um só: mostra carros e motas juntos. Devolve os tipos que o
+ * ecrã deve mostrar — todos os que o utilizador pode gerir, ou só um, se a
+ * página tiver o filtro `?tipo=carros|motas` (e ele tiver acesso a esse).
  */
-export async function getAdminVehicleType(): Promise<VehicleType> {
-  const [selected, allowed] = await Promise.all([
-    getVehicleSelection("admin"),
-    getAllowedVehicleTypes(),
-  ]);
-  if (selected && allowed.includes(selected)) return selected;
-  return allowed[0] ?? "car";
+export async function getAdminVehicleTypes(
+  tipo?: string | null,
+): Promise<VehicleType[]> {
+  const allowed = await getAllowedVehicleTypes();
+  const picked =
+    tipo === "carros" ? "car" : tipo === "motas" ? "motorcycle" : null;
+  return picked && allowed.includes(picked) ? [picked] : allowed;
+}
+
+/**
+ * Filtro PostgREST para tabelas com `vehicle_type` que pode ser nulo
+ * (contactos e oficina): os tipos pedidos e, opcionalmente, os sem tipo.
+ */
+export function vehicleTypeOr(types: VehicleType[], includeNull = true): string {
+  const list = `vehicle_type.in.(${types.join(",")})`;
+  return includeNull ? `${list},vehicle_type.is.null` : list;
+}
+
+type TypeFilterable<Q> = {
+  or(filters: string): Q;
+  in(column: "vehicle_type", values: VehicleType[]): Q;
+  is(column: "vehicle_type", value: null): Q;
+};
+
+/**
+ * Aplica o filtro de tipo a uma consulta de contactos (onde o tipo pode ser
+ * nulo). Com todos os tipos e os sem tipo, não filtra nada; evita-se o `or`
+ * sempre que possível, para não se cruzar com o `or` da pesquisa.
+ */
+export function filterByVehicleType<Q extends TypeFilterable<Q>>(
+  query: Q,
+  types: VehicleType[],
+  { includeNull = true, onlyNull = false }: { includeNull?: boolean; onlyNull?: boolean } = {},
+): Q {
+  if (onlyNull) return query.is("vehicle_type", null);
+  if (!includeNull) return query.in("vehicle_type", types);
+  if (types.length >= VEHICLE_TYPES.length) return query;
+  return query.or(vehicleTypeOr(types));
 }

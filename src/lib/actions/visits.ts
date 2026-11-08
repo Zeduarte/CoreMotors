@@ -8,7 +8,7 @@ import { publicSubmissionClient } from "@/lib/public-submissions";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 import { requireSection } from "@/lib/guard";
 import { compactPhone, isValidPhone } from "@/lib/phone";
-import { getAdminVehicleType } from "@/lib/vehicle-context";
+import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
 import { getCustomerSettings, sendVisitMessage, sendVisitTemplate, takenSlots, visitContext } from "@/lib/visit-run";
 import { isBookable, visitDays, visitWhenLabel, zonedParts, type VisitDay } from "@/lib/visits";
 import type { VisitStatus } from "@/lib/supabase/database.types";
@@ -306,7 +306,9 @@ export async function createVisit(data: FormData): Promise<Result> {
   if (Date.parse(v.at) < Date.now()) return { ok: false, error: PAST_ERROR };
   const db = await createClient();
   let carLabel: string | null = null;
-  let vehicleType: "car" | "motorcycle" = await getAdminVehicleType();
+  // O tipo vem da viatura; sem viatura, só se o utilizador gerir um tipo só.
+  const allowed = await getAllowedVehicleTypes();
+  let vehicleType: "car" | "motorcycle" | null = allowed.length === 1 ? allowed[0]! : null;
   if (v.car_id) {
     const { data: car } = await db.from("cars").select("make, model, year, vehicle_type").eq("id", v.car_id).maybeSingle();
     if (!car) return { ok: false, error: "Viatura não encontrada." };

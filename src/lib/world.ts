@@ -1,11 +1,11 @@
 import type { VehicleType } from "@/lib/vehicle-categories";
-import type { Section } from "@/lib/permissions";
 import { TYPE_PATH, resolveSeoPage, seoPath } from "@/lib/seo-pages";
 
 /**
- * Carros e motas são dois "mundos" com stock separado — mas nem tudo se
- * separa. Este módulo diz onde o mundo importa e onde é conteúdo comum, para
- * o seletor não aparecer em páginas onde não significa nada.
+ * No site público, carros e motas são dois "mundos" com stock separado — mas
+ * nem tudo se separa. Este módulo diz onde o mundo importa e onde é conteúdo
+ * comum, para o seletor não aparecer em páginas onde não significa nada.
+ * (O backoffice é um só: mostra os dois tipos juntos.)
  */
 
 /**
@@ -21,26 +21,6 @@ export const COMMON_PUBLIC_PATHS = [
   "/termos-condicoes",
   "/alertas",
 ] as const;
-
-/**
- * Separadores do backoffice que gerem o site inteiro, não um tipo de viatura:
- * testemunhos e utilizadores (pedido do cliente), definições, integrações e
- * plataformas de anúncios (configuração global) e as horas (pessoais).
- */
-export const COMMON_ADMIN_SECTIONS: Section[] = [
-  "testemunhos",
-  "utilizadores",
-  "definicoes",
-  "integracoes",
-  "anuncios",
-  "horas",
-];
-
-/**
- * A área pessoal (dados e férias) não é um separador de permissões — está
- * fora de `Section` —, por isso tem de ser tratada à parte.
- */
-const COMMON_ADMIN_PATHS = ["perfil"];
 
 /** O mundo influencia o que esta página pública mostra? */
 export function pathHasWorld(pathname: string): boolean {
@@ -101,13 +81,6 @@ function decodeURIComponentSafe(s: string): string {
   } catch {
     return s;
   }
-}
-
-/** O mundo influencia este ecrã do backoffice? */
-export function adminPathHasWorld(pathname: string): boolean {
-  const section = pathname.split("/")[2] ?? "";
-  if (COMMON_ADMIN_PATHS.includes(section)) return false;
-  return !COMMON_ADMIN_SECTIONS.includes(section as Section);
 }
 
 export const WORLD_LABEL: Record<VehicleType, string> = {

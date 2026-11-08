@@ -1,4 +1,4 @@
-import { getAdminVehicleType } from "@/lib/vehicle-context";
+import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSection } from "@/lib/guard";
@@ -11,8 +11,8 @@ import { formatPrice } from "@/lib/format";
 import { VehicleRateForm } from "@/components/admin/VehicleRateForm";
 export const dynamic="force-dynamic";
 export default async function FinanceVehicle({params}: {params:Promise<{id:string}>}) {
-  await requireSection("financeiro"); const {id}=await params; const db=await createClient();const vehicleType=await getAdminVehicleType();
-  const [{data:car},{data:finance,error},{data:costs,error:costError},{data:tasks},{data:settings}]=await Promise.all([db.from("cars").select("id,make,model,price,status,license_plate").eq("vehicle_type", vehicleType).eq("id",id).maybeSingle(),db.from("vehicle_financials").select("*").eq("car_id",id).maybeSingle(),db.from("vehicle_costs").select("*").eq("car_id",id).order("incurred_on",{ascending:false}),db.from("vehicle_tasks").select("hours").eq("car_id",id),db.from("site_settings").select("workshop_hourly_rate").eq("id",1).maybeSingle()]);
+  await requireSection("financeiro"); const {id}=await params; const db=await createClient();const types=await getAllowedVehicleTypes();
+  const [{data:car},{data:finance,error},{data:costs,error:costError},{data:tasks},{data:settings}]=await Promise.all([db.from("cars").select("id,make,model,price,status,license_plate").in("vehicle_type", types).eq("id",id).maybeSingle(),db.from("vehicle_financials").select("*").eq("car_id",id).maybeSingle(),db.from("vehicle_costs").select("*").eq("car_id",id).order("incurred_on",{ascending:false}),db.from("vehicle_tasks").select("hours").eq("car_id",id),db.from("site_settings").select("workshop_hourly_rate").eq("id",1).maybeSingle()]);
   if(!car) notFound(); if(error||costError) throw new Error("Não foi possível carregar os custos.");
   const manualCosts=(costs??[]).reduce((n,c)=>n+Number(c.amount),0);
   // Mão de obra da oficina = horas registadas × valor/hora (definido em Definições).

@@ -262,11 +262,6 @@ export function CarForm({
       toast.error(res.error ?? "Não foi possível guardar.");
       return;
     }
-    if (values.vehicle_type !== defaults?.vehicle_type) {
-      // Pela rota do backoffice: dentro do âmbito da app instalada (PWA).
-      window.location.assign(`/admin/vehicle-context?type=${values.vehicle_type}&target=${encodeURIComponent(`/admin/carros/${carId ?? res.id}`)}`);
-      return;
-    }
     if (carId) {
       toast.success("Alterações guardadas.");
       router.refresh();

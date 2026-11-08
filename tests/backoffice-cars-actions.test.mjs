@@ -243,18 +243,8 @@ await test('sold and reserved are only set through the lead flow; reverting a sa
   assert.deepEqual(olx.queued, [CAR]);
 });
 
-// ---- 13. Troca carros/motas dentro de /admin -------------------------------------------
-await test('the admin switch route stays under /admin and keeps the same rules', async () => {
-  const { NextRequest } = require('next/server');
-  STUBS['@/lib/vehicle-context'] = { getAllowedVehicleTypes: async () => ['car'] };
-  const { GET } = load('src/app/admin/vehicle-context/route.ts');
-  const ok = await GET(new NextRequest('https://example.test/admin/vehicle-context?type=car&target=%2Fadmin%2Fleads'));
-  assert.equal(ok.status, 303);
-  assert.equal(ok.headers.get('location'), '/admin/leads');
-  assert.equal(ok.cookies.get('coremotors_admin_type').value, 'car');
-  // Mesmo sem `area=admin`, nunca mexe no cookie do site nem aceita destinos públicos.
-  assert.equal(ok.cookies.get('coremotors_public_type'), undefined);
-  const outside = await GET(new NextRequest('https://example.test/admin/vehicle-context?type=car&target=%2Finventario'));
-  assert.equal(outside.headers.get('location'), '/admin/carros');
-  assert.equal((await GET(new NextRequest('https://example.test/admin/vehicle-context?type=motorcycle'))).status, 403);
+// ---- 13. Um só backoffice: sem troca carros/motas ------------------------------------
+await test('the backoffice no longer has an /admin/vehicle-context switch', () => {
+  const fs = require('node:fs');
+  assert.equal(fs.existsSync('src/app/admin/vehicle-context/route.ts'), false);
 });

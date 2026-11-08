@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireSection } from "@/lib/guard";
 import { createClient } from "@/lib/supabase/server";
-import { getAdminVehicleType } from "@/lib/vehicle-context";
+import { getAllowedVehicleTypes, vehicleTypeOr } from "@/lib/vehicle-context";
 import { ActionForm, Field } from "@/components/admin/ActionForm";
 import { LocalDateTime } from "@/components/admin/LocalDateTime";
 import { VisitQuickActions } from "@/components/admin/VisitQuickActions";
@@ -35,7 +35,8 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
   const { ver } = await searchParams;
   const past = ver === "anteriores";
   const db = await createClient();
-  const vehicleType = await getAdminVehicleType();
+  // Visitas de carros e de motas na mesma agenda.
+  const types = await getAllowedVehicleTypes();
   const now = new Date();
   const todayStart = new Date(`${zonedParts(now).date}T00:00:00Z`);
   todayStart.setUTCHours(todayStart.getUTCHours() - 2); // margem para o fuso de Lisboa
@@ -44,13 +45,13 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     .from("leads")
     .select("id, name, phone, email, message, created_at, car_label, car_details, visit_at, visit_status, kind, assigned_to")
     .not("visit_at", "is", null)
-    .or(`vehicle_type.eq.${vehicleType},vehicle_type.is.null`);
+    .or(vehicleTypeOr(types));
   query = past
     ? query.lt("visit_at", now.toISOString()).gte("visit_at", new Date(now.getTime() - 60 * 86_400_000).toISOString()).order("visit_at", { ascending: false })
     : query.gte("visit_at", todayStart.toISOString()).order("visit_at", { ascending: true });
   const [{ data: visits, error }, { data: cars }, { data: staff }, settings, ctx] = await Promise.all([
     query.limit(300),
-    db.from("cars").select("id, make, model, license_plate").eq("vehicle_type", vehicleType).in("status", ["published", "reserved"]).order("make"),
+    db.from("cars").select("id, make, model, license_plate, vehicle_type").in("vehicle_type", types).in("status", ["published", "reserved"]).order("make"),
     db.rpc("staff_directory"),
     getCustomerSettings(db),
     visitContext(),
@@ -238,6 +239,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                   <option key={c.id} value={c.id}>
                     {c.make} {c.model}
                     {c.license_plate ? ` · ${c.license_plate}` : ""}
+                    {types.length > 1 && c.vehicle_type === "motorcycle" ? " (mota)" : ""}
                   </option>
                 ))}
               </select>

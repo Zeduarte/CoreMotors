@@ -1,4 +1,5 @@
-import { getAdminVehicleType } from "@/lib/vehicle-context";
+import { getAdminVehicleTypes, getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import type { VehicleType } from "@/lib/vehicle-categories";
 import { lisbonMonthWindows } from "@/lib/lisbon-months";
 import "server-only";
 import { allRows } from "@/lib/pagination";
@@ -49,11 +50,14 @@ export async function getCurrentProfile(): Promise<ProfileRow | null> {
   return data ?? null;
 }
 
-/** Todos os carros (staff) com a sua media — para a listagem do backoffice. */
-export async function getAdminCars(): Promise<CarWithMedia[]> {
+/**
+ * Todas as viaturas (carros e motas) com a sua media — para a listagem do
+ * backoffice. `tipo` (`carros`/`motas`) restringe a um só tipo.
+ */
+export async function getAdminCars(tipo?: string | null): Promise<CarWithMedia[]> {
   const supabase = await createClient();
-  const vehicleType = await getAdminVehicleType();
-  const cars = await allRows((a,b) => supabase.from("cars").select("*, car_media(*)").eq("vehicle_type", vehicleType).order("updated_at", {ascending:false}).order("id").range(a,b)) as unknown as CarWithMedia[];
+  const types = await getAdminVehicleTypes(tipo);
+  const cars = await allRows((a,b) => supabase.from("cars").select("*, car_media(*)").in("vehicle_type", types).order("updated_at", {ascending:false}).order("id").range(a,b)) as unknown as CarWithMedia[];
   // As que estão na oficina só aparecem lá; entram aqui ao serem preparadas.
   // Filtra-se aqui e não na query: pedir `status <> 'workshop'` à BD rebenta
   // se a migração 0027 (que cria esse estado) ainda não tiver sido aplicada.
@@ -65,10 +69,10 @@ export async function getAdminCarById(
   id: string,
 ): Promise<CarWithMedia | null> {
   const supabase = await createClient();
-  const vehicleType = await getAdminVehicleType();
+  const types = await getAllowedVehicleTypes();
   const { data, error } = await supabase
     .from("cars")
-    .select("*, car_media(*)").eq("vehicle_type", vehicleType)
+    .select("*, car_media(*)").in("vehicle_type", types)
     .eq("id", id)
     .maybeSingle();
   if (error) {
@@ -107,6 +111,7 @@ export interface DashboardStats {
   conversion: {
     name: string;
     slug: string;
+    vehicleType: VehicleType;
     status: CarRow["status"];
     views: number;
     leads: number;
@@ -127,16 +132,39 @@ const MONTHS_PT = [
   "Jul", "Ago", "Set", "Out", "Nov", "Dez",
 ];
 
-/** Agrega KPIs e séries para os gráficos da dashboard. */
-export async function getDashboardStats(): Promise<DashboardStats> {
+/**
+ * Soma os indicadores de vários tipos (a função da BD é por tipo). Os números
+ * são contagens disjuntas por tipo, por isso somar é exato.
+ */
+async function analyticsFor(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  types: VehicleType[],
+) {
+  const parts = await Promise.all(
+    types.map((t) => supabase.rpc("analytics_summary_by_type", { selected_type: t })),
+  );
+  if (parts.some((p) => p.error || !p.data)) return null;
+  return parts.reduce(
+    (acc, { data }) => ({
+      views: acc.views + data!.views,
+      month_views: acc.month_views + data!.month_views,
+      leads: acc.leads + data!.leads,
+      new_leads: acc.new_leads + data!.new_leads,
+      by_car: [...acc.by_car, ...data!.by_car],
+    }),
+    { views: 0, month_views: 0, leads: 0, new_leads: 0, by_car: [] as { id: string; views: number; leads: number }[] },
+  );
+}
+
+/** Agrega KPIs e séries para os gráficos da dashboard (carros e motas juntos). */
+export async function getDashboardStats(tipo?: string | null): Promise<DashboardStats> {
   const supabase = await createClient();
-  const vehicleType = await getAdminVehicleType();
-  const [cars, summary] = await Promise.all([
-    allRows((a,b) => supabase.from("cars").select("id, slug, make, model, fuel, price, price_on_request, status, created_at, sold_at").eq("vehicle_type", vehicleType).order("id").range(a,b)),
-    supabase.rpc("analytics_summary_by_type", {selected_type:vehicleType}),
+  const types = await getAdminVehicleTypes(tipo);
+  const [cars, analytics] = await Promise.all([
+    allRows((a,b) => supabase.from("cars").select("id, slug, make, model, fuel, price, price_on_request, status, created_at, sold_at, vehicle_type").in("vehicle_type", types).order("id").range(a,b)),
+    analyticsFor(supabase, types),
   ]);
-  if (summary.error || !summary.data) throw new Error("Não foi possível carregar os indicadores.");
-  const analytics = summary.data;
+  if (!analytics) throw new Error("Não foi possível carregar os indicadores.");
   const leadCount = analytics.new_leads;
   const totalLeads = analytics.leads;
   const viewsThisMonth = analytics.month_views;
@@ -153,6 +181,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     | "status"
     | "created_at"
     | "sold_at"
+    | "vehicle_type"
   >[];
 
   // Visitas por viatura → top 5 mais vistas.
@@ -183,6 +212,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       return {
         name: `${c.make} ${c.model}`,
         slug: c.slug,
+        vehicleType: (c.vehicle_type ?? "car") as VehicleType,
         status: c.status,
         views: v,
         leads: l,

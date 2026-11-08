@@ -31,7 +31,7 @@ const load = createLoader({
   'next/navigation': { redirect(to) { redirects.push(to); throw new Error(`redirect ${to}`); } },
   '@/lib/notifications-kick': { deliverNotificationsSoon() {} },
   '@/lib/public-cache': { revalidatePublic() {} },
-  '@/lib/vehicle-context': { getAdminVehicleType: async () => 'car' },
+  '@/lib/vehicle-context': { getAllowedVehicleTypes: async () => ['car', 'motorcycle'] },
 });
 
 const leave = load('src/lib/actions/leave.ts');

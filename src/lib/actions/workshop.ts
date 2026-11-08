@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminVehicleType } from "@/lib/vehicle-context";
+import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
 import { revalidatePublic } from "@/lib/public-cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -167,6 +167,7 @@ export async function deleteWorkshopCost(id: string): Promise<ActionResult> {
 const newVehicleSchema = z.object({
   name: z.string().trim().min(1, "Indique o nome/viatura").max(120),
   plate: z.string().trim().min(2, "Indique a matrícula").max(20),
+  vehicle_type: z.enum(["car", "motorcycle"]).optional(),
 });
 
 /**
@@ -181,13 +182,18 @@ export async function createWorkshopVehicle(
   const parsed = newVehicleSchema.safeParse({
     name: formData.get("name"),
     plate: formData.get("plate"),
+    vehicle_type: formData.get("vehicle_type") || undefined,
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
+  // Carro ou mota escolhido no formulário; quem só gere um tipo, cria desse.
+  const allowed = await getAllowedVehicleTypes();
+  const type = parsed.data.vehicle_type ?? allowed[0] ?? "car";
+  if (!allowed.includes(type)) return { ok: false, error: "Sem acesso a este tipo de viatura." };
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("create_workshop_intake_for_type", {
-    selected_type: await getAdminVehicleType(),
+    selected_type: type,
     vehicle_name: parsed.data.name,
     plate: parsed.data.plate.toUpperCase().replace(/\s+/g, ""),
   });

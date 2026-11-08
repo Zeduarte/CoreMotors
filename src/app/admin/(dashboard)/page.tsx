@@ -1,4 +1,5 @@
-import { getAdminVehicleType } from "@/lib/vehicle-context";
+import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import { TypeFilter, TypeTag, typeChoice, withTipo } from "@/components/admin/TypeFilter";
 import { createClient } from "@/lib/supabase/server";
 import { OperationalDashboard } from "@/components/admin/OperationalDashboard";
 import Link from "next/link";
@@ -67,8 +68,15 @@ function greeting(): string {
   return hour < 6 ? "Boa noite" : hour < 13 ? "Bom dia" : hour < 20 ? "Boa tarde" : "Boa noite";
 }
 
-export default async function DashboardPage() {
-  const vehicleType = await getAdminVehicleType();
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tipo?: string }>;
+}) {
+  // Carros e motas juntos; «Carros» ou «Motas» em cima restringe os números.
+  const [{ tipo }, allowedTypes] = await Promise.all([searchParams, getAllowedVehicleTypes()]);
+  const choice = typeChoice(tipo);
+  const mixed = allowedTypes.length > 1;
   // O mecânico não tem dashboard — vai direto para a Oficina.
   const profile = await getCurrentProfile();
   if (profile?.role === "mecanico") redirect("/admin/oficina");
@@ -78,14 +86,15 @@ export default async function DashboardPage() {
   if (schemaError) return null; // The layout displays the activation/service notice.
 
   const [stats, cars] = await Promise.all([
-    getDashboardStats(),
-    getAdminCars(),
+    getDashboardStats(tipo),
+    getAdminCars(tipo),
   ]);
 
   if (stats.total === 0) {
     return (
       <>
         <Header name={profile?.full_name || profile?.email || ""} />
+        <TypeFilter className="mb-6" value={choice} allowed={allowedTypes} hrefFor={(c) => withTipo("/admin", {}, c)} />
         <OperationalDashboard />
         <EmptyState />
       </>
@@ -99,6 +108,7 @@ export default async function DashboardPage() {
       <Header name={profile?.full_name || profile?.email || ""} />
 
       <OperationalDashboard />
+      <TypeFilter className="mb-4" value={choice} allowed={allowedTypes} hrefFor={(c) => withTipo("/admin", {}, c)} />
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi
           featured
@@ -193,10 +203,11 @@ export default async function DashboardPage() {
                     <td className="p-3">
                       <Link
                         prefetch={false}
-            href={`/api/vehicle-context?area=public&type=${vehicleType}&target=${encodeURIComponent(`/viaturas/${c.slug}`)}`}
-                        className="text-paper hover:text-accent"
+                        href={`/api/vehicle-context?area=public&type=${c.vehicleType}&target=${encodeURIComponent(`/viaturas/${c.slug}`)}`}
+                        className="inline-flex items-center gap-2 text-paper hover:text-accent"
                       >
                         {c.name}
+                        {mixed && <TypeTag type={c.vehicleType} />}
                       </Link>
                     </td>
                     <td className="p-3 text-right tabular-nums text-paper/80">
@@ -255,9 +266,12 @@ export default async function DashboardPage() {
                   />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-paper">
-                    {car.make} {car.model}
-                    {car.variant ? ` ${car.variant}` : ""}
+                  <p className="flex items-center gap-2 text-sm font-medium text-paper">
+                    <span className="truncate">
+                      {car.make} {car.model}
+                      {car.variant ? ` ${car.variant}` : ""}
+                    </span>
+                    {mixed && <TypeTag type={car.vehicle_type} />}
                   </p>
                   <p className="text-xs text-paper/50">
                     {car.year} · {car.fuel}

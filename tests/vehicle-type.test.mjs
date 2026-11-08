@@ -192,7 +192,7 @@ test("inventory URL accepts only known vehicle sections", () => {
     assert.equal(inventoryVehicleType(value), null);
 });
 
-await test("public and admin categories stay independent across every vehicle list and detail",async()=>{
+await test("the public site keeps its two worlds; the backoffice shows cars and motorcycles together",async()=>{
  const bike=rows.find(r=>r.vehicle_type==="motorcycle"), car=rows.find(r=>r.vehicle_type==="car");
  bike.featured=car.featured=true;
  publicType="motorcycle";adminType="car";
@@ -203,12 +203,15 @@ await test("public and admin categories stay independent across every vehicle li
  // mota tem de abrir a quem está nos carros).
  assert.equal((await getVehicleBySlug(car.slug)).id,car.id);
  assert.equal((await getVehicleBySlug(bike.slug)).id,bike.id);
- assert.deepEqual((await getAdminCars()).map(v=>v.id),[car.id]);
- assert.equal(await getAdminCarById(bike.id),null);
+ // O backoffice é um só: a escolha do site (ou um cookie antigo do
+ // backoffice) não esconde nada; `?tipo=` restringe a um tipo.
+ assert.deepEqual((await getAdminCars()).map(v=>v.id).sort(),[car.id,bike.id].sort());
+ assert.deepEqual((await getAdminCars("carros")).map(v=>v.id),[car.id]);
+ assert.deepEqual((await getAdminCars("motas")).map(v=>v.id),[bike.id]);
+ assert.equal((await getAdminCarById(bike.id)).id,bike.id,"a ficha de uma mota abre sem trocar de ambiente");
+ assert.equal((await getAdminCarById(car.id)).id,car.id);
  bike.status=car.status="sold";
  assert.deepEqual((await getSoldVehicles()).map(v=>v.id),[bike.id]);
- adminType="motorcycle";
- assert.deepEqual((await getAdminCars()).map(v=>v.id),[bike.id]);
  publicType="car";
  assert.deepEqual((await getSoldVehicles()).map(v=>v.id),[car.id]);
 });
@@ -232,9 +235,11 @@ await test("selection endpoint stores only the requested area and rejects unsafe
  assert.equal(result.cookies.get("coremotors_public_type").value,"motorcycle");
  assert.equal(result.cookies.get("coremotors_admin_type"),undefined);
  assert.match(result.headers.get("set-cookie"),/HttpOnly/);
+ // `area=admin` (links antigos) já não existe: trata-se como o site.
  const unsafe=await GET(new NextRequest("https://example.test/api/vehicle-context?type=car&area=admin&target=https://evil.test"));
- assert.equal(await destinationOf(unsafe),"/admin/carros");
- assert.equal(unsafe.cookies.get("coremotors_admin_type").value,"car");
+ assert.equal(await destinationOf(unsafe),"/");
+ assert.equal(unsafe.cookies.get("coremotors_admin_type"),undefined);
+ assert.equal(unsafe.cookies.get("coremotors_public_type").value,"car");
  const invalid=await GET(new NextRequest("https://example.test/api/vehicle-context?type=truck"));
  assert.equal(invalid.status,400);
  // As páginas por marca e o stock com uma pesquisa voltam para onde estavam.
@@ -283,42 +288,40 @@ await test("public enquiries inherit the chosen world, and a vehicle enquiry tak
  assert.equal(leadRows.at(-1).vehicle_type,"motorcycle");
 });
 
-await test("per-user vehicle access limits the backoffice world and the switch endpoint",async()=>{
- const {getAdminVehicleType}=load("src/lib/vehicle-context.ts");
- const {GET}=load("src/app/api/vehicle-context/route.ts");
- const {NextRequest}=require("next/server");
- const url=t=>new NextRequest(`https://example.test/api/vehicle-context?type=${t}&area=admin&target=%2Fadmin%2Fcarros`);
+await test("per-user vehicle access limits what the single backoffice shows",async()=>{
+ const {getAdminVehicleTypes}=load("src/lib/vehicle-context.ts");
 
- // Só carros: o cookie a apontar para motas não dá acesso às motas.
+ // Só carros: vê só carros, e `?tipo=motas` não abre as motas.
  profile={id:"staff-test",role:"vendedor",allowed_vehicle_types:["car"]};
- adminType="motorcycle";
- assert.equal(await getAdminVehicleType(),"car");
- assert.equal((await GET(url("motorcycle"))).status,403);
- assert.equal((await GET(url("car"))).status,200);
+ assert.deepEqual(await getAdminVehicleTypes(),["car"]);
+ assert.deepEqual(await getAdminVehicleTypes("motas"),["car"]);
 
  // Só motas: o inverso.
  profile={id:"staff-test",role:"vendedor",allowed_vehicle_types:["motorcycle"]};
- adminType="car";
- assert.equal(await getAdminVehicleType(),"motorcycle");
- assert.equal((await GET(url("car"))).status,403);
+ assert.deepEqual(await getAdminVehicleTypes(),["motorcycle"]);
+ assert.deepEqual(await getAdminVehicleTypes("carros"),["motorcycle"]);
 
- // O admin acede sempre aos dois, mesmo com uma restrição gravada.
+ // O admin vê sempre os dois juntos, mesmo com uma restrição gravada; o
+ // filtro restringe a um.
  profile={id:"staff-test",role:"admin",allowed_vehicle_types:["car"]};
- adminType="motorcycle";
- assert.equal(await getAdminVehicleType(),"motorcycle");
- assert.equal((await GET(url("motorcycle"))).status,200);
+ assert.deepEqual(await getAdminVehicleTypes(),["car","motorcycle"]);
+ assert.deepEqual(await getAdminVehicleTypes("motas"),["motorcycle"]);
+ assert.deepEqual(await getAdminVehicleTypes("outra-coisa"),["car","motorcycle"]);
 
  profile={id:"staff-test",role:"admin",allowed_vehicle_types:null};
- adminType="car";
 });
 
-await test("switching world in the backoffice stays on the same section",async()=>{
- const {GET}=load("src/app/api/vehicle-context/route.ts");
- const {NextRequest}=require("next/server");
- profile={id:"staff-test",role:"admin",allowed_vehicle_types:null};
- const go=async(target)=>destinationOf(await GET(new NextRequest(`https://example.test/api/vehicle-context?type=motorcycle&area=admin&target=${encodeURIComponent(target)}`)));
- for(const section of ["/admin","/admin/carros","/admin/leads","/admin/leads/agenda","/admin/oficina","/admin/financeiro","/admin/pagina-inicial"])
-  assert.equal(await go(section),section,section);
+await test("the backoffice has no carros/motas switch any more",()=>{
+ assert.equal(existsSync(resolve("src/app/admin/vehicle-context/route.ts")),false);
+ assert.equal(existsSync(resolve("src/components/admin/AdminWorldBanner.tsx")),false);
+ const {filterByVehicleType}=load("src/lib/vehicle-context.ts");
+ const calls=[];
+ const q={or:f=>(calls.push(["or",f]),q),in:(c,v)=>(calls.push(["in",c,v]),q),is:(c,v)=>(calls.push(["is",c,v]),q)};
+ // Todos os tipos + os sem tipo = sem filtro (não se cruza com a pesquisa).
+ filterByVehicleType(q,["car","motorcycle"]);assert.deepEqual(calls,[]);
+ filterByVehicleType(q,["car"]);assert.deepEqual(calls.pop(),["or","vehicle_type.in.(car),vehicle_type.is.null"]);
+ filterByVehicleType(q,["motorcycle"],{includeNull:false});assert.deepEqual(calls.pop(),["in","vehicle_type",["motorcycle"]]);
+ filterByVehicleType(q,["car","motorcycle"],{onlyNull:true});assert.deepEqual(calls.pop(),["is","vehicle_type",null]);
 });
 
 await test("first visit keeps the page the visitor arrived on",async()=>{

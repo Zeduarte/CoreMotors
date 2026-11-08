@@ -117,47 +117,19 @@ await test('world switch offers only the other world, and not on shared pages',(
  pathname='/inventario';
 });
 
-await test('admin world banner shows the context, flags the other world, and marks shared sections',()=>{
- const Banner=load('src/components/admin/AdminWorldBanner.tsx').AdminWorldBanner;
- const images={car:'/car.jpg',motorcycle:'/moto.jpg'};
- const props=(extra)=>({world:'car',allowed:['car','motorcycle'],newByWorld:{car:0,motorcycle:0},images,...extra});
- pathname='/admin/carros';
- const both=renderToStaticMarkup(React.createElement(Banner,props()));
- assert.ok(both.includes('A gerir')&&both.includes('Carros')&&both.includes('Motas'));
- assert.ok(both.includes('type=motorcycle'),'dá para passar para as motas');
- assert.ok(!both.includes('contacto'),'sem avisos quando não há nada novo');
-
- const pending=renderToStaticMarkup(React.createElement(Banner,props({newByWorld:{car:0,motorcycle:3}})));
- assert.ok(pending.includes('3 contactos novos em motas'),'avisa dos contactos novos no outro mundo');
- pathname='/admin/financeiro';
- const fromCosts=renderToStaticMarkup(React.createElement(Banner,props({newByWorld:{car:0,motorcycle:3}})));
- assert.ok(fromCosts.includes('type=motorcycle&amp;target=%2Fadmin%2Fleads"'),'o aviso leva às leads do outro mundo, mesmo vindo dos Custos');
- pathname='/admin/carros';
-
- const onlyCars=renderToStaticMarkup(React.createElement(Banner,props({allowed:['car'],newByWorld:{car:1,motorcycle:5}})));
- assert.ok(onlyCars.includes('A gerir'),'continua a dizer onde está');
- assert.ok(!onlyCars.includes('type=motorcycle'),'sem passagem para o que não pode ver');
- assert.ok(!onlyCars.includes('em motas'),'não avisa do que não pode ver');
-
- pathname='/admin/leads/agenda';
- assert.ok(renderToStaticMarkup(React.createElement(Banner,props())).includes('target=%2Fadmin%2Fleads%2Fagenda'),'a agenda mantém-se ao trocar de mundo');
-
- for(const shared of ['/admin/utilizadores','/admin/testemunhos','/admin/definicoes','/admin/integracoes','/admin/anuncios','/admin/horas']){
-  pathname=shared;
-  const html=renderToStaticMarkup(React.createElement(Banner,props()));
-  assert.ok(html.includes('Todo o site')&&!html.includes('A gerir'),shared);
- }
- pathname='/admin/perfil';
- assert.equal(renderToStaticMarkup(React.createElement(Banner,props())),'');
- pathname='/inventario';
-});
-
-await test('the personal area is common to both vehicle worlds',()=>{
- const {adminPathHasWorld}=load('src/lib/world.ts');
- assert.equal(adminPathHasWorld('/admin/carros'),true);
- assert.equal(adminPathHasWorld('/admin/perfil'),false,'perfil não é de carros nem de motas');
- assert.equal(adminPathHasWorld('/admin/perfil/ferias'),false);
- assert.equal(adminPathHasWorld('/admin/utilizadores'),false);
+await test('one backoffice: a simple Todos · Carros · Motas filter instead of two worlds',()=>{
+ const {TypeFilter,TypeTag,typeChoice,withTipo}=load('src/components/admin/TypeFilter.tsx');
+ const both=renderToStaticMarkup(React.createElement(TypeFilter,{value:'todos',allowed:['car','motorcycle'],counts:{todos:5,carros:3,motas:2},hrefFor:c=>withTipo('/admin/leads',{q:'ana',page:'3'},c)}));
+ assert.ok(both.includes('Todos')&&both.includes('Carros')&&both.includes('Motas'));
+ assert.ok(both.includes('href="/admin/leads?q=ana"'),'«Todos» tira o filtro e volta à primeira página');
+ assert.ok(both.includes('href="/admin/leads?q=ana&amp;tipo=motas"'),'mantém a pesquisa ao filtrar');
+ assert.ok(both.includes('aria-current="page"'));
+ // Quem só gere um tipo não vê o seletor: não há nada a escolher.
+ assert.equal(renderToStaticMarkup(React.createElement(TypeFilter,{value:'todos',allowed:['car'],hrefFor:()=>'/'})),'');
+ assert.equal(typeChoice('motas'),'motas');
+ assert.equal(typeChoice('x'),'todos');
+ assert.ok(renderToStaticMarkup(React.createElement(TypeTag,{type:'motorcycle'})).includes('Mota'));
+ assert.equal(renderToStaticMarkup(React.createElement(TypeTag,{type:null})),'');
 });
 
 // ---- Avisos por WhatsApp (0036) ---------------------------------------------

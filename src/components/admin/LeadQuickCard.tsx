@@ -5,10 +5,13 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { quickAssign, quickContacted, quickSnooze, type Snooze } from "@/lib/actions/lead-quick";
 import { confirmVisit, setVisitOutcome } from "@/lib/actions/visits";
+import { TypeTag } from "./TypeFilter";
 
 export interface QuickLead {
   id: string;
   name: string;
+  /** Carro ou mota; null quando a lista não mistura tipos (ou sem tipo). */
+  vehicleType?: string | null;
   kind: string;
   kindLabel: string;
   status: string;
@@ -118,7 +121,12 @@ export function LeadQuickCard({
               <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[11px] font-medium text-amber-300">Em atraso</span>
             )}
           </div>
-          {l.carLabel && <p className="mt-1 text-sm text-paper/70">{l.carLabel}</p>}
+          {(l.carLabel || l.vehicleType) && (
+            <p className="mt-1 flex items-center gap-2 text-sm text-paper/70">
+              {l.vehicleType && <TypeTag type={l.vehicleType === "motorcycle" ? "motorcycle" : "car"} />}
+              {l.carLabel}
+            </p>
+          )}
         </div>
         <span className="shrink-0 text-xs text-paper/40">{l.age}</span>
       </div>

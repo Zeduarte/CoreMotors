@@ -22,6 +22,10 @@ import {
 import { CAR_STATUS_LABEL } from "./StatusBadge";
 import { brandOptions, sameBrand } from "@/lib/brand-name";
 import { manualStatusOptions, UNSELL_CONFIRM } from "@/lib/car-status";
+import type { VehicleType } from "@/lib/vehicle-categories";
+import { TypeFilter, TypeTag, type TypeChoice } from "./TypeFilter";
+
+const CHOICE_TYPE: Record<Exclude<TypeChoice, "todos">, VehicleType> = { carros: "car", motas: "motorcycle" };
 
 export interface CarListItem {
   vehicleType: "car" | "motorcycle";
@@ -46,7 +50,18 @@ export interface CarListItem {
 
 type SortKey = "recent" | "price-desc" | "price-asc" | "year-desc";
 
-export function CarsTable({ items, isAdmin = false }: { items: CarListItem[]; isAdmin?: boolean }) {
+export function CarsTable({
+  items,
+  isAdmin = false,
+  allowedTypes = ["car"],
+  initialType = "todos",
+}: {
+  items: CarListItem[];
+  isAdmin?: boolean;
+  allowedTypes?: VehicleType[];
+  initialType?: TypeChoice;
+}) {
+  const [type, setType] = useState<TypeChoice>(initialType);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<CarStatus | "">("");
   const [fuel, setFuel] = useState<FuelType | "">("");
@@ -62,6 +77,7 @@ export function CarsTable({ items, isAdmin = false }: { items: CarListItem[]; is
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     const list = items.filter((i) => {
+      if (type !== "todos" && i.vehicleType !== CHOICE_TYPE[type]) return false;
       if (status && i.status !== status) return false;
       if (fuel && i.fuel !== fuel) return false;
       if (make && !sameBrand(i.make, make)) return false;
@@ -81,7 +97,17 @@ export function CarsTable({ items, isAdmin = false }: { items: CarListItem[]; is
       "year-desc": (a, b) => (b.year ?? 0) - (a.year ?? 0),
     };
     return [...list].sort(sorters[sort]);
-  }, [items, q, status, fuel, make, sort]);
+  }, [items, type, q, status, fuel, make, sort]);
+
+  const typeCounts = useMemo(
+    () => ({
+      todos: items.length,
+      carros: items.filter((i) => i.vehicleType === "car").length,
+      motas: items.filter((i) => i.vehicleType === "motorcycle").length,
+    }),
+    [items],
+  );
+  const mixed = allowedTypes.length > 1;
 
   const allSelected =
     filtered.length > 0 && filtered.every((i) => selected.has(i.id));
@@ -115,6 +141,8 @@ export function CarsTable({ items, isAdmin = false }: { items: CarListItem[]; is
 
   return (
     <div className="space-y-4">
+      <TypeFilter value={type} allowed={allowedTypes} counts={typeCounts} onSelect={setType} />
+
       {/* Filtros */}
       <div className="card flex flex-wrap items-center gap-3 p-3">
         <input
@@ -290,8 +318,11 @@ export function CarsTable({ items, isAdmin = false }: { items: CarListItem[]; is
                           />
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate font-medium text-paper group-hover:text-accent">
-                            {car.make} {car.model}
+                          <p className="flex items-center gap-2 font-medium text-paper group-hover:text-accent">
+                            <span className="truncate">
+                              {car.make} {car.model}
+                            </span>
+                            {mixed && <TypeTag type={car.vehicleType} />}
                           </p>
                           <p className="text-xs text-paper/50">
                             {car.year} · {car.fuel} · {car.mediaCount} media

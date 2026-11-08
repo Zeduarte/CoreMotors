@@ -6,11 +6,20 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createWorkshopVehicle } from "@/lib/actions/workshop";
+import type { VehicleType } from "@/lib/vehicle-categories";
+import { TypeTag } from "./TypeFilter";
 import type { WorkshopVehicle } from "@/lib/workshop";
 import type { CarStatus } from "@/lib/supabase/database.types";
 import { StatusBadge } from "./StatusBadge";
 
-export function WorkshopList({ vehicles }: { vehicles: WorkshopVehicle[] }) {
+export function WorkshopList({
+  vehicles,
+  allowedTypes = ["car"],
+}: {
+  vehicles: WorkshopVehicle[];
+  allowedTypes?: VehicleType[];
+}) {
+  const mixed = allowedTypes.length > 1;
   const router = useRouter();
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
@@ -58,8 +67,17 @@ export function WorkshopList({ vehicles }: { vehicles: WorkshopVehicle[] }) {
       {adding && (
         <form
           action={submitNew}
-          className="card grid gap-3 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+          className={`card grid gap-3 p-4 sm:items-end ${mixed ? "sm:grid-cols-[auto_1fr_1fr_auto]" : "sm:grid-cols-[1fr_1fr_auto]"}`}
         >
+          {mixed && (
+            <div>
+              <span className="field-label">Tipo</span>
+              <select name="vehicle_type" className="field" defaultValue="car">
+                <option value="car">Carro</option>
+                <option value="motorcycle">Mota</option>
+              </select>
+            </div>
+          )}
           <div>
             <span className="field-label">Viatura (nome)</span>
             <input name="name" placeholder="Ex.: Yamaha R6" className="field" required />
@@ -105,8 +123,11 @@ export function WorkshopList({ vehicles }: { vehicles: WorkshopVehicle[] }) {
                   )}
                 </div>
                 <div className="p-4">
-                  <p className="font-semibold text-paper group-hover:text-accent">
-                    {v.make} {v.model !== "—" ? v.model : ""}
+                  <p className="flex items-center gap-2 font-semibold text-paper group-hover:text-accent">
+                    <span className="truncate">
+                      {v.make} {v.model !== "—" ? v.model : ""}
+                    </span>
+                    {mixed && <TypeTag type={v.vehicleType} />}
                   </p>
                   <p className="mt-1 font-mono text-sm text-paper/70">
                     {v.plate || "— sem matrícula —"}

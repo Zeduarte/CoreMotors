@@ -1,4 +1,4 @@
-import { getAdminVehicleType } from "@/lib/vehicle-context";
+import { getAllowedVehicleTypes, vehicleTypeOr } from "@/lib/vehicle-context";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSection } from "@/lib/guard";
@@ -21,12 +21,12 @@ export default async function LeadPage({params}: {params:Promise<{id:string}>}) 
   const me = await requireSection("leads");
   const {id} = await params;
   const db = await createClient();
-  const vehicleType = await getAdminVehicleType();
+  const types = await getAllowedVehicleTypes();
   const [{data:lead,error},{data:staff},{data:activities},{data:reservations},{data:cars}] = await Promise.all([
-    db.from("leads").select("*").eq("id",id).or(`vehicle_type.eq.${vehicleType},vehicle_type.is.null`).maybeSingle(), db.rpc("staff_directory"),
+    db.from("leads").select("*").eq("id",id).or(vehicleTypeOr(types)).maybeSingle(), db.rpc("staff_directory"),
     db.from("lead_activities").select("*").eq("lead_id",id).order("created_at",{ascending:false}).limit(100),
     db.from("reservations").select("*").eq("lead_id",id).order("created_at",{ascending:false}),
-    db.from("cars").select("id,make,model,license_plate,status").eq("vehicle_type",vehicleType).in("status",["published","reserved"]).order("make"),
+    db.from("cars").select("id,make,model,license_plate,status,vehicle_type").in("vehicle_type",types).in("status",["published","reserved"]).order("make"),
   ]);
   if (error) throw new Error("Não foi possível carregar o contacto.");
   if (!lead) notFound();
@@ -109,7 +109,7 @@ export default async function LeadPage({params}: {params:Promise<{id:string}>}) 
       <ActionForm action={saveLeadFollowup} label="Guardar acompanhamento">
         <h2 className="text-lg font-semibold">Acompanhamento comercial</h2><input type="hidden" name="id" value={id}/>
         <Field label="Responsável"><select className="field" name="assigned_to" defaultValue={lead.assigned_to ?? ""}><option value="">Por atribuir</option>{staff?.filter(p=>p.role!=="mecanico").map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
-        <Field label="Viatura"><select className="field" name="car_id" defaultValue={lead.car_id ?? ""}><option value="">Sem viatura associada</option>{lead.car_id && !cars?.some(c=>c.id===lead.car_id) && <option value={lead.car_id}>{lead.car_label ?? "Viatura associada"}</option>}{cars?.map(c=><option value={c.id} key={c.id}>{c.make} {c.model} · {c.license_plate}</option>)}</select></Field>
+        <Field label="Viatura"><select className="field" name="car_id" defaultValue={lead.car_id ?? ""}><option value="">Sem viatura associada</option>{lead.car_id && !cars?.some(c=>c.id===lead.car_id) && <option value={lead.car_id}>{lead.car_label ?? "Viatura associada"}</option>}{cars?.map(c=><option value={c.id} key={c.id}>{c.make} {c.model} · {c.license_plate}{types.length>1&&c.vehicle_type==="motorcycle"?" (mota)":""}</option>)}</select></Field>
         <Field label="Estado"><select className="field" name="status" defaultValue={lead.status} disabled={lead.status === "won"}>{lead.status === "won" && <option value="won">Venda concluída</option>}{Object.entries(statusLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></Field>
         {lead.status === "won" && <input type="hidden" name="status" value="won"/>}
         {lead.status === "won" && <p className="text-sm text-paper/60">Venda concluída. O acompanhamento está encerrado.</p>}
