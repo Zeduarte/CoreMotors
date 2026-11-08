@@ -8,7 +8,7 @@ import type {
   BodyType,
   SortKey,
 } from "@/types/vehicle";
-import { bodiesFor } from "@/lib/vehicle-categories";
+import { bodiesFor, type VehicleType } from "@/lib/vehicle-categories";
 import { activeFilterCount } from "@/lib/vehicles";
 import { BodyPicker } from "@/components/ui/BodyPicker";
 import type { SearchField } from "@/lib/olx/search";
@@ -35,7 +35,13 @@ interface FiltersProps {
   onChange: (patch: Partial<VehicleFilters>) => void;
   onSort: (sort: SortKey) => void;
   onReset: () => void;
+  /** Os tipos à escolha (carros e motas); sem isto, não há seletor de tipo. */
+  typeChoices?: VehicleType[];
+  /** Quantas viaturas há de cada tipo (e no total). */
+  typeCounts?: { all: number; car: number; motorcycle: number };
 }
+
+const TYPE_LABEL: Record<VehicleType, string> = { car: "Carros", motorcycle: "Motas" };
 
 /** Atalhos rápidos que aplicam um conjunto de filtros de uma vez. */
 const QUICK_CHIPS: { label: string; patch: Partial<VehicleFilters> }[] = [
@@ -73,6 +79,8 @@ export function Filters({
   onChange,
   onSort,
   onReset,
+  typeChoices,
+  typeCounts,
   embedded = false,
 }: FiltersProps & {
   /** Dentro do cartão do topo (sem moldura própria), em vez de um cartão à parte. */
@@ -96,6 +104,32 @@ export function Filters({
           : "rounded-2xl border border-white/10 bg-ink-soft p-5 md:p-6"
       }
     >
+      {/* Carros e motas no mesmo stock: «Todos · Carros · Motas», a primeira
+          escolha. Ao mudar de tipo, a categoria escolhida deixa de fazer sentido. */}
+      {typeChoices && typeChoices.length > 1 && (
+        <div role="radiogroup" aria-label="Tipo de viatura" className="mb-5 inline-flex gap-1 rounded-full border border-white/10 bg-ink/40 p-1">
+          {([null, ...typeChoices] as (VehicleType | null)[]).map((t) => {
+            const on = filters.vehicleType === t;
+            const n = typeCounts ? (t ? typeCounts[t] : typeCounts.all) : undefined;
+            return (
+              <button
+                key={t ?? "all"}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => !on && onChange({ vehicleType: t, body: null })}
+                className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                  on ? "bg-paper text-ink" : "text-paper/65 hover:bg-white/10 hover:text-paper"
+                }`}
+              >
+                {t ? TYPE_LABEL[t] : "Todos"}
+                {n !== undefined && <span className={`text-xs tabular-nums ${on ? "text-ink/55" : "text-paper/40"}`}>{n}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Categorias como no OLX: um quadrado por categoria com viaturas em
           stock, com a contagem. É a primeira escolha de quem procura. */}
       {filters.vehicleType && (

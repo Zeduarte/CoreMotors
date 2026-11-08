@@ -1,3 +1,4 @@
+import { isMotorcycleBody } from "@/lib/vehicle-categories";
 import Link from "next/link";
 
 export type Segment = {
@@ -38,7 +39,8 @@ export function Segments({
             className="w-[10.5rem] shrink-0 snap-start md:w-44 lg:w-auto lg:max-w-[15rem] lg:flex-1 lg:shrink"
           >
             <Link
-              href={`/inventario?categoria=${encodeURIComponent(body)}`}
+              // A categoria diz o tipo (Naked é de motas): o stock abre já nele.
+              href={`/inventario?${isMotorcycleBody(body) ? "tipo=motas" : "tipo=carros"}&categoria=${encodeURIComponent(body)}`}
               className="group relative flex h-32 flex-col justify-between overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-br from-white/[0.06] via-white/[0.02] to-transparent p-4 transition-[transform,border-color] duration-300 ease-premium hover:-translate-y-1 hover:border-accent/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent md:h-36 md:p-5"
             >
               {/* Brilho na cor do site no canto, mais forte ao passar o rato. */}

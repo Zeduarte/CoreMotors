@@ -5,6 +5,7 @@ import { revalidatePublic } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/admin-queries";
 import { mergeBadges } from "@/lib/badges";
+import { SITE_MODES, typesOfMode, type SiteMode } from "@/lib/site-types";
 import {
   afterBadgesSaved,
   afterBrandingSaved,
@@ -50,6 +51,31 @@ export async function saveBadges(input: unknown): Promise<SettingsResult> {
     .upsert({ key: "badges", content: { items } }, { onConflict: "key" });
   if (error) return { ok: false, error: error.message };
   afterBadgesSaved();
+  return { ok: true };
+}
+
+/**
+ * Tipo de site: só carros, carros e motas, ou só motas. Vale para o site
+ * público e para o backoffice. Apenas admin.
+ */
+export async function saveSiteMode(mode: unknown): Promise<SettingsResult> {
+  if (!(await requireAdmin())) {
+    return { ok: false, error: "Sem permissão. Apenas administradores." };
+  }
+  if (!SITE_MODES.some((m) => m.value === mode)) {
+    return { ok: false, error: "Escolha uma das opções." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("site_content")
+    .upsert(
+      { key: "site", content: { vehicle_types: typesOfMode(mode as SiteMode) } },
+      { onConflict: "key" },
+    );
+  if (error) return { ok: false, error: error.message };
+  // Muda o stock, a página inicial, os menus e o backoffice inteiro.
+  revalidatePublic("/", "layout");
+  revalidatePublic("/admin", "layout");
   return { ok: true };
 }
 

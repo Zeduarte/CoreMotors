@@ -381,7 +381,7 @@ export function CarsTable({
                       <div className="flex items-center justify-end gap-1">
                         <Link
                           prefetch={false}
-            href={`/api/vehicle-context?area=public&type=${car.vehicleType}&target=${encodeURIComponent(`/viaturas/${car.slug}`)}`}
+            href={`/viaturas/${car.slug}`}
                           target="_blank"
                           className="rounded-lg px-2 py-1 text-xs text-paper/60 hover:bg-white/5 hover:text-paper"
                           title="Ver no site"

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getBranding, getVehicleList } from "@/lib/queries";
+import { getBranding, getSiteVehicleTypes, getVehicleList } from "@/lib/queries";
 import { mediaFor } from "@/lib/media";
 import { asset } from "@/lib/asset";
 import { formatPrice } from "@/lib/format";
@@ -21,12 +21,14 @@ import type { Vehicle } from "@/types/vehicle";
  * Página de listagem para o Google: todas as motas (/motas), ou uma marca,
  * categoria, preço ou combustível (/motas/yamaha, /carros/suv, …).
  *
- * Mostra sempre o tipo do endereço, e não o da escolha guardada no browser.
+ * Mostra sempre o tipo do endereço. Se o site não vender esse tipo
+ * (Definições → Tipo de site), a página não existe.
  * Sem viaturas, fica o alerta de stock — e a página sai do índice do Google
  * (noindex) até voltar a haver stock, para não aparecer uma página vazia.
  */
 
 async function load(type: VehicleType, slug: string | null) {
+  if (!(await getSiteVehicleTypes()).includes(type)) notFound();
   const all = await getVehicleList(type);
   const page = slug ? resolveSeoPage(type, slug, all) : null;
   if (slug && !page) notFound();
@@ -101,11 +103,9 @@ export async function SeoListing({ type, slug }: { type: VehicleType; slug: stri
   const [{ all, page, vehicles }, branding] = await Promise.all([load(type, slug), getBranding()]);
   const from = fromPrice(vehicles);
   const typePath = `/${TYPE_PATH[type]}`;
-  // O mesmo resultado no stock, com todos os filtros (muda o mundo se for preciso).
-  const stockQuery = filtersToQuery({ ...emptyFilters(), ...(page?.filters ?? {}) });
-  const stockHref = `/api/vehicle-context?area=public&type=${type}&target=${encodeURIComponent(
-    `/inventario${stockQuery ? `?${stockQuery}` : ""}`,
-  )}`;
+  // O mesmo resultado no stock, com todos os filtros e o tipo (`?tipo=`).
+  const stockQuery = filtersToQuery({ ...emptyFilters(), ...(page?.filters ?? {}), vehicleType: type });
+  const stockHref = `/inventario?${stockQuery}`;
   const stats = [
     { value: String(vehicles.length), label: vehicles.length === 1 ? (type === "car" ? "carro" : "mota") : type === "car" ? "carros" : "motas" },
     ...(from ? [{ value: formatPrice(from), label: "desde" }] : []),

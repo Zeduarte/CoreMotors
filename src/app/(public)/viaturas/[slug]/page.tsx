@@ -17,7 +17,6 @@ import { VehicleTabs, type VehiclePlace } from "@/components/vehicle/VehicleTabs
 import { ExtrasGroups } from "@/components/vehicle/ExtrasGroups";
 import { TransparencySection } from "@/components/vehicle/TransparencySection";
 import { ViewTracker } from "@/components/vehicle/ViewTracker";
-import { VehicleWorldSync } from "@/components/site/VehicleWorldSync";
 import { ShareButton } from "@/components/vehicle/ShareButton";
 import { FavoriteButton } from "@/components/inventory/FavoriteButton";
 import { RecentlyViewed } from "@/components/vehicle/RecentlyViewed";
@@ -133,7 +132,6 @@ export default async function VehiclePage({ params }: { params: Params }) {
     <>
       <VehicleJsonLd vehicle={vehicle} sellerName={branding.companyName} />
       <ViewTracker carId={vehicle.id} slug={vehicle.slug} />
-      <VehicleWorldSync type={vehicle.vehicleType ?? "car"} />
 
       <article className="md:pt-8 xl:pt-0">
         {/* Telemóvel/tablet: coluna única (o cartão do preço fica fixo por baixo

@@ -33,7 +33,7 @@ export default async function Image({
   // Sem cookie aqui: quem pede a imagem é o WhatsApp/Facebook, e a viatura
   // procura-se nos dois mundos (`getVehicleBySlug` tenta o outro a seguir).
   const [vehicle, branding] = await Promise.all([
-    getVehicleBySlug(slug, "car").catch(() => undefined),
+    getVehicleBySlug(slug).catch(() => undefined),
     getBranding().catch(() => DEFAULT_BRANDING),
   ]);
   const name = branding.companyName || DEFAULT_BRANDING.companyName;

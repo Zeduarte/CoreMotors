@@ -334,8 +334,7 @@ function chatRoute(replies) {
     __id: String(Math.random()),
     '@anthropic-ai/sdk': { __esModule: true, default: FakeAnthropic },
     '@/lib/public-submissions': { publicSubmissionClient: async () => ({}) },
-    '@/lib/queries': { getBranding: async () => DEFAULT_BRANDING, getVehicleBySlug: async () => undefined, getVehicles: async () => [] },
-    '@/lib/vehicle-context': { getPublicVehicleType: async () => 'car' },
+    '@/lib/queries': { getBranding: async () => DEFAULT_BRANDING, getVehicleBySlug: async () => undefined, getVehicles: async () => [], getSiteVehicleTypes: async () => ['car', 'motorcycle'] },
   });
   const post = async (messages) => {
     const res = await route.POST(new Request('http://x/api/chat', { method: 'POST', body: JSON.stringify({ messages, pathname: '/' }) }));

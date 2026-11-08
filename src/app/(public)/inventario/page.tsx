@@ -1,6 +1,4 @@
-import { redirect } from "next/navigation";
-import { getPublicVehicleType, getVehicleSelection } from "@/lib/vehicle-context";
-import { inventoryRedirect } from "@/lib/inventory-redirect";
+import { getPublicVehicleType, getSiteVehicleTypes } from "@/lib/vehicle-context";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { mediaFor } from "@/lib/media";
@@ -17,7 +15,7 @@ export const metadata: Metadata = {
   title: "Stock",
   alternates: { canonical: "/inventario" },
   description:
-    "Explore o stock completo de motas e automóveis da Supermotas. Filtre por marca, modelo, preço, ano, combustível e quilómetros.",
+    "Explore o stock completo de automóveis e motas da Supermotas. Filtre por marca, modelo, preço, ano, combustível e quilómetros.",
 };
 
 export default async function InventoryPage({
@@ -26,24 +24,22 @@ export default async function InventoryPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const sp = await searchParams;
-  const vehicleType = await getPublicVehicleType();
-  // Muda o mundo e volta com a mesma pesquisa (sem o `tipo`). Normalmente já
-  // o fez o next.config.mjs, com um 307; aqui fica de reserva.
-  const switchWorld = inventoryRedirect(
-    new URLSearchParams(
-      Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === "string"),
-    ),
-    (await getVehicleSelection()) ?? undefined,
-  );
-  if (switchWorld) redirect(switchWorld);
-  // Stock leve para os cartões, com os valores dos campos do OLX pesquisáveis.
-  const { vehicles, fields: olxFields } = await inventoryWithOlx(await getVehicles(vehicleType), vehicleType);
-
+  // Um só stock: carros e motas juntos (os tipos que o site vende). O filtro
+  // «Todos · Carros · Motas» está no próprio stock (`?tipo=`).
+  const [world, siteTypes] = await Promise.all([getPublicVehicleType(), getSiteVehicleTypes()]);
   // Filtros vindos do endereço: a pesquisa rápida da página inicial, um link
-  // partilhado ou o «voltar» da ficha (?marca=Yamaha&preco_max=8000…).
-  const initialFilters = { ...filtersFromQuery(sp), vehicleType };
-
-  const world = vehicleType ?? "car";
+  // partilhado ou o «voltar» da ficha (?tipo=motas&marca=Yamaha…).
+  const fromQuery = filtersFromQuery(sp);
+  // Num site de um só tipo, o tipo fica fixo (mostra as categorias desse tipo).
+  const vehicleType =
+    siteTypes.length === 1
+      ? siteTypes[0]!
+      : fromQuery.vehicleType && siteTypes.includes(fromQuery.vehicleType)
+        ? fromQuery.vehicleType
+        : null;
+  // Stock leve para os cartões, com os valores dos campos do OLX pesquisáveis.
+  const { vehicles, fields: olxFields } = await inventoryWithOlx(await getVehicles(), vehicleType ?? world);
+  const initialFilters = { ...fromQuery, vehicleType };
 
   return (
     <div className="container-px pb-24 pt-6 md:pt-10">
@@ -79,10 +75,19 @@ export default async function InventoryPage({
         initialFilters={initialFilters}
         initialSort={sortFromQuery(sp)}
         olxFields={olxFields}
+        vehicleTypes={siteTypes}
       />
 
-      {/* Pesquisas populares: páginas por marca, categoria e preço (Google). */}
-      <SeoLinks type={world} vehicles={vehicles} className="mt-20" />
+      {/* Pesquisas populares: páginas por marca, categoria e preço (Google),
+          uma caixa por cada tipo que o site vende. */}
+      {siteTypes.map((t) => (
+        <SeoLinks
+          key={t}
+          type={t}
+          vehicles={vehicles.filter((v) => (v.vehicleType ?? "car") === t)}
+          className="mt-20"
+        />
+      ))}
     </div>
   );
 }

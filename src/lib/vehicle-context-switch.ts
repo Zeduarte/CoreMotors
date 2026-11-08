@@ -4,10 +4,10 @@ import { cleanLocalRedirect } from "@/lib/local-redirect";
 import { safePublicTarget } from "@/lib/safe-target";
 
 /**
- * Troca o tipo de viatura (carros/motas) do SITE PÚBLICO, guardado num
- * cookie, e volta à página pedida. O backoffice já não tem esta troca: mostra
- * carros e motas juntos (filtro `?tipo=` em cada ecrã). Um pedido antigo com
- * `area=admin` é tratado como do site, sem tocar no backoffice.
+ * Links antigos da troca carros/motas (`/api/vehicle-context?type=…&target=…`),
+ * que ainda podem estar partilhados ou em favoritos. O site já não tem dois
+ * «mundos»: carros e motas estão juntos. Vai para a página pedida sem guardar
+ * nada; se for o stock, abre filtrado nesse tipo (`?tipo=carros|motas`).
  */
 export async function switchVehicleContext(request: NextRequest) {
   const params = request.nextUrl.searchParams;
@@ -16,26 +16,20 @@ export async function switchVehicleContext(request: NextRequest) {
     return NextResponse.json({ error: "Tipo inválido" }, { status: 400 });
   }
 
-  let target = params.get("target");
-  // Vindo do redirecionamento de /inventario?tipo=… (next.config.mjs): o Next
-  // juntou a pesquisa original a este pedido; volta ao stock com ela (sem o
-  // `tipo`, que já fez o seu trabalho).
-  if (params.get("carry") === "1" && target === "/inventario") {
-    const rest = new URLSearchParams(params);
-    for (const key of ["type", "area", "target", "carry", "tipo"]) rest.delete(key);
-    const query = rest.toString();
-    if (query) target = `${target}?${query}`;
+  let target = safePublicTarget(params.get("target")) ?? "/";
+  if (target.split("?")[0] === "/inventario") {
+    const [, query = ""] = target.split("?");
+    const rest = new URLSearchParams(query);
+    // `carry=1` (redirecionamento antigo do next.config): a pesquisa veio junta.
+    if (params.get("carry") === "1") {
+      for (const [k, v] of params) if (!["type", "area", "target", "carry", "tipo"].includes(k)) rest.set(k, v);
+    }
+    rest.set("tipo", type === "motorcycle" ? "motas" : "carros");
+    target = `/inventario?${rest}`;
   }
-  const destination = safePublicTarget(target) ?? "/";
-  // Sem a pesquisa deste pedido no endereço final (ver cleanLocalRedirect).
-  const response = cleanLocalRedirect(destination, 303);
-  response.cookies.set("coremotors_public_type", type, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: request.nextUrl.protocol === "https:",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365,
-  });
+  const response = cleanLocalRedirect(target, 303);
+  // O cookie da escolha antiga deixou de servir: apaga-se.
+  response.cookies.set("coremotors_public_type", "", { path: "/", maxAge: 0 });
   response.headers.set("Cache-Control", "no-store");
   return response;
 }

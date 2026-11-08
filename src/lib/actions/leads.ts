@@ -1,6 +1,6 @@
 "use server";
 
-import { getPublicVehicleType } from "@/lib/vehicle-context";
+import { getSiteVehicleTypes } from "@/lib/queries";
 import { publicSubmissionClient } from "@/lib/public-submissions";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 import { leadSchema } from "@/lib/schemas";
@@ -72,11 +72,16 @@ export async function submitLead(
     };
   }
   const formType = formData.get("vehicle_type");
-  // As páginas por marca (/motas/yamaha) dizem o tipo; o resto segue o mundo escolhido.
-  let vehicleType =
-    v.kind === "alert" && (formType === "car" || formType === "motorcycle")
+  // O tipo vem do formulário (alerta, encomenda, páginas por marca como
+  // /motas/yamaha) ou da viatura (mais abaixo). Num site de um só tipo é esse;
+  // num site com carros e motas, um contacto geral fica sem tipo.
+  const siteTypes = await getSiteVehicleTypes();
+  let vehicleType: "car" | "motorcycle" | null =
+    formType === "car" || formType === "motorcycle"
       ? formType
-      : await getPublicVehicleType();
+      : siteTypes.length === 1
+        ? siteTypes[0]!
+        : null;
   let message = v.message || null;
   if (v.kind === "alert") {
     // O alerta guarda o que a pessoa procura, para ser avisada sozinha quando

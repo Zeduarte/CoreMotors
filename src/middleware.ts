@@ -17,6 +17,5 @@ export const config = {
     "/admin/((?!manifest\\.webmanifest$|sw\\.js$).*)",
     "/api/admin/:path*",
     "/api/olx/:path*",
-    "/api/vehicle-context",
   ],
 };

@@ -177,6 +177,10 @@ export function filtersFromQuery(sp: Params): Partial<VehicleFilters> {
   const set = <K extends keyof VehicleFilters>(k: K, v: VehicleFilters[K]) => {
     out[k] = v;
   };
+  // Carros e motas estão no mesmo stock: `?tipo=carros|motas` filtra.
+  const tipo = first(sp.tipo);
+  if (tipo === "carros") set("vehicleType", "car");
+  if (tipo === "motas") set("vehicleType", "motorcycle");
   for (const [param, key] of Object.entries(LEGACY_TEXT)) {
     const v = first(sp[param]);
     if (v) set(key, v as never);
@@ -212,6 +216,7 @@ export function filtersFromQuery(sp: Params): Partial<VehicleFilters> {
 
 export function filtersToQuery(f: VehicleFilters, sort?: SortKey): string {
   const qs = new URLSearchParams();
+  if (f.vehicleType) qs.set("tipo", f.vehicleType === "motorcycle" ? "motas" : "carros");
   for (const [param, key] of Object.entries(TEXT_PARAMS)) {
     const v = f[key];
     if (typeof v === "string" && v.trim()) qs.set(param, v.trim());

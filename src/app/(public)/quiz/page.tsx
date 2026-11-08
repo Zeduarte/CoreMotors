@@ -14,8 +14,10 @@ export const metadata: Metadata = {
 };
 
 export default async function QuizPage() {
+  // O questionário é do tipo principal do site (carros, salvo num site só de
+  // motas): as perguntas — carroçaria, lugares… — são diferentes nas motas.
   const type = await getPublicVehicleType();
-  const vehicles = await getVehicleList();
+  const vehicles = (await getVehicleList()).filter((v) => (v.vehicleType ?? "car") === type);
 
   return (
     <section className="pt-24 md:pt-32">

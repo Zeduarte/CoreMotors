@@ -14,6 +14,7 @@ import {
   sortFromQuery,
 } from "@/lib/vehicles";
 import type { SearchField } from "@/lib/olx/search";
+import type { VehicleType } from "@/lib/vehicle-categories";
 import dynamic from "next/dynamic";
 
 // O alerta fica no fim da página: descarrega-se depois de a lista aparecer.
@@ -43,6 +44,7 @@ export function InventoryClient({
   initialSort = "relevance",
   olxFields = [],
   header,
+  vehicleTypes = ["car", "motorcycle"],
 }: {
   vehicles: Vehicle[];
   initialFilters?: Partial<VehicleFilters>;
@@ -51,7 +53,13 @@ export function InventoryClient({
   olxFields?: SearchField[];
   /** Topo da página, unido ao cartão dos filtros. */
   header?: React.ReactNode;
+  /**
+   * Os tipos que o site vende. Com os dois, o stock tem o seletor «Todos ·
+   * Carros · Motas»; com um só, o tipo fica fixo (e fora do endereço).
+   */
+  vehicleTypes?: VehicleType[];
 }) {
+  const locked = vehicleTypes.length === 1 ? vehicleTypes[0]! : null;
   // O endereço manda: ao voltar da ficha, o Next pode repor a página com os
   // dados do 1.º pedido (sem os filtros escritos depois), mas o endereço já
   // os tem. No servidor e na hidratação é o mesmo endereço → mesmo resultado.
@@ -64,7 +72,7 @@ export function InventoryClient({
     ...emptyFilters(),
     ...initialFilters,
     ...(fromUrl?.filters ?? {}),
-    ...(initialFilters?.vehicleType ? { vehicleType: initialFilters.vehicleType } : {}),
+    ...(locked ? { vehicleType: locked } : {}),
   }));
   const [sort, setSort] = useState<SortKey>(fromUrl?.sort ?? initialSort);
 
@@ -75,20 +83,39 @@ export function InventoryClient({
   // dele, ao voltar da ficha repunha o endereço antigo e os filtros perdiam-se.
   useEffect(() => {
     const id = window.setTimeout(() => {
-      const qs = filtersToQuery(filters, sort);
+      // Num site de um só tipo, o tipo não vai para o endereço (é sempre o mesmo).
+      const qs = filtersToQuery(locked ? { ...filters, vehicleType: null } : filters, sort);
       const url = `${window.location.pathname}${qs ? `?${qs}` : ""}`;
       if (url !== `${window.location.pathname}${window.location.search}`) {
         window.history.replaceState(null, "", url);
       }
     }, 300);
     return () => window.clearTimeout(id);
-  }, [filters, sort]);
+  }, [filters, sort, locked]);
+
+  // As opções (marcas, categorias, cores…) seguem o tipo escolhido: com
+  // «Motas», a lista de marcas não traz as dos carros.
+  const pool = useMemo(
+    () =>
+      filters.vehicleType
+        ? vehicles.filter((v) => (v.vehicleType ?? "car") === filters.vehicleType)
+        : vehicles,
+    [vehicles, filters.vehicleType],
+  );
+  const typeCounts = useMemo(
+    () => ({
+      all: vehicles.length,
+      car: vehicles.filter((v) => (v.vehicleType ?? "car") === "car").length,
+      motorcycle: vehicles.filter((v) => v.vehicleType === "motorcycle").length,
+    }),
+    [vehicles],
+  );
 
   const options = useMemo(
     () => ({
       locations: Array.from(
         new Map(
-          vehicles
+          pool
             .filter((v) => v.pointOfSaleId || v.location)
             .map((v) => [
               v.pointOfSaleId || v.location!,
@@ -99,28 +126,28 @@ export function InventoryClient({
             ]),
         ).values(),
       ),
-      makes: distinctMakes(vehicles),
+      makes: distinctMakes(pool),
       // Os modelos acompanham a marca selecionada, se houver.
       models: distinctValues(
         filters.make
-          ? vehicles.filter((v) => sameBrand(v.make, filters.make!))
-          : vehicles,
+          ? pool.filter((v) => sameBrand(v.make, filters.make!))
+          : pool,
         "model",
       ) as string[],
-      fuels: distinctValues(vehicles, "fuel"),
-      transmissions: distinctValues(vehicles, "transmission"),
-      bodies: distinctValues(vehicles, "body"),
+      fuels: distinctValues(pool, "fuel"),
+      transmissions: distinctValues(pool, "transmission"),
+      bodies: distinctValues(pool, "body"),
       // Quantas viaturas há em cada categoria (os quadrados da pesquisa).
-      bodyCounts: vehicles.reduce<Record<string, number>>((acc, v) => {
+      bodyCounts: pool.reduce<Record<string, number>>((acc, v) => {
         acc[v.body] = (acc[v.body] ?? 0) + 1;
         return acc;
       }, {}),
-      colors: [...new Set(vehicles.map((v) => v.color.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt")),
-      doors: [...new Set(vehicles.map((v) => v.doors).filter((d) => d > 0))].sort((a, b) => a - b),
-      seats: [...new Set(vehicles.map((v) => v.seats).filter((d) => d > 0))].sort((a, b) => a - b),
+      colors: [...new Set(pool.map((v) => v.color.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt")),
+      doors: [...new Set(pool.map((v) => v.doors).filter((d) => d > 0))].sort((a, b) => a - b),
+      seats: [...new Set(pool.map((v) => v.seats).filter((d) => d > 0))].sort((a, b) => a - b),
       olxFields,
     }),
-    [vehicles, filters.make, olxFields],
+    [pool, filters.make, olxFields],
   );
 
   const results = useMemo(
@@ -142,10 +169,12 @@ export function InventoryClient({
           resultCount={results.length}
           onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
           onSort={setSort}
+          typeChoices={locked ? undefined : vehicleTypes}
+          typeCounts={typeCounts}
           onReset={() => {
             setFilters({
               ...emptyFilters(),
-              vehicleType: initialFilters?.vehicleType ?? null,
+              vehicleType: locked,
             });
             setSort("relevance");
           }}
@@ -202,7 +231,7 @@ export function InventoryClient({
           critérios já preenchidos. */}
       <section id="alerta" className="scroll-mt-28 pt-10">
         <StockAlertForm
-          vehicleType={filters.vehicleType ?? "car"}
+          vehicleType={filters.vehicleType ?? vehicleTypes[0] ?? "car"}
           makes={options.makes}
           defaults={{
             make: filters.make,

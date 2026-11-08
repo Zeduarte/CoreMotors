@@ -33,6 +33,8 @@ function load(file){file=resolve(file);if(cache.has(file))return cache.get(file)
   if(id==='next/image')return {__esModule:true,default:({src,alt})=>React.createElement('img',{src,alt})};
   if(id==='next/link')return {__esModule:true,default:({href,children,scroll,...props})=>React.createElement('a',{href,...props},children)};
   if(id==='@/lib/supabase/server')return {createClient:async()=>db};
+  // O tipo de site (Definições → Tipo de site): carros e motas, como de fábrica.
+  if(id==='@/lib/site-types-query')return {getSiteVehicleTypes:async()=>['car','motorcycle']};
   if(id==='@/lib/guard')return {requireSection:async()=>({id:'me',role,allowed_sections:null})};
   if(id.startsWith('@/lib/actions/'))return new Proxy({}, {get:()=>async()=>({ok:true})});
   if(id==='sonner')return {toast:{success(){}}};
@@ -91,30 +93,6 @@ await test('editing a motorcycle restores its type and hides car-specific doors'
  assert.ok(html.includes('type="hidden" name="vehicle_type"'));
  assert.ok(html.includes('type="hidden" name="doors"'));
  assert.ok(!html.includes('<option value="Berlina"'));
-});
-await test('world switch offers only the other world, and not on shared pages',()=>{
- const Switch=load('src/components/site/WorldSwitch.tsx').WorldSwitch;
- pathname='/inventario';
- const fromCars=renderToStaticMarkup(React.createElement(Switch,{world:'car'}));
- assert.ok(fromCars.includes('type=motorcycle&amp;target=%2Finventario'),'aponta para as motas');
- assert.ok(!fromCars.includes('type=car&amp;'),'não repete o mundo atual');
- assert.ok(fromCars.includes('Ver stock de motas'));
-
- const fromMotos=renderToStaticMarkup(React.createElement(Switch,{world:'motorcycle'}));
- assert.ok(fromMotos.includes('type=car&amp;target=%2Finventario'));
- assert.ok(fromMotos.includes('Ver stock de carros'));
-
- // Numa ficha, trocar de mundo leva ao stock — o slug é do mundo antigo.
- pathname='/viaturas/bmw-116d';
- assert.ok(renderToStaticMarkup(React.createElement(Switch,{world:'car'}))
-   .includes('target=%2Finventario'));
-
- // Páginas comuns aos dois mundos não mostram o seletor.
- for(const common of ['/sobre','/servicos','/contactos','/politica-de-cookies']){
-  pathname=common;
-  assert.equal(renderToStaticMarkup(React.createElement(Switch,{world:'car'})),'',common);
- }
- pathname='/inventario';
 });
 
 await test('one backoffice: a simple Todos · Carros · Motas filter instead of two worlds',()=>{

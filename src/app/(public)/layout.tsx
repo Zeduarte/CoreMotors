@@ -1,4 +1,4 @@
-import { getPublicVehicleType, getVehicleSelection } from "@/lib/vehicle-context";
+import { getPublicVehicleType, getSiteVehicleTypes } from "@/lib/vehicle-context";
 import { VehicleWorld } from "@/components/site/VehicleWorld";
 import { LenisProvider } from "@/components/providers/LenisProvider";
 import { Header } from "@/components/layout/Header";
@@ -15,8 +15,6 @@ import { CompareBar } from "@/components/inventory/CompareBar";
 import { DealerJsonLd } from "@/components/seo/DealerJsonLd";
 import { getBadges, getBranding } from "@/lib/queries";
 import { BadgesProvider } from "@/components/site/BadgesContext";
-import { WorldEntrance } from "@/components/site/WorldEntrance";
-import { WorldArrival } from "@/components/site/WorldArrival";
 import { existingMedia } from "@/lib/hero-media";
 import { OPTIONAL_MEDIA } from "@/lib/media";
 
@@ -28,17 +26,20 @@ import { OPTIONAL_MEDIA } from "@/lib/media";
 export default async function PublicLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const [branding, type, selection, badges] = await Promise.all([
+  // Um só site: carros e motas juntos (os tipos de Definições → Tipo de site).
+  // O tipo principal dá o aspeto (fotos e textos) — o dos carros, salvo num
+  // site só de motas.
+  const [branding, type, siteTypes, badges] = await Promise.all([
     getBranding(),
     getPublicVehicleType(),
-    getVehicleSelection(),
+    getSiteVehicleTypes(),
     getBadges(),
   ]);
   // Hora do render, para a etiqueta «Novidade» igual no servidor e no browser.
   const renderedAt = Date.now();
 
   return (
-    <VehicleWorld key={type} type={type} chosen={selection !== null}><BadgesProvider badges={badges} now={renderedAt}><LenisProvider>
+    <VehicleWorld type={type} types={siteTypes}><BadgesProvider badges={badges} now={renderedAt}><LenisProvider>
       {/* O provider envolve o conteúdo: a barra fixa da ficha de viatura
           precisa de abrir o mesmo painel de conversa que o botão flutuante. */}
       <ChatProvider enabled={!!process.env.ANTHROPIC_API_KEY}>
@@ -46,9 +47,6 @@ export default async function PublicLayout({
       {/* `.site`: estilos só do site público (ex.: botões); `contents` não
           cria caixa, por isso não altera o layout. */}
       <div className="site contents">
-        <WorldEntrance name={branding.companyName} selected={selection} />
-        {/* Troca de mundo: a página abre tapada pela foto e revela-se. */}
-        <WorldArrival type={type} />
         {/* Salto para conteúdo — acessibilidade por teclado. */}
         <a
           href="#conteudo"

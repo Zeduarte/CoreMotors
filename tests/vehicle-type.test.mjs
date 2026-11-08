@@ -8,7 +8,8 @@ const require = createRequire(import.meta.url);
 const rows = [];
 const leadRows = [];
 let nextId = 1;
-let publicType="car";
+// O tipo de site (Definições → Tipo de site), lido de site_content.
+let siteTypes=["car","motorcycle"];
 // Perfil do utilizador autenticado do backoffice (acesso aos dois mundos).
 let profile={id:"staff-test",role:"admin",allowed_vehicle_types:null};
 const requestedSections = [];
@@ -64,7 +65,9 @@ function query(table) {
           ? rows.filter((r) => conditions.every((c) => c(r)))
           : table === "profiles"
             ? (profile ? [profile] : [])
-            : [];
+            : table === "site_content"
+              ? [{ key: "site", content: { vehicle_types: siteTypes } }]
+              : [];
       if (operation === "insert") {
         result = [
           {
@@ -95,7 +98,7 @@ function load(file) {
   const mod = { exports: {} };
   const custom = (id) => {
     if (id === "server-only") return {};
-    if (id === "next/headers") return {cookies:async()=>({get:key=>({value:key === "coremotors_public_type" ? publicType : undefined})})};
+    if (id === "next/headers") return {cookies:async()=>({get:()=>undefined})};
     if (id === "next/cache")
       return { revalidatePath() {}, revalidateTag() {}, unstable_cache: (f) => f };
     if (id === "@/lib/guard")
@@ -179,10 +182,15 @@ await test("advert type is persisted on create/edit and scopes public database r
     (await getVehicles("car")).map((v) => v.id),
     [c.id],
   );
-  assert.deepEqual((await getVehicles()).map(v=>v.id),[c.id]);
-  publicType="motorcycle";
+  // Um só site: carros e motas juntos.
+  assert.deepEqual((await getVehicles()).map(v=>v.id).sort(),[b.id,c.id].sort());
+  // Site só de motas: os carros deixam de aparecer (e vice-versa).
+  siteTypes=["motorcycle"];
   assert.deepEqual((await getVehicles()).map(v=>v.id),[b.id]);
-  publicType="car";
+  assert.deepEqual((await getVehicles("car")).map(v=>v.id),[]);
+  siteTypes=["car"];
+  assert.deepEqual((await getVehicles()).map(v=>v.id),[c.id]);
+  siteTypes=["car","motorcycle"];
   assert.deepEqual(requestedSections, ["carros", "carros", "carros"]);
 });
 test("inventory URL accepts only known vehicle sections", () => {
@@ -192,28 +200,26 @@ test("inventory URL accepts only known vehicle sections", () => {
     assert.equal(inventoryVehicleType(value), null);
 });
 
-await test("the public site keeps its two worlds; the backoffice shows cars and motorcycles together",async()=>{
+await test("one site: cars and motorcycles together in every public list and in the backoffice, as the site type says",async()=>{
  const bike=rows.find(r=>r.vehicle_type==="motorcycle"), car=rows.find(r=>r.vehicle_type==="car");
  bike.featured=car.featured=true;
- publicType="motorcycle";
- assert.deepEqual((await getRecentVehicles()).map(v=>v.id),[bike.id]);
- assert.deepEqual((await getFeaturedVehicles()).map(v=>v.id),[bike.id]);
- // As listas seguem o mundo escolhido; a ficha abre por link direto em
- // qualquer um (o Google não guarda a escolha, e um link partilhado de uma
- // mota tem de abrir a quem está nos carros).
+ const ids=list=>list.map(v=>v.id).sort();
+ assert.deepEqual(ids(await getRecentVehicles()),[bike.id,car.id].sort());
+ assert.deepEqual(ids(await getFeaturedVehicles()),[bike.id,car.id].sort());
  assert.equal((await getVehicleBySlug(car.slug)).id,car.id);
  assert.equal((await getVehicleBySlug(bike.slug)).id,bike.id);
- // O backoffice é um só: a escolha do site (ou um cookie antigo do
- // backoffice) não esconde nada; `?tipo=` restringe a um tipo.
- assert.deepEqual((await getAdminCars()).map(v=>v.id).sort(),[car.id,bike.id].sort());
- assert.deepEqual((await getAdminCars("carros")).map(v=>v.id),[car.id]);
+ assert.deepEqual(ids(await getAdminCars()),[bike.id,car.id].sort());
  assert.deepEqual((await getAdminCars("motas")).map(v=>v.id),[bike.id]);
- assert.equal((await getAdminCarById(bike.id)).id,bike.id,"a ficha de uma mota abre sem trocar de ambiente");
- assert.equal((await getAdminCarById(car.id)).id,car.id);
+ assert.equal((await getAdminCarById(bike.id)).id,bike.id);
+ // Site só de carros: a ficha de uma mota não abre, nem aparece no backoffice.
+ siteTypes=["car"];
+ assert.equal(await getVehicleBySlug(bike.slug),undefined);
+ assert.deepEqual((await getAdminCars()).map(v=>v.id),[car.id]);
+ assert.equal(await getAdminCarById(bike.id),null);
  bike.status=car.status="sold";
- assert.deepEqual((await getSoldVehicles()).map(v=>v.id),[bike.id]);
- publicType="car";
  assert.deepEqual((await getSoldVehicles()).map(v=>v.id),[car.id]);
+ siteTypes=["car","motorcycle"];
+ assert.deepEqual(ids(await getSoldVehicles()),[bike.id,car.id].sort());
 });
 // Para onde a rota do mundo manda: o `Location` (destinos com pesquisa) ou a
 // página mínima que segue sozinha (destinos sem pesquisa — no Netlify, um
@@ -224,22 +230,21 @@ async function destinationOf(response){
  const html=await response.clone().text();
  return /http-equiv="refresh" content="0;url=([^"]*)"/.exec(html)?.[1]?.replace(/&amp;/g,"&")??null;
 }
-await test("selection endpoint stores only the requested area and rejects unsafe types and redirects",async()=>{
+await test("old carros/motas switch links land on the page (the stock filtered by type) without storing anything",async()=>{
  const {NextRequest}=require("next/server");
  const {GET}=load("src/app/api/vehicle-context/route.ts");
  const result=await GET(new NextRequest("https://example.test/api/vehicle-context?type=motorcycle&area=public&target=%2Finventario"));
- assert.equal(result.status,200);
- assert.equal(result.headers.get("location"),null,"sem Location: o Netlify juntava-lhe a pesquisa do pedido");
- assert.equal(await destinationOf(result),"/inventario");
- assert.match(await result.clone().text(),/location\.replace\("\/inventario"\)/);
- assert.equal(result.cookies.get("coremotors_public_type").value,"motorcycle");
+ assert.equal(result.status,303);
+ assert.equal(await destinationOf(result),"/inventario?tipo=motas");
+ assert.equal(result.cookies.get("coremotors_public_type").value,"","o cookie antigo é apagado");
  assert.equal(result.cookies.get("coremotors_admin_type"),undefined);
- assert.match(result.headers.get("set-cookie"),/HttpOnly/);
- // `area=admin` (links antigos) já não existe: trata-se como o site.
+ // Sem pesquisa no destino: página mínima que segue sozinha (Netlify).
+ const about=await GET(new NextRequest("https://example.test/api/vehicle-context?type=motorcycle&target=%2Fsobre"));
+ assert.equal(about.headers.get("location"),null,"sem Location: o Netlify juntava-lhe a pesquisa do pedido");
+ assert.match(await about.clone().text(),/location\.replace\("\/sobre"\)/);
  const unsafe=await GET(new NextRequest("https://example.test/api/vehicle-context?type=car&area=admin&target=https://evil.test"));
  assert.equal(await destinationOf(unsafe),"/");
  assert.equal(unsafe.cookies.get("coremotors_admin_type"),undefined);
- assert.equal(unsafe.cookies.get("coremotors_public_type").value,"car");
  const invalid=await GET(new NextRequest("https://example.test/api/vehicle-context?type=truck"));
  assert.equal(invalid.status,400);
  // As páginas por marca e o stock com uma pesquisa voltam para onde estavam.
@@ -247,7 +252,7 @@ await test("selection endpoint stores only the requested area and rejects unsafe
  assert.equal(await go("/motas/yamaha"),"/motas/yamaha");
  const withQuery=await GET(new NextRequest(`https://example.test/api/vehicle-context?type=motorcycle&area=public&target=${encodeURIComponent("/inventario?marca=Yamaha&preco_max=8000")}`));
  assert.equal(withQuery.status,303);
- assert.equal(withQuery.headers.get("location"),"/inventario?marca=Yamaha&preco_max=8000");
+ assert.equal(withQuery.headers.get("location"),"/inventario?marca=Yamaha&preco_max=8000&tipo=motas");
  // Só caminhos deste site: nada de outros domínios, esquemas, "..", nem a
  // própria API ou o backoffice.
  for(const bad of ["//evil.test","/\\evil.test","/%2F%2Fevil.test","https://evil.test","javascript:alert(1)","/motas/../admin","/motas/%2e%2e/admin","/inventario?x=<script>","/api/vehicle-context?type=car","/admin","/a b","/x\nLocation: //evil.test"]) assert.equal(await go(bad),"/",bad);
@@ -255,7 +260,6 @@ await test("selection endpoint stores only the requested area and rejects unsafe
 
 await test("a stock alert keeps what the person is looking for, with the type of the page it came from",async()=>{
  const {submitLead}=load("src/lib/actions/leads.ts");
- publicType="car";
  const f=new FormData();
  for(const[k,v]of Object.entries({privacy_acknowledged:"yes",kind:"alert",vehicle_type:"motorcycle",name:"Cliente Alerta",phone:"912345678",alert_make:"yamaha",alert_max_price:"8 000",whatsapp_opt_in:"yes"}))f.set(k,v);
  assert.equal((await submitLead({ok:false},f)).ok,true);
@@ -270,16 +274,24 @@ await test("a stock alert keeps what the person is looking for, with the type of
  assert.match(empty.error,/marca, a categoria ou o preço/);
 });
 
-await test("public enquiries inherit the chosen world, and a vehicle enquiry takes the vehicle's own type",async()=>{
+await test("public enquiries: the vehicle (or the form) says the type; a general contact on a mixed site has none",async()=>{
  const {submitLead}=load("src/lib/actions/leads.ts");
- publicType="motorcycle";
  const car=rows.find(r=>r.vehicle_type==="car"),bike=rows.find(r=>r.vehicle_type==="motorcycle");
  car.status=bike.status="published";
  function form(id){const f=new FormData();for(const[k,v]of Object.entries({privacy_acknowledged:"yes",kind:"contact",name:"Cliente Teste",email:"cliente@example.test",message:"Pretendo mais informações",...(id?{car_id:id}:{})}))f.set(k,v);return f;}
+ // Site com carros e motas: um contacto geral fica sem tipo.
+ assert.equal((await submitLead({ok:false},form())).ok,true);
+ assert.equal(leadRows.at(-1).vehicle_type,null);
+ // Site só de motas: o contacto geral é de motas.
+ siteTypes=["motorcycle"];
  assert.equal((await submitLead({ok:false},form())).ok,true);
  assert.equal(leadRows.at(-1).vehicle_type,"motorcycle");
- // Um carro pedido a partir do mundo das motas (link partilhado, favoritos):
- // antes era recusado («já não está disponível»).
+ siteTypes=["car","motorcycle"];
+ // A encomenda diz o tipo no formulário.
+ const order=form();order.set("vehicle_type","motorcycle");
+ assert.equal((await submitLead({ok:false},order)).ok,true);
+ assert.equal(leadRows.at(-1).vehicle_type,"motorcycle");
+ // A viatura diz o tipo.
  assert.equal((await submitLead({ok:false},form(car.id))).ok,true);
  assert.equal(leadRows.at(-1).car_id,car.id);
  assert.equal(leadRows.at(-1).vehicle_type,"car");
@@ -324,7 +336,7 @@ await test("the backoffice has no carros/motas switch any more",()=>{
  filterByVehicleType(q,["car","motorcycle"],{onlyNull:true});assert.deepEqual(calls.pop(),["is","vehicle_type",null]);
 });
 
-await test("first visit keeps the page the visitor arrived on",async()=>{
+await test("old switch links keep the page the visitor arrived on",async()=>{
  // Links partilhados (OLX, Google, WhatsApp) apontam para uma viatura ou
  // página concreta. Escolher carros/motas na entrada não pode perder o destino.
  const {GET}=load("src/app/api/vehicle-context/route.ts");
@@ -337,7 +349,8 @@ await test("first visit keeps the page the visitor arrived on",async()=>{
  for(const alvo of ["/viaturas/bmw-116d","/contactos","/inventario","/vendidos","/servicos","/politica-de-privacidade",
   "/alertas/cancelar/0f8fad5b-d9cb-469f-a165-70867728950e.AbCdEfGhIjKlMnOpQrSt_-","/servicos/financiamento","/viaturas/bmw-116d/ficha","/carros/a/b"]){
   const r=await entrar(alvo);
-  assert.equal(await destinationOf(r),alvo,alvo);
+  // O stock abre filtrado no tipo do link antigo.
+  assert.equal(await destinationOf(r),alvo==="/inventario"?"/inventario?tipo=carros":alvo,alvo);
  }
 
  // Sem destino continua a ir para a homepage, e um destino externo é ignorado.

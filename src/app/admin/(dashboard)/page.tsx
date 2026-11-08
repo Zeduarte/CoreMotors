@@ -213,7 +213,7 @@ export default async function DashboardPage({
                     <td className="p-3">
                       <Link
                         prefetch={false}
-                        href={`/api/vehicle-context?area=public&type=${c.vehicleType}&target=${encodeURIComponent(`/viaturas/${c.slug}`)}`}
+                        href={`/viaturas/${c.slug}`}
                         className="inline-flex items-center gap-2 text-paper hover:text-accent"
                       >
                         {c.name}

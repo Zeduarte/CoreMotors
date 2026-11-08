@@ -1,24 +1,32 @@
 import "server-only";
 import { cache } from "react";
-import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { effectiveVehicleTypes } from "@/lib/permissions";
+import { getSiteVehicleTypes } from "@/lib/site-types-query";
+import { primaryType } from "@/lib/site-types";
 import { VEHICLE_TYPES, type VehicleType } from "./vehicle-categories";
 
-/** O tipo escolhido no site público (cookie), ou null se ainda não escolheu. */
-export async function getVehicleSelection(): Promise<VehicleType | null> {
-  const value = (await cookies()).get("coremotors_public_type")?.value;
-  return value === "car" || value === "motorcycle" ? value : null;
-}
+export { getSiteVehicleTypes };
 
+/**
+ * O tipo «principal» do site público: dá o aspeto (fotos, topo da página
+ * inicial, textos por defeito). O site é um só, com carros e motas juntos;
+ * é o dos carros, salvo se o site vender só motas (Definições → Tipo de site).
+ */
 export async function getPublicVehicleType(): Promise<VehicleType> {
-  return (await getVehicleSelection()) ?? "car";
+  return primaryType(await getSiteVehicleTypes());
 }
 
 /**
  * Tipos de viatura que o utilizador autenticado pode gerir. Sem sessão ou sem
  * perfil, devolve apenas carros — quem não está autenticado não vê nada de
  * qualquer forma, e assim nunca se assume acesso a mais do que o devido.
+ *
+ * Também segue o que o site vende (Definições → Tipo de site): num site só de
+ * carros o backoffice não mostra motas, nem o filtro «Todos · Carros · Motas».
+ * As viaturas do outro tipo ficam guardadas e voltam a aparecer se o tipo de
+ * site mudar. (Se o utilizador só puder gerir um tipo que o site já não vende,
+ * continua a ver esse — senão ficava sem nada.)
  *
  * `cache` deduplica a leitura dentro do mesmo pedido: o layout e a página
  * chamam isto várias vezes.
@@ -30,13 +38,18 @@ export const getAllowedVehicleTypes = cache(
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return ["car"];
-    const { data } = await supabase
-      .from("profiles")
-      .select("role,allowed_vehicle_types")
-      .eq("id", user.id)
-      .maybeSingle();
+    const [{ data }, site] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("role,allowed_vehicle_types")
+        .eq("id", user.id)
+        .maybeSingle(),
+      getSiteVehicleTypes(),
+    ]);
     if (!data) return ["car"];
-    return effectiveVehicleTypes(data.role, data.allowed_vehicle_types);
+    const mine = effectiveVehicleTypes(data.role, data.allowed_vehicle_types);
+    const both = mine.filter((t) => site.includes(t));
+    return both.length ? both : mine;
   },
 );
 

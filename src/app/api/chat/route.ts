@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { publicSubmissionClient } from "@/lib/public-submissions";
 import { getBranding, getVehicleBySlug } from "@/lib/queries";
-import { getPublicVehicleType } from "@/lib/vehicle-context";
+import { getSiteVehicleTypes } from "@/lib/queries";
 import { CHAT_RULES, buildContextBlock } from "@/lib/chat/prompt";
 import { SEARCH_TOOL, SEARCH_TOOL_NAME, SearchInput, runSearch } from "@/lib/chat/tools";
 import { resolveActions, splitActionMarker } from "@/lib/chat/actions";
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
   }
 
   const branding = await getBranding();
-  const world = await getPublicVehicleType();
+  const siteTypes = await getSiteVehicleTypes();
   const slug = vehicleSlug(pathname);
   const vehicle = slug ? await getVehicleBySlug(slug) : undefined;
 
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
         branding,
         vehicle,
         pageLabel: pageLabel(pathname, slug, !!vehicle),
-        world,
+        siteTypes,
       }),
     },
   ];

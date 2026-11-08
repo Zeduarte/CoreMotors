@@ -58,7 +58,8 @@ test("the CDN keeps one copy per search on the stock and compare pages", async (
     const h = await configHeaders(page);
     assert.match(h["Netlify-CDN-Cache-Control"], /s-maxage=60/, page);
     assert.ok(directives(h["Netlify-Vary"]).includes("query"), page);
-    assert.ok(directives(h["Netlify-Vary"]).includes("cookie=coremotors_public_type"), page);
+    // Um só site para toda a gente: já não há cópia por cookie carros/motas.
+    assert.ok(!directives(h["Netlify-Vary"]).some((d) => d.startsWith("cookie=")), page);
   }
   // As outras páginas não dependem da pesquisa: ?utm_… não parte a cache.
   for (const page of ["/", "/carros/:path*", "/viaturas/:path*", "/sobre"]) {
@@ -76,7 +77,7 @@ test("the vehicle page is rendered per request, never as a static page that read
   assert.match(source, /export const dynamic = "force-dynamic"/);
 });
 
-test("the vehicle Open Graph image is always a PNG, without reading the world cookie", async () => {
+test("the vehicle Open Graph image is always a PNG, without reading cookies", async () => {
   const vehicle = {
     slug: "yamaha-mt-07-2016", make: "Yamaha", model: "MT-07", variant: "ABS", year: 2016,
     mileage: 23000, fuel: "Gasolina", transmission: "Manual", price: 5990, priceOnRequest: false,
@@ -85,8 +86,8 @@ test("the vehicle Open Graph image is always a PNG, without reading the world co
   let failBranding = false;
   const load = loader({
     "@/lib/queries": {
-      getVehicleBySlug: async (slug, type) => {
-        preferred = type;
+      getVehicleBySlug: async (slug, ...rest) => {
+        preferred = rest.length;
         return slug === vehicle.slug ? vehicle : undefined;
       },
       getBranding: async () => {
@@ -108,43 +109,24 @@ test("the vehicle Open Graph image is always a PNG, without reading the world co
   // Antes: o atalho `background: "radial-gradient(…), #0A0A0A"` rebentava no
   // gerador ("Invalid background image") com o 200 já enviado → 500 vazio.
   await png(vehicle.slug);
-  assert.notEqual(preferred, undefined, "passa um tipo fixo em vez de ler o cookie");
+  assert.equal(preferred, 0, "a ficha procura-se só pelo endereço (sem tipo nem cookie)");
   await png("nao-existe");
   failBranding = true;
   await png(vehicle.slug);
 });
 
-test("the world chooser only covers pages whose content depends on carros/motas", async () => {
-  const React = require("react");
-  const { renderToStaticMarkup } = require("react-dom/server");
-  let pathname = "/";
-  const load = loader({
-    "next/navigation": { usePathname: () => pathname, useRouter: () => ({ refresh() {} }) },
-    "./WorldEntrance.module.css": new Proxy({}, { get: (_, k) => (k === "__esModule" ? undefined : String(k)) }),
-  });
-  const { WorldEntrance } = load("src/components/site/WorldEntrance.tsx");
-  const { needsWorldChoice } = load("src/lib/world.ts");
-  const shows = (path, selected = null) => {
-    pathname = path;
-    return renderToStaticMarkup(React.createElement(WorldEntrance, { name: "Supermotas", selected })).includes("<dialog");
-  };
-  for (const path of ["/", "/inventario", "/vendidos", "/favoritos", "/quiz", "/vender"]) {
-    assert.equal(shows(path), true, path);
-    assert.equal(shows(path, "car"), false, `${path} (já escolheu)`);
-  }
-  // O link de cancelar o alerta chega por WhatsApp/email, muitas vezes noutro
-  // telemóvel: o ecrã tapava-o e, ao escolher, ia-se parar à homepage.
-  for (const path of [
-    "/alertas/cancelar/0f8fad5b-d9cb-469f-a165-70867728950e.AbCdEfGhIjKlMnOpQrSt_-",
-    "/contactos", "/sobre", "/servicos", "/servicos/financiamento",
-    "/politica-de-privacidade", "/politica-de-cookies", "/termos-condicoes",
-    "/viaturas/bmw-116d", "/viaturas/bmw-116d/ficha", "/motas/yamaha", "/carros",
-  ]) {
-    assert.equal(shows(path), false, path);
-    assert.equal(needsWorldChoice(path), false, path);
-  }
-  // O aviso de variável por usar (setEntered) desapareceu com o estado.
-  assert.doesNotMatch(readFileSync("src/components/site/WorldEntrance.tsx", "utf8"), /setEntered/);
+test("one site for cars and motorcycles: no entrance chooser, no switch, no world cookie", () => {
+  // O ecrã de entrada (carros ou motas), a troca no menu e a animação de
+  // mudança de mundo saíram: o site é um só.
+  for (const gone of [
+    "src/components/site/WorldEntrance.tsx", "src/components/site/WorldSwitch.tsx",
+    "src/components/site/WorldArrival.tsx", "src/components/site/VehicleWorldSync.tsx",
+    "src/lib/world.ts", "src/lib/inventory-redirect.ts",
+  ]) assert.equal(existsSync(gone), false, gone);
+  const layout = readFileSync("src/app/(public)/layout.tsx", "utf8");
+  assert.doesNotMatch(layout, /WorldEntrance|WorldArrival|getVehicleSelection/);
+  assert.doesNotMatch(readFileSync("src/components/layout/Header.tsx", "utf8"), /WorldSwitch/);
+  assert.doesNotMatch(readFileSync("src/lib/vehicle-context.ts", "utf8"), /cookies\(/, "o tipo público já não vem de um cookie");
 });
 
 test("unknown vehicles, listings and services answer a real 404 before the skeleton streams", async () => {
@@ -179,27 +161,6 @@ test("unknown vehicles, listings and services answer a real 404 before the skele
   // As listas continuam com o esqueleto (dentro de um grupo de rotas).
   for (const dir of ["carros/(todos)", "motas/(todos)", "servicos/(lista)", "viaturas/[slug]", "carros/[filtro]", "inventario"])
     assert.ok(existsSync(`src/app/(public)/${dir}/loading.tsx`), dir);
-});
-
-test("the world switch on /carros and /motas goes to the equivalent page of the other world", () => {
-  const { worldSwitchDestination: go } = loader()("src/lib/world.ts");
-  assert.equal(go("/carros", "motorcycle"), "/motas");
-  assert.equal(go("/motas/", "car"), "/carros");
-  assert.equal(go("/carros/bmw", "motorcycle"), "/motas/bmw"); // marca com carros e motas
-  assert.equal(go("/carros/suv", "motorcycle"), "/motas"); // categoria só dos carros
-  assert.equal(go("/motas/ate-5000-euros", "car"), "/carros");
-  assert.equal(go("/viaturas/bmw-320d", "motorcycle"), "/inventario");
-  assert.equal(go("/inventario", "motorcycle"), "/inventario");
-  // O botão segue o mundo do endereço, mesmo com o cookie no outro.
-  const React = require("react");
-  const { renderToStaticMarkup } = require("react-dom/server");
-  let pathname = "/carros/bmw";
-  const { WorldSwitch } = loader({ "next/navigation": { usePathname: () => pathname } })("src/components/site/WorldSwitch.tsx");
-  const href = (world) => /href="([^"]*)"/.exec(renderToStaticMarkup(React.createElement(WorldSwitch, { world })))[1].replace(/&amp;/g, "&");
-  for (const world of ["car", "motorcycle"])
-    assert.equal(href(world), `/api/vehicle-context?area=public&type=motorcycle&target=${encodeURIComponent("/motas/bmw")}`, world);
-  pathname = "/vendidos";
-  assert.equal(href("car"), `/api/vehicle-context?area=public&type=motorcycle&target=${encodeURIComponent("/vendidos")}`);
 });
 
 test("favourites, recently viewed and compare are one list for both worlds, keeping old saved data", () => {
@@ -348,45 +309,39 @@ test("a visitor over their own limit is refused before consuming the global form
   }
 });
 
-test("/inventario?tipo= switches world with a real redirect, keeping the search", () => {
-  const { inventoryRedirect } = loader()("src/lib/inventory-redirect.ts");
-  const q = (s) => new URLSearchParams(s);
-  assert.equal(
-    inventoryRedirect(q("tipo=motas&marca=Yamaha&preco_max=8000"), "car"),
-    `/api/vehicle-context?area=public&type=motorcycle&target=${encodeURIComponent("/inventario?marca=Yamaha&preco_max=8000")}`,
-  );
-  // Sem escolha guardada também muda (e grava a escolha).
-  assert.equal(
-    inventoryRedirect(q("tipo=carros"), undefined),
-    `/api/vehicle-context?area=public&type=car&target=${encodeURIComponent("/inventario")}`,
-  );
-  assert.equal(inventoryRedirect(q("tipo=motas"), "motorcycle"), null);
-  assert.equal(inventoryRedirect(q("tipo=camioes"), "car"), null);
-  assert.equal(inventoryRedirect(q("marca=BMW"), undefined), null);
-});
-
-test("/inventario?tipo= is redirected by the config (307 before the page) and comes back with the search", async () => {
+test("/inventario?tipo= filters the single stock, and old switch links still land on the right page", async () => {
+  const { filtersFromQuery, filtersToQuery, emptyFilters } = loader()("src/lib/vehicles.ts");
+  assert.equal(filtersFromQuery({ tipo: "motas", marca: "Yamaha" }).vehicleType, "motorcycle");
+  assert.equal(filtersFromQuery({ tipo: "carros" }).vehicleType, "car");
+  assert.equal(filtersFromQuery({ tipo: "camioes" }).vehicleType, undefined);
+  assert.equal(filtersToQuery({ ...emptyFilters(), vehicleType: "motorcycle", make: "Yamaha" }), "tipo=motas&marca=Yamaha");
+  assert.equal(filtersToQuery({ ...emptyFilters() }), "");
+  // O next.config já não redireciona /inventario?tipo= (o stock trata disso).
   const { default: config } = await import(`../next.config.mjs?t=${Date.now()}`);
-  const rules = (await config.redirects()).filter((r) => r.source === "/inventario");
-  assert.equal(rules.length, 2);
-  for (const [tipo, type] of [["carros", "car"], ["motas", "motorcycle"]]) {
-    const rule = rules.find((r) => r.has[0].value === tipo);
-    assert.equal(rule.permanent, false);
-    assert.deepEqual(rule.missing, [{ type: "cookie", key: "coremotors_public_type", value: type }]);
-    assert.match(rule.destination, new RegExp(`type=${type}&target=%2Finventario&carry=1$`));
-  }
-  // O Next junta a pesquisa original ao destino; a rota devolve-a ao stock.
-  const load = loader({
-    "@/lib/vehicle-context": { getAllowedVehicleTypes: async () => ["car", "motorcycle"] },
-  });
-  const { GET } = load("src/app/api/vehicle-context/route.ts");
+  assert.equal(config.redirects, undefined);
+  // Links antigos /api/vehicle-context: vão para a página, sem guardar nada.
+  const { GET } = loader()("src/app/api/vehicle-context/route.ts");
   const { NextRequest } = require("next/server");
   const res = await GET(new NextRequest("https://example.test/api/vehicle-context?area=public&type=motorcycle&target=%2Finventario&carry=1&tipo=motas&marca=Yamaha&preco_max=8000"));
   assert.equal(res.status, 303);
-  assert.equal(res.headers.get("location"), "/inventario?marca=Yamaha&preco_max=8000");
-  assert.equal(res.cookies.get("coremotors_public_type").value, "motorcycle");
-  // `carry` só serve o stock: noutro destino a pesquisa do pedido não passa.
+  assert.equal(res.headers.get("location"), "/inventario?marca=Yamaha&preco_max=8000&tipo=motas");
+  assert.equal(res.cookies.get("coremotors_public_type").value, "", "o cookie antigo é apagado");
   const other = await GET(new NextRequest("https://example.test/api/vehicle-context?area=public&type=car&target=%2Fsobre&carry=1&x=1"));
   assert.equal(other.headers.get("location"), null);
   assert.match(await other.text(), /url=\/sobre"/);
+  assert.equal((await GET(new NextRequest("https://example.test/api/vehicle-context?type=truck"))).status, 400);
+});
+
+test("site type (Definições → Tipo de site): only cars, cars and motorcycles, or only motorcycles", () => {
+  const { parseSiteTypes, siteModeOf, typesOfMode, primaryType } = loader()("src/lib/site-types.ts");
+  // Sem nada guardado (ou lixo): carros e motas, como de fábrica.
+  for (const raw of [null, {}, { vehicle_types: "car" }, { vehicle_types: [] }, { vehicle_types: ["camiao"] }])
+    assert.deepEqual(parseSiteTypes(raw), ["car", "motorcycle"], JSON.stringify(raw));
+  // Sempre na ordem carros → motas, sem repetidos.
+  assert.deepEqual(parseSiteTypes({ vehicle_types: ["motorcycle", "car", "car"] }), ["car", "motorcycle"]);
+  assert.deepEqual(parseSiteTypes({ vehicle_types: ["motorcycle"] }), ["motorcycle"]);
+  for (const mode of ["carros", "carros-motas", "motas"]) assert.equal(siteModeOf(typesOfMode(mode)), mode);
+  // O aspeto do site é o dos carros, salvo num site só de motas.
+  assert.equal(primaryType(["car", "motorcycle"]), "car");
+  assert.equal(primaryType(["motorcycle"]), "motorcycle");
 });

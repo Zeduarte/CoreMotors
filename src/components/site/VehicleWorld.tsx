@@ -3,22 +3,27 @@
 import { createContext, useContext } from "react";
 import type { VehicleType } from "@/lib/vehicle-categories";
 
+/**
+ * O site público é um só, com carros e motas juntos. Este contexto diz:
+ * - o tipo principal (`useVehicleWorld`): o que dá o aspeto e os textos por
+ *   defeito — os carros, salvo num site só de motas;
+ * - os tipos que o site vende (`useSiteTypes`), de Definições → Tipo de site.
+ */
 const World = createContext<VehicleType>("car");
-// O visitante já escolheu um mundo (cookie), ou ainda é o "carros" por defeito?
-const Chosen = createContext(false);
+const Types = createContext<VehicleType[]>(["car", "motorcycle"]);
 
 export function VehicleWorld({
   type,
-  chosen = false,
+  types,
   children,
 }: {
   type: VehicleType;
-  chosen?: boolean;
+  types: VehicleType[];
   children: React.ReactNode;
 }) {
   return (
     <World.Provider value={type}>
-      <Chosen.Provider value={chosen}>{children}</Chosen.Provider>
+      <Types.Provider value={types}>{children}</Types.Provider>
     </World.Provider>
   );
 }
@@ -27,6 +32,6 @@ export function useVehicleWorld() {
   return useContext(World);
 }
 
-export function useWorldChosen() {
-  return useContext(Chosen);
+export function useSiteTypes() {
+  return useContext(Types);
 }

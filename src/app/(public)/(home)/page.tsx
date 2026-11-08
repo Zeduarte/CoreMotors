@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getPublicVehicleType } from "@/lib/vehicle-context";
+import { getPublicVehicleType, getSiteVehicleTypes } from "@/lib/vehicle-context";
 import type { HeroMedia } from "@/lib/hero-media";
 import { getShowroomContent } from "@/lib/showroom-queries";
 import { FaqSection } from "@/components/showroom/FaqSection";
@@ -39,7 +39,9 @@ export const revalidate = 60;
 // Server Component: os dados (destaques + conteúdo editável) são obtidos no
 // servidor e passados às ilhas cliente. Zero JS de dados enviado para o browser.
 export default async function HomePage() {
-  const type = await getPublicVehicleType();
+  // Um só site: carros e motas juntos. O tipo principal (carros, salvo num
+  // site só de motas) dá o topo, as fotos e os textos.
+  const [type, siteTypes] = await Promise.all([getPublicVehicleType(), getSiteVehicleTypes()]);
   const [showroom, content, testimonials, branding, allVehicles, sold] =
     await Promise.all([
       getShowroomContent(),
@@ -63,7 +65,8 @@ export default async function HomePage() {
     acc[v.body] = (acc[v.body] ?? 0) + 1;
     return acc;
   }, {});
-  const segments = bodiesFor(type)
+  const segments = siteTypes
+    .flatMap((t) => bodiesFor(t))
     .filter((body) => bodyCounts[body])
     .map((body) => ({ body, count: bodyCounts[body]! }));
 

@@ -4,7 +4,9 @@ import { BrandingForm } from "@/components/admin/BrandingForm";
 import { CompanyForm } from "@/components/admin/CompanyForm";
 import { BadgesForm } from "@/components/admin/BadgesForm";
 import { PhotoOptimizer } from "@/components/admin/PhotoOptimizer";
-import { getBadges } from "@/lib/queries";
+import { getBadges, getSiteVehicleTypes } from "@/lib/queries";
+import { SiteModeForm } from "@/components/admin/SiteModeForm";
+import { siteModeOf } from "@/lib/site-types";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +16,11 @@ export default async function SettingsPage() {
   // as fotos (photos.ts só pede o separador); gravar é só para o administrador.
   const isAdmin = me.role === "admin";
 
-  const [settings, company, badges] = await Promise.all([
+  const [settings, company, badges, siteTypes] = await Promise.all([
     getSiteSettings(),
     getCompanySettings(),
     getBadges(),
+    getSiteVehicleTypes(),
   ]);
 
   return (
@@ -25,7 +28,7 @@ export default async function SettingsPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-paper">Definições</h1>
         <p className="mt-1 text-sm text-paper/50">
-          Marca e dados de contacto do site. Só administradores podem alterar.
+          Tipo de site, marca e dados de contacto. Só administradores podem alterar.
         </p>
       </div>
 
@@ -36,6 +39,15 @@ export default async function SettingsPage() {
       )}
 
       <fieldset disabled={!isAdmin} className="min-w-0">
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold text-paper">Tipo de site</h2>
+        <p className="mt-1 text-sm text-paper/50">
+          O que o stand vende. Vale para o site e para o backoffice.
+        </p>
+      </div>
+      <SiteModeForm initial={siteModeOf(siteTypes)} />
+
+      <div className="mt-10 border-t border-white/10 pt-8" />
       <BrandingForm initial={settings} />
 
       <div className="mt-10 mb-6 border-t border-white/10 pt-8">

@@ -1,4 +1,3 @@
-import { getPublicVehicleType } from "./vehicle-context";
 import "server-only";
 import type { VehicleType } from "./vehicle-categories";
 import { getShowroomContent } from "./showroom-queries";
@@ -20,6 +19,9 @@ import {
 import { publicMediaUrl } from "@/lib/storage";
 import { toListVehicle } from "@/lib/vehicle-list";
 import { PUBLIC_CAR_SELECT } from "@/lib/public-columns";
+import { getSiteVehicleTypes } from "@/lib/site-types-query";
+
+export { getSiteVehicleTypes };
 
 /**
  * Leituras PÚBLICAS do inventário (Supabase).
@@ -28,8 +30,8 @@ import { PUBLIC_CAR_SELECT } from "@/lib/public-columns";
  * `published` são devolvidas ao público — sem filtros manuais frágeis.
  *
  * Cada leitura tem duas camadas: a interior (`fetch…`) vai ao Supabase e fica
- * em cache (ver `public-cache.ts`); a exterior lê o cookie carros/motas — que
- * não pode entrar na cache — e passa-o como argumento.
+ * em cache (ver `public-cache.ts`); a exterior junta os tipos que o site vende
+ * (Definições → Tipo de site): carros e motas no mesmo site, sem «mundos».
  */
 
 async function mapPublicCars(rows: CarWithMedia[]): Promise<Vehicle[]> {
@@ -44,29 +46,39 @@ async function mapPublicCars(rows: CarWithMedia[]): Promise<Vehicle[]> {
 // Colunas explícitas: com a 0045 o público já não lê a tabela inteira.
 const CAR_SELECT = PUBLIC_CAR_SELECT;
 
-const fetchVehicles = cachedPublic(async (vehicleType: VehicleType) => {
+const fetchVehicles = cachedPublic(async (types: VehicleType[]) => {
   const { data, error } = await supabasePublic
     .from("cars")
     .select(CAR_SELECT)
     .in("status", ["published", "reserved"])
     .order("featured", { ascending: false })
     .order("published_at", { ascending: false, nullsFirst: false })
-    .eq("vehicle_type", vehicleType);
+    .in("vehicle_type", types);
   if (error) throw new Error(error.message);
   return mapPublicCars(data as unknown as CarWithMedia[]);
 }, "vehicles");
 
+/**
+ * O stock à venda: carros e motas juntos (os tipos do site). Com `vehicleType`,
+ * só esse tipo — se o site o vender.
+ */
 export async function getVehicles(
   vehicleType?: VehicleType | null,
 ): Promise<Vehicle[]> {
-  const type = vehicleType ?? (await getPublicVehicleType());
-  return safely("getVehicles", () => fetchVehicles(type), []);
+  const types = await typesFor(vehicleType);
+  return types.length ? safely("getVehicles", () => fetchVehicles(types), []) : [];
 }
 
-const fetchFeatured = cachedPublic(async (vehicleType: VehicleType, limit: number) => {
+/** Os tipos do site, ou só `only` (vazio se o site não o vender). */
+async function typesFor(only?: VehicleType | null): Promise<VehicleType[]> {
+  const site = await getSiteVehicleTypes();
+  return only ? site.filter((t) => t === only) : site;
+}
+
+const fetchFeatured = cachedPublic(async (types: VehicleType[], limit: number) => {
   const { data, error } = await supabasePublic
     .from("cars")
-    .select(CAR_SELECT).eq("vehicle_type", vehicleType)
+    .select(CAR_SELECT).in("vehicle_type", types)
     .in("status", ["published", "reserved"])
     .eq("featured", true)
     .order("published_at", { ascending: false, nullsFirst: false })
@@ -76,15 +88,15 @@ const fetchFeatured = cachedPublic(async (vehicleType: VehicleType, limit: numbe
 }, "featured");
 
 export async function getFeaturedVehicles(limit = 3): Promise<Vehicle[]> {
-  const type = await getPublicVehicleType();
-  return safely("getFeaturedVehicles", () => fetchFeatured(type, limit), []);
+  const types = await getSiteVehicleTypes();
+  return safely("getFeaturedVehicles", () => fetchFeatured(types, limit), []);
 }
 
 /** Viaturas publicadas mais recentes (para o carrossel da homepage). */
-const fetchRecent = cachedPublic(async (vehicleType: VehicleType, limit: number) => {
+const fetchRecent = cachedPublic(async (types: VehicleType[], limit: number) => {
   const { data, error } = await supabasePublic
     .from("cars")
-    .select(CAR_SELECT).eq("vehicle_type", vehicleType)
+    .select(CAR_SELECT).in("vehicle_type", types)
     .in("status", ["published", "reserved"])
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
@@ -94,8 +106,8 @@ const fetchRecent = cachedPublic(async (vehicleType: VehicleType, limit: number)
 }, "recent");
 
 export async function getRecentVehicles(limit = 12): Promise<Vehicle[]> {
-  const type = await getPublicVehicleType();
-  return safely("getRecentVehicles", () => fetchRecent(type, limit), []);
+  const types = await getSiteVehicleTypes();
+  return safely("getRecentVehicles", () => fetchRecent(types, limit), []);
 }
 
 /**
@@ -103,10 +115,10 @@ export async function getRecentVehicles(limit = 12): Promise<Vehicle[]> {
  * recente. `limit` opcional — a homepage mostra as últimas 10, a página
  * `/vendidos` mostra todas.
  */
-const fetchSold = cachedPublic(async (vehicleType: VehicleType, limit: number | null) => {
+const fetchSold = cachedPublic(async (types: VehicleType[], limit: number | null) => {
   let query = supabasePublic
     .from("cars")
-    .select(CAR_SELECT).eq("vehicle_type", vehicleType)
+    .select(CAR_SELECT).in("vehicle_type", types)
     .eq("status", "sold")
     .order("sold_at", { ascending: false, nullsFirst: false })
     .order("updated_at", { ascending: false });
@@ -117,8 +129,8 @@ const fetchSold = cachedPublic(async (vehicleType: VehicleType, limit: number | 
 }, "sold");
 
 export async function getSoldVehicles(limit?: number): Promise<Vehicle[]> {
-  const type = await getPublicVehicleType();
-  return safely("getSoldVehicles", () => fetchSold(type, limit ?? null), []);
+  const types = await getSiteVehicleTypes();
+  return safely("getSoldVehicles", () => fetchSold(types, limit ?? null), []);
 }
 
 /**
@@ -133,10 +145,10 @@ export async function getSoldVehicleList(limit?: number): Promise<Vehicle[]> {
 }
 
 // `null` e não `undefined`: a cache guarda em JSON.
-const fetchBySlug = cachedPublic(async (vehicleType: VehicleType, slug: string) => {
+const fetchBySlug = cachedPublic(async (types: VehicleType[], slug: string) => {
   const { data, error } = await supabasePublic
     .from("cars")
-    .select(CAR_SELECT).eq("vehicle_type", vehicleType)
+    .select(CAR_SELECT).in("vehicle_type", types)
     .eq("slug", slug)
     .in("status", ["published", "reserved", "sold"])
     .maybeSingle();
@@ -144,19 +156,10 @@ const fetchBySlug = cachedPublic(async (vehicleType: VehicleType, slug: string) 
   return data ? (await mapPublicCars([data as unknown as CarWithMedia]))[0] ?? null : null;
 }, "by-slug");
 
-export async function getVehicleBySlug(
-  slug: string,
-  /** O mundo a procurar primeiro. Sem ele, o do cookie — que as rotas de
-   * imagem (Open Graph) não podem ler: lá passa-se um tipo fixo. */
-  preferred?: VehicleType,
-): Promise<Vehicle | undefined> {
-  const type = preferred ?? (await getPublicVehicleType());
-  const found = await safely("getVehicleBySlug", () => fetchBySlug(type, slug), null);
-  if (found) return found;
-  // Quem chega sem a escolha certa guardada (o Google, que não guarda
-  // cookies, ou um link partilhado de uma mota) vê a viatura na mesma.
-  const other: VehicleType = type === "car" ? "motorcycle" : "car";
-  return (await safely("getVehicleBySlug", () => fetchBySlug(other, slug), null)) ?? undefined;
+/** A ficha de uma viatura (de um tipo que o site venda). */
+export async function getVehicleBySlug(slug: string): Promise<Vehicle | undefined> {
+  const types = await getSiteVehicleTypes();
+  return (await safely("getVehicleBySlug", () => fetchBySlug(types, slug), null)) ?? undefined;
 }
 
 /**

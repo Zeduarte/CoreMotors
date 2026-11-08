@@ -1,6 +1,5 @@
 "use client";
 import { useVehicleWorld } from "@/components/site/VehicleWorld";
-import { WorldSwitch } from "@/components/site/WorldSwitch";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -33,6 +32,8 @@ export function Header({
 }) {
   const pathname = usePathname();
   const world = useVehicleWorld();
+  // O questionário é do tipo principal: «Carro ideal» (ou «Mota ideal» num site só de motas).
+  const idealLabel = world === "motorcycle" ? "Mota ideal" : "Carro ideal";
   const router = useRouter();
   // Numa ficha de viatura (/viaturas/slug, não sub-rotas) mostramos a seta de
   // voltar ao lado do logótipo — sempre acessível no topo fixo.
@@ -148,7 +149,7 @@ export function Header({
                     active ? "text-paper" : "text-paper/60 hover:text-paper"
                   }`}
                 >
-                  {item.label === "Carro ideal" && world === "motorcycle" ? "Mota ideal" : item.label}
+                  {item.label === "Carro ideal" ? idealLabel : item.label}
                   {active && (
                     <motion.span
                       layoutId="nav-underline"
@@ -163,8 +164,6 @@ export function Header({
         </ul>
 
         <div className="hidden items-center gap-3 md:flex">
-          {/* Passagem discreta para o outro mundo — só onde o tipo importa. */}
-          <WorldSwitch world={world} />
           <Link
             href="/favoritos"
             aria-label={`Favoritos${favCount ? ` (${favCount})` : ""}`}
@@ -200,7 +199,6 @@ export function Header({
 
         {/* Em mobile só há espaço para a versão curta, ao lado do menu. */}
         <div className="flex items-center gap-2 md:hidden">
-          <WorldSwitch world={world} compact />
 
         {/* Botão mobile */}
         <button
@@ -258,7 +256,7 @@ export function Header({
                     href={item.href}
                     className="block rounded-lg px-2 py-3 text-lg font-medium text-paper/80 hover:text-paper"
                   >
-                    {item.label === "Carro ideal" && world === "motorcycle" ? "Mota ideal" : item.label}
+                    {item.label === "Carro ideal" ? idealLabel : item.label}
                   </Link>
                 </motion.li>
               ))}

@@ -5,10 +5,9 @@
 // principal que o Netlify dá ao site no build (o domínio próprio, quando há).
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.URL || "";
 
-// Páginas públicas guardadas na CDN do Netlify. Leem o cookie carros/motas, por
-// isso o Next gera-as a cada visita — e cada visita acordava a função nos EUA
-// (com o Supabase na Europa). Assim a CDN guarda uma cópia por mundo
-// (`cookie=`) e serve-a logo; passado um minuto, a visita seguinte ainda
+// Páginas públicas guardadas na CDN do Netlify. Sem isto, cada visita acordava
+// a função nos EUA (com o Supabase na Europa). Assim a CDN guarda uma cópia e
+// a serve logo; passado um minuto, a visita seguinte ainda
 // recebe a cópia guardada enquanto a nova é gerada por trás. Quando o
 // backoffice, o WhatsApp ou a manutenção mudam o site, `revalidateTag` /
 // `revalidatePath` apagam estas cópias pelas etiquetas (`Netlify-Cache-Tag`):
@@ -38,10 +37,10 @@ const PUBLIC_PAGES = [
 // `query` sozinho (sem lista) faz variar por toda a pesquisa.
 const QUERY_PAGES = ["/inventario", "/comparar"];
 
-// O mundo escolhido e os pedidos de navegação do Next (RSC) têm respostas
-// diferentes para o mesmo endereço.
+// Os pedidos de navegação do Next (RSC) têm respostas diferentes para o mesmo
+// endereço. (Já não há cookie carros/motas: o site é um só para toda a gente.)
 const VARY =
-  "cookie=coremotors_public_type,header=RSC|Next-Router-State-Tree|Next-Router-Prefetch|Next-Router-Segment-Prefetch";
+  "header=RSC|Next-Router-State-Tree|Next-Router-Prefetch|Next-Router-Segment-Prefetch";
 
 function cdnHeaders(vary) {
   return [
@@ -109,23 +108,6 @@ const nextConfig = {
   // Sem `X-Powered-By: Next.js`: não se anuncia a tecnologia a quem procura alvos.
   poweredByHeader: false,
   env: { NEXT_PUBLIC_SITE_URL: siteUrl },
-  // `/inventario?tipo=motas&marca=…` (links antigos e partilhados) com outro
-  // mundo escolhido (ou nenhum): muda o mundo e volta ao stock com a mesma
-  // pesquisa. Feito aqui, com um 307 a sério — na página, com o esqueleto do
-  // stock já enviado, o redirecionamento saía com 200. O Next junta a pesquisa
-  // do pedido ao destino; `carry=1` diz à rota para a devolver ao stock.
-  async redirects() {
-    return [
-      ["carros", "car"],
-      ["motas", "motorcycle"],
-    ].map(([tipo, type]) => ({
-      source: "/inventario",
-      has: [{ type: "query", key: "tipo", value: tipo }],
-      missing: [{ type: "cookie", key: "coremotors_public_type", value: type }],
-      destination: `/api/vehicle-context?area=public&type=${type}&target=%2Finventario&carry=1`,
-      permanent: false,
-    }));
-  },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
