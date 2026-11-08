@@ -160,11 +160,21 @@ async function analyticsFor(
 export async function getDashboardStats(tipo?: string | null): Promise<DashboardStats> {
   const supabase = await createClient();
   const types = await getAdminVehicleTypes(tipo);
-  const [cars, analytics] = await Promise.all([
+  // Em «Todos», os contactos sem tipo também contam (como no sino e no menu).
+  const all = tipo !== "carros" && tipo !== "motas";
+  const untyped = (q: "all" | "new") => {
+    const base = supabase.from("leads").select("id", { count: "exact", head: true }).is("vehicle_type", null);
+    return all ? (q === "new" ? base.eq("status", "new") : base) : Promise.resolve({ count: 0 });
+  };
+  const [cars, analytics, untypedLeads, untypedNew] = await Promise.all([
     allRows((a,b) => supabase.from("cars").select("id, slug, make, model, fuel, price, price_on_request, status, created_at, sold_at, vehicle_type").in("vehicle_type", types).order("id").range(a,b)),
     analyticsFor(supabase, types),
+    untyped("all"),
+    untyped("new"),
   ]);
   if (!analytics) throw new Error("Não foi possível carregar os indicadores.");
+  analytics.leads += untypedLeads.count ?? 0;
+  analytics.new_leads += untypedNew.count ?? 0;
   const leadCount = analytics.new_leads;
   const totalLeads = analytics.leads;
   const viewsThisMonth = analytics.month_views;

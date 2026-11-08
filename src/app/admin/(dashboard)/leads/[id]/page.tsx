@@ -58,7 +58,7 @@ export default async function LeadPage({params}: {params:Promise<{id:string}>}) 
       <div className="mt-3 flex flex-wrap gap-4 text-accent">{lead.email && <a href={`mailto:${lead.email}`}>{lead.email}</a>}{lead.phone && <a href={`tel:${lead.phone}`}>{lead.phone}</a>}</div>
       {lead.message && <p className="mt-4 whitespace-pre-wrap text-sm">{lead.message}</p>}
     </header>
-    {lead.vehicle_type === null && <p className="card p-4 text-sm">Contacto antigo sem tipo. Associe um carro ou uma mota na área correspondente.</p>}
+    {lead.vehicle_type === null && <p className="card p-4 text-sm">Contacto sem tipo (carro ou mota). Associe uma viatura abaixo para o classificar.</p>}
     {lead.next_action_at && !inactive && <div className="card border-accent/40 p-4"><strong>{new Date(lead.next_action_at)<new Date() ? "Ação em atraso" : "Próxima ação"}</strong><p>{lead.next_action} · {new Date(lead.next_action_at).toLocaleString("pt-PT",{timeZone:"Europe/Lisbon"})}</p></div>}
     {((lead.preferred_date && !lead.visit_at) || details.length > 0) && <section className="card space-y-2 p-4 text-sm">
       <h2 className="font-semibold">Detalhes do pedido</h2>

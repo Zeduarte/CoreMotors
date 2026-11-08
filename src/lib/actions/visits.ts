@@ -296,6 +296,7 @@ export async function createVisit(data: FormData): Promise<Result> {
       name: z.string().trim().min(2, "Indique o nome do cliente").max(120),
       phone: z.string().trim().regex(/^[\d\s+]{9,}$/, "Telefone inválido"),
       car_id: z.string().uuid().optional().or(z.literal("")),
+      vehicle_type: z.enum(["car", "motorcycle"]).optional().or(z.literal("")),
       at: z.string().min(10).max(40),
       whatsapp_opt_in: z.literal("yes").optional(),
     })
@@ -306,12 +307,16 @@ export async function createVisit(data: FormData): Promise<Result> {
   if (Date.parse(v.at) < Date.now()) return { ok: false, error: PAST_ERROR };
   const db = await createClient();
   let carLabel: string | null = null;
-  // O tipo vem da viatura; sem viatura, só se o utilizador gerir um tipo só.
+  // O tipo vem da viatura; sem viatura, do campo «Tipo» do formulário (ou do
+  // único tipo que o utilizador gere).
   const allowed = await getAllowedVehicleTypes();
-  let vehicleType: "car" | "motorcycle" | null = allowed.length === 1 ? allowed[0]! : null;
+  const chosen = v.vehicle_type || null;
+  if (chosen && !allowed.includes(chosen)) return { ok: false, error: "Sem acesso a este tipo de viatura." };
+  let vehicleType: "car" | "motorcycle" | null = chosen ?? (allowed.length === 1 ? allowed[0]! : null);
   if (v.car_id) {
     const { data: car } = await db.from("cars").select("make, model, year, vehicle_type").eq("id", v.car_id).maybeSingle();
     if (!car) return { ok: false, error: "Viatura não encontrada." };
+    if (car.vehicle_type && !allowed.includes(car.vehicle_type)) return { ok: false, error: "Sem acesso a este tipo de viatura." };
     carLabel = `${car.make} ${car.model} ${car.year}`;
     vehicleType = car.vehicle_type ?? vehicleType;
   }

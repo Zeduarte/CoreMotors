@@ -90,13 +90,23 @@ export default async function DashboardPage({
     getAdminCars(tipo),
   ]);
 
+  const filter = (
+    <TypeFilter className="mb-6" value={choice} allowed={allowedTypes} hrefFor={(c) => withTipo("/admin", {}, c)} />
+  );
+
   if (stats.total === 0) {
     return (
       <>
         <Header name={profile?.full_name || profile?.email || ""} />
-        <TypeFilter className="mb-6" value={choice} allowed={allowedTypes} hrefFor={(c) => withTipo("/admin", {}, c)} />
-        <OperationalDashboard />
-        <EmptyState />
+        {filter}
+        <OperationalDashboard tipo={tipo} />
+        {choice === "todos" ? (
+          <EmptyState />
+        ) : (
+          <p className="card p-8 text-center text-paper/60">
+            Ainda não há {choice === "motas" ? "motas" : "carros"} no stock.
+          </p>
+        )}
       </>
     );
   }
@@ -107,8 +117,8 @@ export default async function DashboardPage({
     <>
       <Header name={profile?.full_name || profile?.email || ""} />
 
-      <OperationalDashboard />
-      <TypeFilter className="mb-4" value={choice} allowed={allowedTypes} hrefFor={(c) => withTipo("/admin", {}, c)} />
+      {filter}
+      <OperationalDashboard tipo={tipo} />
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi
           featured

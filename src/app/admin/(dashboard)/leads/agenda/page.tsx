@@ -232,6 +232,15 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
             <Field label="Telemóvel">
               <input name="phone" className="field" required inputMode="tel" />
             </Field>
+            {types.length > 1 && (
+              <Field label="Carro ou mota (se não escolher a viatura)">
+                <select name="vehicle_type" className="field" defaultValue="car">
+                  <option value="car">Carro</option>
+                  <option value="motorcycle">Mota</option>
+                  <option value="">Ainda não sabe</option>
+                </select>
+              </Field>
+            )}
             <Field label="Viatura">
               <select name="car_id" className="field" defaultValue="">
                 <option value="">Sem viatura associada</option>

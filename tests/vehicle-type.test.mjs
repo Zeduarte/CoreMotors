@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 const rows = [];
 const leadRows = [];
 let nextId = 1;
-let publicType="car",adminType="car";
+let publicType="car";
 // Perfil do utilizador autenticado do backoffice (acesso aos dois mundos).
 let profile={id:"staff-test",role:"admin",allowed_vehicle_types:null};
 const requestedSections = [];
@@ -95,7 +95,7 @@ function load(file) {
   const mod = { exports: {} };
   const custom = (id) => {
     if (id === "server-only") return {};
-    if (id === "next/headers") return {cookies:async()=>({get:key=>({value:key === "coremotors_admin_type" ? adminType : publicType})})};
+    if (id === "next/headers") return {cookies:async()=>({get:key=>({value:key === "coremotors_public_type" ? publicType : undefined})})};
     if (id === "next/cache")
       return { revalidatePath() {}, revalidateTag() {}, unstable_cache: (f) => f };
     if (id === "@/lib/guard")
@@ -195,7 +195,7 @@ test("inventory URL accepts only known vehicle sections", () => {
 await test("the public site keeps its two worlds; the backoffice shows cars and motorcycles together",async()=>{
  const bike=rows.find(r=>r.vehicle_type==="motorcycle"), car=rows.find(r=>r.vehicle_type==="car");
  bike.featured=car.featured=true;
- publicType="motorcycle";adminType="car";
+ publicType="motorcycle";
  assert.deepEqual((await getRecentVehicles()).map(v=>v.id),[bike.id]);
  assert.deepEqual((await getFeaturedVehicles()).map(v=>v.id),[bike.id]);
  // As listas seguem o mundo escolhido; a ficha abre por link direto em

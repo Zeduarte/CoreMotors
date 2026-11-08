@@ -60,7 +60,10 @@ export default async function CarsPage({
         items={items}
         isAdmin={me.role === "admin"}
         allowedTypes={allowedTypes}
-        initialType={typeChoice(tipo)}
+        // Um filtro de um tipo a que não tem acesso não deixa a lista vazia.
+        initialType={
+          allowedTypes.length > 1 ? typeChoice(tipo) : "todos"
+        }
       />
     </>
   );

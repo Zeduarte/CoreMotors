@@ -208,7 +208,7 @@ npm run build
 
 Aplicar `supabase/migrations/0019_vehicle_worlds.sql` depois da 0018 antes de publicar esta versão. Acrescenta a categoria aos contactos, classifica os contactos ligados a viaturas existentes e mantém os restantes na lista «Contactos antigos sem tipo». A migração acrescenta também indicadores e entradas de oficina por categoria, preservando as permissões existentes.
 
-A escolha Carros/Motas fica guardada em cookies independentes para o site público e o backoffice. Stock, destaques, vendidos, pesquisa, favoritos, comparação e sugestões respeitam a escolha pública. No backoffice, os separadores abrangem stock, oficina, finanças e contactos. Marca, equipa, integrações e definições da empresa continuam partilhadas. Os pontos de venda mantêm-se na base de dados e na edição dos anúncios; apenas o respetivo filtro visual foi removido.
+A escolha Carros/Motas do site público fica guardada num cookie. Stock, destaques, vendidos, pesquisa, favoritos, comparação e sugestões respeitam essa escolha. O backoffice é um só: mostra carros e motas juntos (com uma etiqueta Carro/Mota em cada linha) e, no Dashboard, Viaturas, Contactos e Custos, um filtro «Todos · Carros · Motas» (`?tipo=carros|motas`). As permissões por tipo de cada utilizador (Utilizadores → Carros/Motas) limitam o que cada um vê. Os pontos de venda mantêm-se na base de dados e na edição dos anúncios; apenas o respetivo filtro visual foi removido.
 
 Verificação local: `npm test`, `npm run typecheck`, `npm run lint` e `npm run build`. A aplicação da migração numa base de dados remota e a publicação do site são passos separados.
 
