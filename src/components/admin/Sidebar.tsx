@@ -8,9 +8,11 @@ import type { Section } from "@/lib/permissions";
 import { AdminIcon } from "./AdminIcon";
 import { ADMIN_NAV, ADMIN_NAV_GROUPS, canSeeNavItem, isAdminNavActive, type AdminNavItem } from "./admin-nav";
 
+// Em ecrãs baixos (portáteis de 720–768 px) os itens encolhem e, abaixo de
+// ~620 px, ficam só os ícones: assim a barra cabe sempre, sem scroll.
 const ITEM =
-  "relative flex min-h-12 w-full shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 transition-colors";
-const LABEL = "max-w-full truncate text-[9.5px] font-medium leading-tight";
+  "relative flex min-h-12 w-full shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 transition-colors [@media(min-height:621px)_and_(max-height:780px)]:min-h-10 [@media(min-height:621px)_and_(max-height:780px)]:py-1 [@media(max-height:620px)]:min-h-8 [@media(max-height:620px)]:py-0.5";
+const LABEL = "max-w-full truncate text-[9.5px] font-medium leading-tight [@media(max-height:620px)]:hidden";
 const IDLE = "text-paper/60 hover:bg-white/10 hover:text-paper";
 const ACTIVE = "bg-paper text-ink shadow-md";
 
@@ -75,16 +77,19 @@ export function Sidebar({
   return (
     <aside
       ref={asideRef}
-      className="flex h-full w-[80px] flex-col items-center gap-1 rounded-[2rem] border border-white/10 bg-white/[0.04] px-2 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_30px_60px_-30px_rgba(0,0,0,0.9)] backdrop-blur-xl"
+      className="flex h-full w-[80px] flex-col items-center gap-1 rounded-[2rem] border border-white/10 bg-white/[0.04] px-2 py-3 [@media(max-height:780px)]:py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_30px_60px_-30px_rgba(0,0,0,0.9)] backdrop-blur-xl"
     >
       <nav aria-label="Backoffice" className="flex w-full flex-1 flex-col items-center gap-0.5">
         {groups.map((group) => {
           const active = group.items.some((i) => isAdminNavActive(pathname, i));
           const count = group.items.reduce((n, i) => n + badge(i), 0);
 
-          // Um só separador: link direto, como antes.
+          // Um só separador: link direto. Se o grupo tem outros que este
+          // utilizador não vê (ex.: o mecânico só tem a Oficina do grupo
+          // Viaturas), mostra o nome e o ícone do próprio separador.
           if (group.items.length === 1) {
             const item = group.items[0]!;
+            const own = group.hrefs.length > 1;
             return (
               <Link
                 key={group.key}
@@ -93,8 +98,8 @@ export function Sidebar({
                 aria-current={active ? "page" : undefined}
                 className={`${ITEM} ${active ? ACTIVE : IDLE}`}
               >
-                <AdminIcon name={group.icon} />
-                <span className={LABEL}>{group.short}</span>
+                <AdminIcon name={own ? item.icon : group.icon} />
+                <span className={LABEL}>{own ? item.short : group.short}</span>
                 <Badge count={count} />
               </Link>
             );
@@ -126,11 +131,10 @@ export function Sidebar({
                 }}
                 className={`${ITEM} ${active ? ACTIVE : isOpen ? "bg-white/10 text-paper" : IDLE}`}
               >
-                <AdminIcon name={group.icon} />
-                <span className={LABEL}>{group.short}</span>
-                <Badge count={count} />
-                {/* Seta pequena: indica que abre mais opções. */}
-                <svg
+                {/* Seta pequena ao lado do ícone (longe do nome): abre mais opções. */}
+                <span className="relative">
+                  <AdminIcon name={group.icon} />
+                  <svg
                   aria-hidden
                   viewBox="0 0 24 24"
                   width="9"
@@ -140,10 +144,13 @@ export function Sidebar({
                   strokeWidth="3"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 opacity-50"
+                  className="absolute left-full top-1/2 ml-0.5 -translate-y-1/2 opacity-50"
                 >
                   <path d="m9 6 6 6-6 6" />
                 </svg>
+                </span>
+                <span className={LABEL}>{group.short}</span>
+                <Badge count={count} />
               </button>
 
               {isOpen && (
