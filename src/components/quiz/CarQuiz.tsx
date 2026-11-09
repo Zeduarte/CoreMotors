@@ -1,7 +1,7 @@
 "use client";
 
 import { useVehicleWorld } from "@/components/site/VehicleWorld";
-import { MOTORCYCLE_BODIES } from "@/lib/vehicle-categories";
+import { MOTORCYCLE_BODIES, type VehicleType } from "@/lib/vehicle-categories";
 import { mediaFor } from "@/lib/media";
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -9,7 +9,10 @@ import { VehicleCard } from "@/components/vehicle/VehicleCard";
 import type { Vehicle } from "@/types/vehicle";
 
 /**
- * Quiz "encontre o seu carro ideal".
+ * Quiz "encontre o seu veículo ideal".
+ *
+ * Começa por perguntar se procura carro ou mota (só num site com os dois);
+ * depois seguem as perguntas desse tipo, e as sugestões são só desse tipo.
  *
  * Puramente no cliente: pontua o inventário recebido do servidor de acordo com
  * as respostas e apresenta as melhores correspondências. Sem chamadas à BD —
@@ -114,16 +117,42 @@ function scoreVehicle(v: Vehicle, a: Answers): number {
   return score;
 }
 
-export function CarQuiz({ vehicles }: { vehicles: Vehicle[] }) {
-  const world = useVehicleWorld();
-  const steps = STEPS.map(s => {
-    if (world !== "motorcycle") return s;
+/** As perguntas de cada tipo: as dos carros, adaptadas nas motas. */
+function stepsFor(kind: VehicleType) {
+  return STEPS.map(s => {
+    if (kind !== "motorcycle") return s;
     if (s.key === "body") return {...s,title:"Que tipo de mota procura?",options:[...MOTORCYCLE_BODIES.map(value=>({value,label:value})),{value:"any",label:"Indiferente"}]};
     if (s.key === "budget") return {...s,options:[{value:"0-5000",label:"Até 5.000 €"},{value:"5000-10000",label:"5.000 – 10.000 €"},{value:"10000-20000",label:"10.000 – 20.000 €"},{value:"20000-999999999",label:"Mais de 20.000 €"}]};
     if (s.key === "fuel") return {...s,options:s.options.filter(o=>["Gasolina","Elétrico","any"].includes(o.value))};
     if (s.key === "usage") return {...s,options:s.options.filter(o=>o.value!=="family")};
     return s;
   });
+}
+
+/** A primeira pergunta, num site com carros e motas. */
+const KIND_STEP = {
+  key: "kind" as const,
+  title: "Procura carro ou mota?",
+  options: [
+    { value: "car", label: "Carro" },
+    { value: "motorcycle", label: "Mota" },
+  ],
+};
+
+export function CarQuiz({
+  vehicles,
+  vehicleTypes = ["car", "motorcycle"],
+}: {
+  vehicles: Vehicle[];
+  /** O que o site vende. Com os dois tipos, a primeira pergunta é carro ou mota. */
+  vehicleTypes?: VehicleType[];
+}) {
+  const primary = useVehicleWorld();
+  const askKind = vehicleTypes.length > 1;
+  // O tipo escolhido (num site de um só tipo, é esse desde o início).
+  const [kind, setKind] = useState<VehicleType | null>(askKind ? null : (vehicleTypes[0] ?? primary));
+  // Antes de escolher, mostram-se as perguntas do tipo principal só para contar os passos.
+  const steps = [...(askKind ? [KIND_STEP] : []), ...stepsFor(kind ?? primary)];
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
   const [done, setDone] = useState(false);
@@ -131,15 +160,23 @@ export function CarQuiz({ vehicles }: { vehicles: Vehicle[] }) {
   const results = useMemo(() => {
     if (!done) return [];
     return vehicles
+      .filter((v) => !kind || (v.vehicleType ?? "car") === kind)
       .map((v) => ({ v, score: scoreVehicle(v, answers) }))
       .filter((r) => r.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 6)
       .map((r) => r.v);
-  }, [done, vehicles, answers]);
+  }, [done, vehicles, answers, kind]);
 
   function pick(value: string) {
     const key = steps[step]!.key;
+    if (key === "kind") {
+      // Mudar de tipo recomeça as respostas: as opções são outras.
+      setKind(value as VehicleType);
+      setAnswers({});
+      setStep(step + 1);
+      return;
+    }
     const next = { ...answers, [key]: value };
     setAnswers(next);
     if (step + 1 < steps.length) setStep(step + 1);
@@ -150,6 +187,7 @@ export function CarQuiz({ vehicles }: { vehicles: Vehicle[] }) {
     setAnswers({});
     setStep(0);
     setDone(false);
+    if (askKind) setKind(null);
   }
 
   if (done) {
@@ -237,14 +275,20 @@ export function CarQuiz({ vehicles }: { vehicles: Vehicle[] }) {
               quiz.jpg em public/media/carros|motas/ (fallback: fundo sólido). */}
           <div
             className="relative mt-6 h-40 overflow-hidden rounded-2xl border border-white/10 bg-ink-soft bg-cover bg-center md:h-56"
-            style={{ backgroundImage: `url(${mediaFor(world).quiz})` }}
+            style={{ backgroundImage: `url(${mediaFor(kind ?? primary).quiz})` }}
           >
             <div
               aria-hidden
               className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/20 to-transparent"
             />
             <div className="absolute bottom-4 left-5">
-              <p className="eyebrow mb-1">{world === "motorcycle" ? "Encontre a sua mota ideal" : "Encontre o seu carro ideal"}</p>
+              <p className="eyebrow mb-1">
+                {kind === "motorcycle"
+                  ? "Encontre a sua mota ideal"
+                  : kind === "car"
+                    ? "Encontre o seu carro ideal"
+                    : "Encontre o seu veículo ideal"}
+              </p>
               <p className="text-lg font-semibold text-paper">
                 Sem surpresas, sem pressão.
               </p>

@@ -1,5 +1,4 @@
 "use client";
-import { useVehicleWorld } from "@/components/site/VehicleWorld";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -19,7 +18,7 @@ const MENU_ITEM = {
 const NAV = [
   { href: "/", label: "Início" },
   { href: "/inventario", label: "Stock" },
-  { href: "/quiz", label: "Carro ideal" },
+  { href: "/quiz", label: "Veículo ideal" },
   { href: "/servicos", label: "Serviços" },
   { href: "/sobre", label: "Sobre" },
   { href: "/contactos", label: "Contactos" },
@@ -31,9 +30,6 @@ export function Header({
   branding?: Branding;
 }) {
   const pathname = usePathname();
-  const world = useVehicleWorld();
-  // O questionário é do tipo principal: «Carro ideal» (ou «Mota ideal» num site só de motas).
-  const idealLabel = world === "motorcycle" ? "Mota ideal" : "Carro ideal";
   const router = useRouter();
   // Numa ficha de viatura (/viaturas/slug, não sub-rotas) mostramos a seta de
   // voltar ao lado do logótipo — sempre acessível no topo fixo.
@@ -149,7 +145,7 @@ export function Header({
                     active ? "text-paper" : "text-paper/60 hover:text-paper"
                   }`}
                 >
-                  {item.label === "Carro ideal" ? idealLabel : item.label}
+                  {item.label}
                   {active && (
                     <motion.span
                       layoutId="nav-underline"
@@ -256,7 +252,7 @@ export function Header({
                     href={item.href}
                     className="block rounded-lg px-2 py-3 text-lg font-medium text-paper/80 hover:text-paper"
                   >
-                    {item.label === "Carro ideal" ? idealLabel : item.label}
+                    {item.label}
                   </Link>
                 </motion.li>
               ))}

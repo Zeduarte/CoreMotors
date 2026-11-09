@@ -1,23 +1,21 @@
-import { getPublicVehicleType } from "@/lib/vehicle-context";
 import type { Metadata } from "next";
-import { getVehicleList } from "@/lib/queries";
+import { getSiteVehicleTypes, getVehicleList } from "@/lib/queries";
 import { CarQuiz } from "@/components/quiz/CarQuiz";
 import { AnimatedText } from "@/components/ui/AnimatedText";
 
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Encontre a sua viatura ideal",
+  title: "Encontre o seu veículo ideal",
   alternates: { canonical: "/quiz" },
   description:
-    "Responda a 5 perguntas rápidas e descubra as viaturas do nosso stand mais indicadas para si.",
+    "Responda a umas perguntas rápidas e descubra as viaturas do nosso stand mais indicadas para si.",
 };
 
 export default async function QuizPage() {
-  // O questionário é do tipo principal do site (carros, salvo num site só de
-  // motas): as perguntas — carroçaria, lugares… — são diferentes nas motas.
-  const type = await getPublicVehicleType();
-  const vehicles = (await getVehicleList()).filter((v) => (v.vehicleType ?? "car") === type);
+  // Todo o stock: o questionário começa por perguntar se procura carro ou
+  // mota (num site de um só tipo, salta essa pergunta) e só sugere desse tipo.
+  const [siteTypes, vehicles] = await Promise.all([getSiteVehicleTypes(), getVehicleList()]);
 
   return (
     <section className="pt-24 md:pt-32">
@@ -29,16 +27,16 @@ export default async function QuizPage() {
             className="text-headline font-semibold text-paper"
             highlight={["ideal"]}
           >
-            {type === "motorcycle" ? "Encontre a sua mota ideal" : "Encontre o seu carro ideal"}
+            Encontre o seu veículo ideal
           </AnimatedText>
           <p className="mt-4 text-lg font-light text-paper/60">
-            Responda a 5 perguntas rápidas e mostramos-lhe as viaturas do nosso
+            Responda a umas perguntas rápidas e mostramos-lhe as viaturas do nosso
             stand mais indicadas para si.
           </p>
         </header>
 
         <div className="mb-24">
-          <CarQuiz vehicles={vehicles} />
+          <CarQuiz vehicles={vehicles} vehicleTypes={siteTypes} />
         </div>
       </div>
     </section>
