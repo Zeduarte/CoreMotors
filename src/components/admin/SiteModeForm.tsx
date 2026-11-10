@@ -48,7 +48,7 @@ export function SiteModeForm({ initial }: { initial: SiteMode }) {
                 <span
                   aria-hidden
                   className={`grid h-4 w-4 place-items-center rounded-full border ${
-                    on ? "border-[color:var(--accent)]" : "border-white/30"
+                    on ? "border-[color:var(--accent)]" : "border-white/20"
                   }`}
                 >
                   {on && <span className="h-2 w-2 rounded-full bg-accent" />}

@@ -87,7 +87,7 @@ export function WorkshopList({
           )}
           <div>
             <span className="field-label">Viatura (nome)</span>
-            <input name="name" placeholder="Ex.: Yamaha R6" className="field" required />
+            <input name="name" placeholder={askType ? "Ex.: BMW 320d ou Yamaha R6" : canCreate[0] === "motorcycle" ? "Ex.: Yamaha R6" : "Ex.: BMW 320d"} className="field" required />
           </div>
           <div>
             <span className="field-label">Matrícula</span>
@@ -108,9 +108,9 @@ export function WorkshopList({
           </p>
         </div>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((v) => (
-            <li key={v.id}>
+            <li key={v.id} className="min-w-0">
               <Link
                 href={`/admin/oficina/${v.id}`}
                 className="card group block overflow-hidden transition-colors hover:border-accent/50"

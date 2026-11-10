@@ -148,7 +148,7 @@ export function LeaveCalendar({
         <label className="text-sm text-paper/60">
           Ano{" "}
           <select
-            className="field ml-2 inline-block w-auto py-1.5"
+            className="field ml-2 inline-block !w-auto py-1.5"
             value={year}
             onChange={(e) => router.push(`?ano=${e.target.value}`)}
           >

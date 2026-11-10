@@ -73,7 +73,7 @@ export default async function HorasPage({ searchParams }: { searchParams: Search
         <form className="mb-6 flex flex-wrap items-center gap-2" action="/admin/horas">
           <input type="hidden" name="mes" value={range.month} />
           <label className="text-sm text-paper/60" htmlFor="pessoa">Pessoa</label>
-          <select id="pessoa" name="pessoa" defaultValue={pessoa} className="field h-10 w-auto">
+          <select id="pessoa" name="pessoa" defaultValue={pessoa} className="field h-10 !w-auto">
             <option value="todos">Toda a equipa</option>
             {profiles.map((p) => (
               <option key={p.id} value={p.id}>

@@ -196,6 +196,9 @@ html[data-admin-theme="light"] .admin-shell :is(.text-red-200, .text-red-300, .t
 html[data-admin-theme="light"] .admin-shell :is(.text-amber-200, .text-amber-300, .text-orange-300) { color: #a16207; }
 html[data-admin-theme="light"] .admin-shell :is(.text-emerald-200, .text-emerald-300) { color: #047857; }
 html[data-admin-theme="light"] .admin-shell .text-sky-300 { color: #0369a1; }
+/* Os mesmos tons com `!` (botões rápidos dos contactos), que ganham às regras acima. */
+html[data-admin-theme="light"] .admin-shell .\!text-accent { color: color-mix(in srgb, var(--accent) 55%, #000) !important; }
+html[data-admin-theme="light"] .admin-shell .\!text-sky-300 { color: #0369a1 !important; }
 html[data-admin-theme="light"] .admin-shell .text-violet-300 { color: #6d28d9; }
 html[data-admin-theme="light"] .admin-shell .text-red-400\/70 { color: rgb(185 28 28 / 0.8); }
 /* Colunas «sticky» precisam de fundo opaco, senão deixam ver o que passa por baixo. */

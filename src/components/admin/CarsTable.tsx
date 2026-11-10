@@ -159,7 +159,7 @@ export function CarsTable({
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as CarStatus | "")}
-          className="field h-10 w-auto"
+          className="field h-10 !w-auto"
           aria-label="Filtrar por estado"
         >
           <option value="">Todos os estados</option>
@@ -172,7 +172,7 @@ export function CarsTable({
         <select
           value={make}
           onChange={(e) => setMake(e.target.value)}
-          className="field h-10 w-auto"
+          className="field h-10 !w-auto"
           aria-label="Filtrar por marca"
         >
           <option value="">Todas as marcas</option>
@@ -185,7 +185,7 @@ export function CarsTable({
         <select
           value={fuel}
           onChange={(e) => setFuel(e.target.value as FuelType | "")}
-          className="field h-10 w-auto"
+          className="field h-10 !w-auto"
           aria-label="Filtrar por combustível"
         >
           <option value="">Todos os combustíveis</option>
@@ -198,7 +198,7 @@ export function CarsTable({
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as SortKey)}
-          className="field h-10 w-auto"
+          className="field h-10 !w-auto"
           aria-label="Ordenar"
         >
           <option value="recent">Mais recentes</option>
@@ -321,7 +321,7 @@ export function CarsTable({
                             className="object-cover"
                           />
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 max-w-[16rem] lg:max-w-[22rem]">
                           <p className="flex items-center gap-2 font-medium text-paper group-hover:text-accent">
                             <span className="truncate">
                               {car.make} {car.model}

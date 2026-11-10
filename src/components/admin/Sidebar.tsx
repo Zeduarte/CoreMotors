@@ -94,7 +94,9 @@ export function Sidebar({
               <Link
                 key={group.key}
                 href={item.href}
-                aria-label={item.label}
+                aria-label={
+                  own || group.short === item.label ? item.label : `${group.short}: ${item.label}`
+                }
                 aria-current={active ? "page" : undefined}
                 className={`${ITEM} ${active ? ACTIVE : IDLE}`}
               >
@@ -121,7 +123,7 @@ export function Sidebar({
                 type="button"
                 aria-haspopup="menu"
                 aria-expanded={isOpen}
-                aria-label={group.label}
+                aria-label={group.short === group.label ? group.label : `${group.short}: ${group.label}`}
                 onPointerDown={(e) => (lastPointer.current = e.pointerType)}
                 onKeyDown={() => (lastPointer.current = "")}
                 onClick={() => {
