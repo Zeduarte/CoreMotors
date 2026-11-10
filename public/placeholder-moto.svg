@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1067" viewBox="0 0 1600 1067" role="img" aria-label="Sem fotografia">
+  <rect width="1600" height="1067" fill="#18181B"/>
+  <g fill="none" stroke="#3f3f46" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="560" cy="700" r="110"/>
+    <circle cx="1040" cy="700" r="110"/>
+    <path d="M560 700 L680 520 H860 L940 600 H1040 L1040 700"/>
+    <path d="M680 520 L740 600 H940"/>
+    <path d="M860 520 L900 440 H960"/>
+    <path d="M700 480 H800 L830 520"/>
+  </g>
+  <text x="800" y="900" fill="#52525b" font-family="system-ui, sans-serif" font-size="42" text-anchor="middle">Fotografia por publicar</text>
+</svg>

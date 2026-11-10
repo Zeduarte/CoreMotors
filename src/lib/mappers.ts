@@ -13,9 +13,12 @@ const PLACEHOLDER: VehicleImage = {
   width: 1600,
   height: 1067,
 };
+/** Sem fotografias: o desenho de um carro ou de uma mota, conforme a viatura. */
+const placeholderFor = (type: string | null | undefined): VehicleImage =>
+  type === "motorcycle" ? { ...PLACEHOLDER, src: "/placeholder-moto.svg" } : PLACEHOLDER;
 
 /** Ordena e separa media: imagens (capa primeiro) vs. primeiro vídeo. */
-function splitMedia(media: CarMediaRow[]) {
+function splitMedia(media: CarMediaRow[], type?: string | null) {
   const sorted = [...media].sort(
     (a, b) =>
       Number(b.is_cover) - Number(a.is_cover) || a.position - b.position,
@@ -37,7 +40,7 @@ function splitMedia(media: CarMediaRow[]) {
           : "video/mp4",
       }
     : null;
-  return { images: images.length ? images : [PLACEHOLDER], video };
+  return { images: images.length ? images : [placeholderFor(type)], video };
 }
 
 /**
@@ -73,12 +76,12 @@ export function coverImage(car: CarWithMedia): {
       .sort((a, b) => a.position - b.position)[0];
   return cover
     ? { src: publicMediaUrl(cover.storage_path), alt: cover.alt || "Viatura" }
-    : { src: PLACEHOLDER.src, alt: PLACEHOLDER.alt };
+    : { src: placeholderFor(car.vehicle_type).src, alt: PLACEHOLDER.alt };
 }
 
 /** Converte uma linha `cars` (+ media) no tipo de domínio `Vehicle`. */
 export function toVehicle(car: CarWithMedia): Vehicle {
-  const { images, video } = splitMedia(car.car_media ?? []);
+  const { images, video } = splitMedia(car.car_media ?? [], car.vehicle_type);
   return {
     id: car.id,
     slug: car.slug,

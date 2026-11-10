@@ -52,12 +52,17 @@ export function AnimatedText({
   const ref = useScrollAnimation<HTMLElement>((root) => {
     const targets = root.querySelectorAll<HTMLElement>("[data-unit]");
     gsap.set(targets, { yPercent: 120 });
+    const tween = { yPercent: 0, duration: 0.9, ease: "power3.out", stagger, delay };
+    // Já à vista ao abrir a página (o título no topo): anima logo. À espera do
+    // ScrollTrigger, o título do /quiz e de /contactos ficava escondido — o
+    // conteúdo por baixo muda de altura depois de o gatilho ser medido, e ele
+    // ficava à espera de um scroll que não acontecia.
+    if (root.getBoundingClientRect().top < window.innerHeight * 0.85) {
+      gsap.to(targets, tween);
+      return;
+    }
     gsap.to(targets, {
-      yPercent: 0,
-      duration: 0.9,
-      ease: "power3.out",
-      stagger,
-      delay,
+      ...tween,
       scrollTrigger: {
         trigger: root,
         start: "top 85%",

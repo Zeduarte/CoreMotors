@@ -95,7 +95,15 @@ export async function publicSubmissionClient(
       max_hits: key.max,
       window_seconds: 600,
     });
-    if (error || !data)
+    // Sem resposta da base de dados não é o limite: não se diz «demasiados
+    // pedidos» a quem fez um só.
+    if (error) {
+      console.error("consume_submission:", error.message);
+      throw new Error(
+        "Submissões temporariamente indisponíveis. Tente daqui a pouco ou contacte-nos por telefone.",
+      );
+    }
+    if (!data)
       throw new Error(
         "Demasiados pedidos. Aguarde alguns minutos e tente novamente.",
       );

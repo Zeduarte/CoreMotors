@@ -116,8 +116,9 @@ export function OrderCarForm() {
                 <select name="od_fuel" className="field">
                   <option value="">Indiferente</option>
                   <option>Gasolina</option>
-                  <option>Diesel</option>
-                  <option>Híbrido</option>
+                  {/* As motas são a gasolina ou elétricas. */}
+                  {type !== "motorcycle" && <option>Diesel</option>}
+                  {type !== "motorcycle" && <option>Híbrido</option>}
                   <option>Elétrico</option>
                 </select>
               </Field>

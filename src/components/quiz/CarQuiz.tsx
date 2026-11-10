@@ -227,6 +227,8 @@ export function CarQuiz({
   }
 
   const current = steps[step]!;
+  // Na pergunta «carro ou mota?» (também ao voltar a ela), o banner é o geral.
+  const shownKind = current.key === "kind" ? null : kind;
   const progress = Math.round((step / steps.length) * 100);
 
   return (
@@ -275,7 +277,7 @@ export function CarQuiz({
               quiz.jpg em public/media/carros|motas/ (fallback: fundo sólido). */}
           <div
             className="relative mt-6 h-40 overflow-hidden rounded-2xl border border-white/10 bg-ink-soft bg-cover bg-center md:h-56"
-            style={{ backgroundImage: `url(${mediaFor(kind ?? primary).quiz})` }}
+            style={{ backgroundImage: `url(${mediaFor(shownKind ?? primary).quiz})` }}
           >
             <div
               aria-hidden
@@ -283,9 +285,9 @@ export function CarQuiz({
             />
             <div className="absolute bottom-4 left-5">
               <p className="eyebrow mb-1">
-                {kind === "motorcycle"
+                {shownKind === "motorcycle"
                   ? "Encontre a sua mota ideal"
-                  : kind === "car"
+                  : shownKind === "car"
                     ? "Encontre o seu carro ideal"
                     : "Encontre o seu veículo ideal"}
               </p>

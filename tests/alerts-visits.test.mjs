@@ -126,7 +126,7 @@ test("alerta: compara marca, modelo (parcial, sem acentos), preço, ano e km", (
   const serie = A.parseCriteria({ vehicle_type: "car", make: "BMW", model: "Serie 3" });
   assert.ok(A.carMatches(car({ vehicle_type: "car", make: "BMW", model: "Série 3", variant: "320d Touring" }), serie));
   // O Intl usa espaços que não quebram nos números: compara-se sem eles.
-  assert.equal(A.criteriaLabel(c).replace(/\s/g, " "), "Yamaha mt 07 · até 7000 € · desde 2020 · até 20 000 km");
+  assert.equal(A.criteriaLabel(c).replace(/\s/g, " "), "Yamaha mt 07 · até 7 000 € · desde 2020 · até 20 000 km");
 });
 
 test("alerta: só conta o que chegou depois de o alerta ser criado", () => {

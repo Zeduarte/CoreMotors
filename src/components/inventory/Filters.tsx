@@ -117,7 +117,7 @@ export function Filters({
                 key={t ?? "all"}
                 type="button"
                 aria-pressed={on}
-                onClick={() => !on && onChange({ vehicleType: t, body: null, make: null, model: null, olx: {} })}
+                onClick={() => !on && onChange({ vehicleType: t, body: null, make: null, model: null, olx: {}, maxDisplacement: null, maxPower: null, doors: null, seats: null })}
                 className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                   on ? "bg-paper text-ink" : "text-paper/65 hover:bg-white/10 hover:text-paper"
                 }`}
@@ -168,6 +168,11 @@ export function Filters({
             onChange={(v) => onChange({ make: v || null, model: null })}
           >
             <option value="">Todas</option>
+            {/* Uma marca pedida sem stock (um link, a pesquisa rápida) continua à
+                vista: percebe-se porque não há resultados e o alerta usa-a. */}
+            {filters.make && !options.makes.some((m) => m.toLowerCase() === filters.make!.toLowerCase()) && (
+              <option value={filters.make}>{filters.make}</option>
+            )}
             {options.makes.map((m) => (
               <option key={m} value={m}>
                 {m}
@@ -182,6 +187,9 @@ export function Filters({
             onChange={(v) => onChange({ model: v || null })}
           >
             <option value="">Todos</option>
+            {filters.model && !options.models.some((m) => m.toLowerCase() === filters.model!.toLowerCase()) && (
+              <option value={filters.model}>{filters.model}</option>
+            )}
             {options.models.map((m) => (
               <option key={m} value={m}>
                 {m}

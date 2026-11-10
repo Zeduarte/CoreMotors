@@ -110,6 +110,21 @@ export function InventoryClient({
         : vehicles,
     [vehicles, filters.vehicleType],
   );
+  // Uma marca que só existe no outro tipo (um link como ?tipo=motas&marca=
+  // Renault) deixava a lista vazia sem se perceber porquê: a marca sai (e o
+  // modelo com ela). Uma marca sem stock nenhum fica — o alerta usa-a.
+  useEffect(() => {
+    const make = filters.make;
+    if (
+      make &&
+      filters.vehicleType &&
+      !pool.some((v) => sameBrand(v.make, make)) &&
+      vehicles.some((v) => sameBrand(v.make, make))
+    ) {
+      setFilters((f) => ({ ...f, make: null, model: null }));
+    }
+  }, [pool, vehicles, filters.make, filters.vehicleType]);
+
   const typeCounts = useMemo(
     () => ({
       all: vehicles.length,
