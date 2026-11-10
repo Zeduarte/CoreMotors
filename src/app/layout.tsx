@@ -4,7 +4,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { site } from "@/lib/site";
-import { getBranding } from "@/lib/queries";
+import { getBranding, getSiteVehicleTypes } from "@/lib/queries";
+import { siteDescription, vehiclesLabel } from "@/lib/site-types";
 import { SiteRuntime } from "@/components/site/SiteRuntime";
 import { BrandIdentityProvider } from "@/components/layout/BrandIdentity";
 
@@ -17,26 +18,32 @@ const inter = Inter({
   weight: ["300", "400", "500", "600", "700"],
 });
 
-export const metadata: Metadata = {
+// O título e a descrição dizem o que o stand vende (Definições → Tipo de site).
+export async function generateMetadata(): Promise<Metadata> {
+  const types = await getSiteVehicleTypes();
+  const label = vehiclesLabel(types);
+  const description = siteDescription(types);
+  return {
   metadataBase: new URL(site.url),
   title: {
-    default: `${site.name} — Motas e Automóveis em Portugal`,
+    default: `${site.name} — ${label} em Portugal`,
     template: `%s · ${site.name}`,
   },
-  description: site.description,
+  description,
   openGraph: {
     type: "website",
     locale: "pt_PT",
     siteName: site.name,
-    title: `${site.name} — Motas e Automóveis`,
-    description: site.description,
+    title: `${site.name} — ${label}`,
+    description,
     url: site.url,
   },
   robots: { index: true, follow: true },
   // Ver src/app/manifest.webmanifest/route.ts (o backoffice tem o seu).
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon.svg", shortcut: "/icon.svg", apple: "/icon.svg" },
-};
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#0A0A0A",

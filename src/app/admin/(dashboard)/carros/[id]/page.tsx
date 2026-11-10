@@ -15,7 +15,7 @@ import { StatusBadge } from "@/components/admin/StatusBadge";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { WorkshopStage } from "@/components/admin/WorkshopStage";
 import type { CarFormValues } from "@/lib/schemas";
-import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import { getActiveVehicleTypes } from "@/lib/vehicle-context";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +47,8 @@ export default async function EditCarPage({ params }: { params: Params }) {
   })();
 
   const showroom = await getShowroomContent();
-  const allowedTypes = await getAllowedVehicleTypes();
+  // Mudar de tipo só para um que o site vende (o tipo atual mantém-se sempre).
+  const allowedTypes = await getActiveVehicleTypes();
   const badgeOptions = await getBadges();
   const olxFields = await getOlxFieldsForForm({
     categoryId: (car as { olx_category_id?: number | null }).olx_category_id ?? null,

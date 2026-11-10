@@ -45,8 +45,8 @@ export function buildSitemap({ base, staticPaths, vehicles, listings }: SitemapI
   const forSale = vehicles.filter((v) => v.status === "published" || v.status === "reserved");
   const sold = vehicles.filter((v) => v.status === "sold");
   const stockDate = latest(forSale.map((v) => v.updated_at));
-  // O que o Google vê em /vendidos: os carros (não guarda a escolha carros/motas).
-  const soldShown = sold.filter((v) => (v.vehicle_type ?? "car") === "car");
+  // /vendidos mostra todas as vendidas dos tipos do site (já filtradas acima).
+  const soldShown = sold;
 
   const pages: MetadataRoute.Sitemap = staticPaths.map((path) => ({
     url: `${base}${path}`,

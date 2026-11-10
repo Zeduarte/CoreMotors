@@ -267,3 +267,28 @@ await test('the lead search cannot add conditions or wildcards to the PostgREST 
   assert.equal(leadSearchOr('912 345 678').split(',')[2], 'phone.ilike.%912 345 678%');
   assert.match(readFileSync('src/app/api/admin/leads/export/route.ts', 'utf8'), /\.or\(leadSearchOr\(f\.q\)\)/);
 });
+
+await test('0049: only the admin writes the site type and the card badges; the home texts stay with the section', async () => {
+  const chefe = '00000000-0000-4000-8000-000000000049';
+  await pg.query('insert into auth.users(id,email) values($1,$2) on conflict do nothing', [chefe, 'chefe@example.test']);
+  await pg.query("insert into public.profiles(id,role,allowed_sections) values($1,'chefe',array['pagina-inicial']) on conflict (id) do update set role='chefe', allowed_sections=array['pagina-inicial']", [chefe]);
+  const upsert = (key) => `insert into site_content(key,content) values('${key}','{"vehicle_types":["motorcycle"]}'::jsonb)
+    on conflict (key) do update set content=excluded.content`;
+  // O chefe com «Página inicial» grava os textos da página inicial…
+  await as('authenticated', upsert('home'), [], chefe);
+  // …mas não o tipo de site nem as etiquetas.
+  for (const key of ['site', 'badges'])
+    await assert.rejects(as('authenticated', upsert(key), [], chefe), /row-level security|policy/, key);
+  // O administrador grava.
+  await as('authenticated', upsert('site'), [], admin);
+  assert.deepEqual((await pg.query("select content from site_content where key='site'")).rows[0].content, { vehicle_types: ['motorcycle'] });
+  // O chefe também não muda nem apaga o que o administrador gravou.
+  await as('authenticated', `update site_content set content='{"vehicle_types":["car"]}'::jsonb where key='site'`, [], chefe);
+  await as('authenticated', "delete from site_content where key='site'", [], chefe);
+  assert.deepEqual((await pg.query("select content from site_content where key='site'")).rows[0].content, { vehicle_types: ['motorcycle'] });
+  // O público lê (o site precisa de saber o que vende).
+  assert.equal((await as('anon', "select content from site_content where key='site'")).rows.length, 1);
+  // A migração pode correr outra vez.
+  await pg.exec(await readFile('supabase/migrations/0049_site_settings_admin.sql', 'utf8'));
+  await pg.query("delete from site_content where key in ('site','home')");
+});

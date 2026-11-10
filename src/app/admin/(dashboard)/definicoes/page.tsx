@@ -42,7 +42,7 @@ export default async function SettingsPage() {
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-paper">Tipo de site</h2>
         <p className="mt-1 text-sm text-paper/50">
-          O que o stand vende. Vale para o site e para o backoffice.
+          O que o stand vende: o que aparece no site e o que se pode criar no backoffice.
         </p>
       </div>
       <SiteModeForm initial={siteModeOf(siteTypes)} />

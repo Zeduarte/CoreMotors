@@ -62,7 +62,8 @@ export async function login(
   }
 
   // Fora do try: o redirect do Next funciona lançando uma exceção.
-  redirect(redirectTo.startsWith("/admin") ? redirectTo : "/admin");
+  // Só caminhos do backoffice (com ou sem pesquisa); nada de //outro-site.
+  redirect(/^\/admin(\/(?!\/)|\?|$)/.test(redirectTo) && !redirectTo.includes("\\") ? redirectTo : "/admin");
 }
 
 /** Termina a sessão e volta ao login. */

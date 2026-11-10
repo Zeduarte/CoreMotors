@@ -83,13 +83,12 @@ export function OrderCarForm() {
             <input type="hidden" name="kind" value="order" />
             <input type="hidden" name="vehicle_type" value={type} />
             {siteTypes.length > 1 && (
-              <div role="radiogroup" aria-label="Carro ou mota" className="inline-flex w-fit gap-1 rounded-full border border-white/10 p-1">
+              <div role="group" aria-label="Carro ou mota" className="inline-flex w-fit gap-1 rounded-full border border-white/10 p-1">
                 {siteTypes.map((t) => (
                   <button
                     key={t}
                     type="button"
-                    role="radio"
-                    aria-checked={type === t}
+                    aria-pressed={type === t}
                     onClick={() => setType(t)}
                     className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                       type === t ? "bg-paper text-ink" : "text-paper/65 hover:text-paper"

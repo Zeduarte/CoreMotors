@@ -1,5 +1,5 @@
 import "server-only";
-import { getVehicleBySlug, getVehicleList } from "@/lib/queries";
+import { getSiteVehicleTypes, getVehicleBySlug, getVehicleList } from "@/lib/queries";
 import { getShowroomContent } from "@/lib/showroom-queries";
 import { resolveSeoPage } from "@/lib/seo-pages";
 import type { VehicleType } from "@/lib/vehicle-categories";
@@ -19,6 +19,8 @@ export async function vehicleExists(slug: string): Promise<boolean> {
 }
 
 export async function seoPageExists(type: VehicleType, slug: string): Promise<boolean> {
+  // /motas/… num site só de carros (e vice-versa) não existe.
+  if (!(await getSiteVehicleTypes()).includes(type)) return false;
   return resolveSeoPage(type, slug, await getVehicleList(type)) !== null;
 }
 

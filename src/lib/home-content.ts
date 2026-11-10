@@ -67,7 +67,7 @@ export const DEFAULT_HOME_CONTENT: HomeContent = {
   hero: {
     eyebrow: "Stand premium · Portugal",
     title: "Cada viatura conta uma história de precisão",
-    subtitle: "Uma seleção rigorosa de automóveis premium. Roda para explorar.",
+    subtitle: "Uma seleção rigorosa de viaturas premium. Role para explorar.",
     primaryCta: { label: "Ver stock", href: "/inventario" },
     secondaryCta: { label: "Conhecer o stand", href: "/sobre" },
     media: "auto",

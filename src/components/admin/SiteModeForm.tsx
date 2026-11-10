@@ -29,15 +29,14 @@ export function SiteModeForm({ initial }: { initial: SiteMode }) {
 
   return (
     <div className="card space-y-4 p-5">
-      <div role="radiogroup" aria-label="Tipo de site" className="grid gap-3 sm:grid-cols-3">
+      <div role="group" aria-label="Tipo de site" className="grid gap-3 sm:grid-cols-3">
         {SITE_MODES.map((m) => {
           const on = m.value === mode;
           return (
             <button
               key={m.value}
               type="button"
-              role="radio"
-              aria-checked={on}
+              aria-pressed={on}
               onClick={() => setMode(m.value)}
               className={`rounded-2xl border p-4 text-left transition-colors ${
                 on
@@ -63,8 +62,9 @@ export function SiteModeForm({ initial }: { initial: SiteMode }) {
       </div>
       {mode !== "carros-motas" && (
         <p className="text-xs text-paper/50">
-          {mode === "carros" ? "As motas já registadas ficam guardadas" : "Os carros já registados ficam guardados"}:
-          deixam de aparecer no site e no backoffice, e voltam se escolher «Carros e motas».
+          {mode === "carros" ? "As motas já registadas deixam de aparecer no site" : "Os carros já registados deixam de aparecer no site"}{" "}
+          e já não se criam novos. No backoffice continuam visíveis, para acabar contactos, oficina e vendas e
+          retirar anúncios dos portais. Voltam ao site se escolher «Carros e motas».
         </p>
       )}
       <div className="flex justify-end">

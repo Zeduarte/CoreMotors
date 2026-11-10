@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   title: "Stock",
   alternates: { canonical: "/inventario" },
   description:
-    "Explore o stock completo de automóveis e motas da Supermotas. Filtre por marca, modelo, preço, ano, combustível e quilómetros.",
+    "Explore o stock completo da Supermotas. Filtre por marca, modelo, preço, ano, combustível e quilómetros.",
 };
 
 export default async function InventoryPage({
@@ -38,7 +38,14 @@ export default async function InventoryPage({
         ? fromQuery.vehicleType
         : null;
   // Stock leve para os cartões, com os valores dos campos do OLX pesquisáveis.
-  const { vehicles, fields: olxFields } = await inventoryWithOlx(await getVehicles(), vehicleType ?? world);
+  // Os campos do OLX são diferentes nos carros e nas motas: calculam-se para
+  // cada tipo, e o stock mostra os do tipo escolhido.
+  const all = await getVehicles();
+  const perType = await Promise.all(
+    siteTypes.map((t) => inventoryWithOlx(all.filter((v) => (v.vehicleType ?? "car") === t), t)),
+  );
+  const vehicles = perType.flatMap((p) => p.vehicles);
+  const olxFieldsByType = Object.fromEntries(siteTypes.map((t, i) => [t, perType[i]!.fields]));
   const initialFilters = { ...fromQuery, vehicleType };
 
   return (
@@ -74,7 +81,7 @@ export default async function InventoryPage({
         vehicles={vehicles}
         initialFilters={initialFilters}
         initialSort={sortFromQuery(sp)}
-        olxFields={olxFields}
+        olxFieldsByType={olxFieldsByType}
         vehicleTypes={siteTypes}
       />
 

@@ -4,9 +4,11 @@ import { normalizeWhatsApp } from "./phone";
 
 export const site = {
   name: "Supermotas",
-  legalName: "Supermotas — Motas e Automóveis",
+  legalName: "Supermotas",
+  // A frase por defeito (carros e motas); o site usa `siteDescription` com o
+  // Tipo de site das Definições.
   description:
-    "Stand de motas e automóveis em Portugal. Viaturas selecionadas, histórico transparente e uma experiência de compra sem fricção.",
+    "Stand de automóveis e motas em Portugal. Viaturas selecionadas, histórico transparente e uma experiência de compra sem fricção.",
   // O domínio de cada stand vem do Netlify (NEXT_PUBLIC_SITE_URL, fixado no
   // build). O valor fixo é só o último recurso: canónicos, sitemap e links de
   // partilha apontavam para ele mesmo com o domínio próprio já ligado.

@@ -41,9 +41,12 @@ export async function updateSession(request: NextRequest) {
 
   // Rota de admin sem sessão → login.
   if (isAdmin && !isLogin && !user) {
+    // O destino leva os filtros (ex.: /admin/carros?tipo=motas): depois de
+    // entrar, volta-se exatamente onde se estava.
     const url = request.nextUrl.clone();
     url.pathname = "/admin/login";
-    url.searchParams.set("redirect", pathname);
+    url.search = "";
+    url.searchParams.set("redirect", `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(url);
   }
 

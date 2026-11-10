@@ -31,12 +31,11 @@ import { site } from "@/lib/site";
 import { VehicleJsonLd } from "@/components/seo/VehicleJsonLd";
 import { addressLine, getVisitsEnabled } from "@/lib/visit-run";
 
-// Gerada a cada pedido, como o resto do site público: o layout lê o cookie
-// carros/motas, por isso não há páginas estáticas nem ISR. Pré-gerar as fichas
-// (generateStaticParams) tornava a rota estática e, sem viaturas no build, cada
-// visita rebentava ao ler o cookie (erro 500). A rapidez vem da CDN do Netlify
-// (cópia por mundo, ver next.config.mjs) e da cache dos dados
-// (src/lib/public-cache.ts), que o backoffice limpa ao gravar.
+// Gerada a cada pedido. Pré-gerar as fichas (generateStaticParams) tornava a
+// rota estática e dependente das viaturas que existissem no build (sem elas,
+// as fichas novas davam erro até ao próximo deploy). A rapidez vem da CDN do
+// Netlify (ver next.config.mjs) e da cache dos dados (src/lib/public-cache.ts),
+// que o backoffice limpa ao gravar.
 export const dynamic = "force-dynamic";
 
 // Em Next 15, `params` é assíncrono.

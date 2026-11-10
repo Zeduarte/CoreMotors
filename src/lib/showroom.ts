@@ -115,7 +115,7 @@ export const DEFAULT_SHOWROOM: ShowroomContent = {
     },
     {
       category: "geral",
-      question: "Não encontro o carro que procuro. Podem ajudar?",
+      question: "Não encontro a viatura que procuro. Podem ajudar?",
       answer:
         "Pode enviar um pedido de viatura por encomenda com as características e o orçamento pretendidos.",
     },

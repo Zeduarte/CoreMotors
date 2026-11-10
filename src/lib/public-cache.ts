@@ -3,9 +3,9 @@ import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 /**
  * Cache das leituras públicas (viaturas, conteúdos, etiquetas, testemunhos).
  *
- * As páginas públicas são geradas a cada visita (leem o cookie carros/motas),
- * por isso sem isto cada visita e cada clique faziam várias consultas ao
- * Supabase. Os resultados ficam guardados 60 segundos e, quando o backoffice
+ * Várias páginas públicas são geradas a cada visita (o stock, a ficha, a
+ * comparação), por isso sem isto cada visita e cada clique faziam várias
+ * consultas ao Supabase. Os resultados ficam guardados 60 segundos e, quando o backoffice
  * grava alguma coisa, `revalidatePublic` limpa-os logo — o site nunca fica
  * desatualizado à espera do minuto.
  */

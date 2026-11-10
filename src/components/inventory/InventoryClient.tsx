@@ -42,15 +42,18 @@ export function InventoryClient({
   vehicles,
   initialFilters,
   initialSort = "relevance",
-  olxFields = [],
+  olxFieldsByType = {},
   header,
   vehicleTypes = ["car", "motorcycle"],
 }: {
   vehicles: Vehicle[];
   initialFilters?: Partial<VehicleFilters>;
   initialSort?: SortKey;
-  /** Filtros do OLX com opções no stock (vazio sem ligação ao OLX). */
-  olxFields?: SearchField[];
+  /**
+   * Filtros do OLX com opções no stock, por tipo (vazio sem ligação ao OLX).
+   * Aparecem os do tipo escolhido; em «Todos» não há (cada tipo tem os seus).
+   */
+  olxFieldsByType?: Partial<Record<VehicleType, SearchField[]>>;
   /** Topo da página, unido ao cartão dos filtros. */
   header?: React.ReactNode;
   /**
@@ -92,6 +95,11 @@ export function InventoryClient({
     }, 300);
     return () => window.clearTimeout(id);
   }, [filters, sort, locked]);
+
+  const olxFields = useMemo(
+    () => (filters.vehicleType ? olxFieldsByType[filters.vehicleType] ?? [] : []),
+    [filters.vehicleType, olxFieldsByType],
+  );
 
   // As opções (marcas, categorias, cores…) seguem o tipo escolhido: com
   // «Motas», a lista de marcas não traz as dos carros.
@@ -231,7 +239,8 @@ export function InventoryClient({
           critérios já preenchidos. */}
       <section id="alerta" className="scroll-mt-28 pt-10">
         <StockAlertForm
-          vehicleType={filters.vehicleType ?? vehicleTypes[0] ?? "car"}
+          vehicleType={filters.vehicleType ?? null}
+          vehicleTypes={vehicleTypes}
           makes={options.makes}
           defaults={{
             make: filters.make,

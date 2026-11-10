@@ -36,7 +36,8 @@ A ativação na produção e testes com Google real exigem configuração do alo
 - Ao criar um anúncio, é obrigatório escolher **Carro** ou **Mota** antes de preencher os dados. Ao editar, o tipo guardado fica selecionado.
 - O tipo continua na coluna `cars.vehicle_type` (`car` / `motorcycle`), introduzida na migração 0018. Não são necessárias tabelas separadas nem uma nova migração.
 - Mudar o tipo limpa marca, modelo e versão e adapta categoria, portas e lugares. Os restantes campos preenchidos são preservados.
-- O inventário apresenta **Todos / Carros / Motas**, com URLs `/inventario?tipo=carros` e `/inventario?tipo=motas`. A consulta pública à base de dados é filtrada pelo tipo escolhido; as opções dos filtros pertencem a essa seleção.
-- Limpar filtros mantém a secção de carros ou motas. Para regressar ao stock completo, selecionar **Todos**.
+- O site é um só para carros e motas. O que o stand vende escolhe-se em Definições → **Tipo de site** (só carros, carros e motas, ou só motas).
+- Com os dois tipos, o inventário apresenta **Todos / Carros / Motas**, com URLs `/inventario?tipo=carros` e `/inventario?tipo=motas`. A filtragem é feita no browser sobre o stock dos tipos que o site vende; as opções dos filtros (marcas, categorias, campos do OLX) seguem o tipo escolhido, e mudar de tipo limpa a marca, o modelo e a categoria.
+- «Limpar» volta a **Todos** (num site de um só tipo, a esse tipo).
 
 Validação desta separação: 36 testes automatizados, incluindo criação/edição e filtragem no servidor; teste de interação DOM para escolher mota, enviar o formulário e trocar para carro; quatro verificações HTTP do stock completo, carros, motas e parâmetro desconhecido. Build, TypeScript e ESLint aprovados. A migração 0018 continua a ser necessária no ambiente de destino.

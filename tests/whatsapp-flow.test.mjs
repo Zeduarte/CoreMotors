@@ -676,7 +676,7 @@ await test('a homepage title change can be declined, and nothing is written',asy
  ]);
  const deps={db,anthropic:ia,now:AGORA,origin:ORIGEM};
  const p=await handleInbound({from:TELEFONE,text:'altera o título da página inicial para Os melhores usados de Lisboa',type:'text'},chefeSite,deps);
- assert.match(p.reply,/Título · topo \(carros\): «Carros com história» → «Os melhores usados de Lisboa»/);
+ assert.match(p.reply,/Título · topo: «Carros com história» → «Os melhores usados de Lisboa»/);
  const {id,exp,sig}=ligacao(p.image.url);
  assert.equal((await loadPreview(db,id,exp,sig,AGORA,SEGREDO)).card.title,'Página inicial · textos');
  const nao=await handleInbound({from:TELEFONE,text:'não',type:'text'},chefeSite,deps);

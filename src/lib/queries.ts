@@ -292,10 +292,13 @@ export async function getTestimonials(): Promise<Testimonial[]> {
  * Usado nos feeds de exportação (`/api/feeds/<canal>.xml`).
  */
 export async function getChannelVehicles(channel: string): Promise<Vehicle[]> {
+  // Só os tipos que o site vende: o link de cada anúncio tem de abrir a ficha.
+  const types = await getSiteVehicleTypes();
   const { data, error } = await supabasePublic
     .from("cars")
     .select(CAR_SELECT)
     .eq("status", "published")
+    .in("vehicle_type", types)
     .contains("channels", [channel])
     .order("published_at", { ascending: false, nullsFirst: false });
 

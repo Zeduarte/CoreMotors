@@ -1,6 +1,6 @@
 import { getShowroomContent } from "@/lib/showroom-queries";
 import type { MetadataRoute } from "next";
-import { getVehicleList } from "@/lib/queries";
+import { getSiteVehicleTypes, getVehicleList } from "@/lib/queries";
 import { supabasePublic } from "@/lib/supabase/public";
 import { seoPagesFor, seoPath, TYPE_PATH } from "@/lib/seo-pages";
 import { VEHICLE_TYPES } from "@/lib/vehicle-categories";
@@ -9,12 +9,16 @@ import { buildSitemap, latest, type SitemapVehicle } from "@/lib/sitemap";
 
 export const revalidate = 300;
 
-/** Fichas públicas (à venda, reservadas e vendidas) com a data da última edição. */
+/**
+ * Fichas públicas (à venda, reservadas e vendidas) com a data da última
+ * edição — só dos tipos que o site vende (as outras dão 404).
+ */
 async function sitemapVehicles(): Promise<SitemapVehicle[]> {
   const { data, error } = await supabasePublic
     .from("cars")
     .select("slug, status, vehicle_type, updated_at")
-    .in("status", ["published", "reserved", "sold"]);
+    .in("status", ["published", "reserved", "sold"])
+    .in("vehicle_type", await getSiteVehicleTypes());
   if (error) {
     console.error("sitemap:", error.message);
     return [];

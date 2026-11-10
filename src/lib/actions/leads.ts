@@ -77,7 +77,7 @@ export async function submitLead(
   // num site com carros e motas, um contacto geral fica sem tipo.
   const siteTypes = await getSiteVehicleTypes();
   let vehicleType: "car" | "motorcycle" | null =
-    formType === "car" || formType === "motorcycle"
+    (formType === "car" || formType === "motorcycle") && siteTypes.includes(formType)
       ? formType
       : siteTypes.length === 1
         ? siteTypes[0]!

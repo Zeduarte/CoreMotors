@@ -63,7 +63,7 @@ export default async function PublicLayout({
         </Suspense>
         <Header branding={branding} />
         <main id="conteudo" className="pt-16">{children}</main>
-        <Footer branding={branding} background={existingMedia(type, OPTIONAL_MEDIA.rodape)} />
+        <Footer branding={branding} background={existingMedia(type, OPTIONAL_MEDIA.rodape)} siteTypes={siteTypes} />
         {/* Assistente virtual + canais de contacto no mesmo botão flutuante.
             Na ficha de viatura o botão dá lugar à barra fixa do fundo.
             Sem chave da Anthropic configurada, fica só o contacto humano. */}

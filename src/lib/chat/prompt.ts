@@ -19,7 +19,6 @@ export interface ChatContext {
   vehicle?: Vehicle;
   /** Descrição curta da página, para o modelo saber onde o visitante está. */
   pageLabel: string;
-  /** Mundo escolhido pelo visitante — a pesquisa só devolve deste tipo. */
   /** O que o stand vende (Definições → Tipo de site). */
   siteTypes: ("car" | "motorcycle")[];
 }
@@ -99,7 +98,7 @@ export function buildContextBlock(ctx: ChatContext): string {
     "",
     "## O que o stand vende",
     siteTypes.length > 1
-      ? "O stand vende CARROS e MOTAS, no mesmo site. A pesquisa devolve os dois; no stock há o filtro «Todos · Carros · Motas»."
+      ? "O stand vende CARROS e MOTAS, no mesmo site. Na pesquisa, use o filtro `tipo` (carro ou mota) sempre que o cliente disser o que procura; cada resultado diz se é CARRO ou MOTA. No stock há o filtro «Todos · Carros · Motas»."
       : siteTypes[0] === "motorcycle"
         ? "O stand vende só MOTAS. A pesquisa só devolve motas. Se perguntarem por carros, diga com simpatia que o stand trabalha só com motas."
         : "O stand vende só CARROS. A pesquisa só devolve carros. Se perguntarem por motas, diga com simpatia que o stand trabalha só com carros.",

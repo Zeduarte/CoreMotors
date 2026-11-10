@@ -1,4 +1,4 @@
--- Que migrações já estão aplicadas nesta base de dados? (0001 → 0048)
+-- Que migrações já estão aplicadas nesta base de dados? (0001 → 0049)
 --
 -- Cole isto no Supabase → SQL Editor e carregue em Run. Cada linha diz se a
 -- migração está aplicada, pela presença de algo que só ela cria; a última
@@ -141,7 +141,10 @@ with m(migracao, aplicada) as (values
   -- A 0048 não cria o índice se houver telefones repetidos nos perfis (só
   -- deixa um aviso): corrigir esses perfis e voltar a correr a 0048.
   ('0048_security_hardening (telefone único)',
-    to_regclass('public.profiles_phone_unique') is not null)
+    to_regclass('public.profiles_phone_unique') is not null),
+  ('0049_site_settings_admin',
+    exists (select 1 from pg_policies
+            where schemaname = 'public' and tablename = 'site_content' and policyname = 'content: admin-only keys update'))
 )
 select migracao, estado from (
   select migracao, case when aplicada then 'aplicada' else 'FALTA' end as estado

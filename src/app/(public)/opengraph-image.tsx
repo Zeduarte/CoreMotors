@@ -1,8 +1,9 @@
 import { ImageResponse } from "next/og";
-import { getBranding } from "@/lib/queries";
+import { getBranding, getSiteVehicleTypes } from "@/lib/queries";
+import { vehiclesLabel } from "@/lib/site-types";
 import { site } from "@/lib/site";
 
-export const alt = "Motas e automóveis";
+export const alt = "Automóveis e motas";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -15,7 +16,7 @@ export const revalidate = 3600;
  * As fichas de viatura têm a sua (`viaturas/[slug]/opengraph-image.tsx`).
  */
 export default async function Image() {
-  const branding = await getBranding();
+  const [branding, types] = await Promise.all([getBranding(), getSiteVehicleTypes()]);
   const accent = branding.accent || "#E8B15A";
 
   return new ImageResponse(
@@ -41,7 +42,7 @@ export default async function Image() {
             {branding.companyName}
           </div>
           <div style={{ display: "flex", fontSize: 36, color: "rgba(245,245,244,0.7)", marginTop: 24, maxWidth: 960 }}>
-            {branding.tagline || "Motas e automóveis em Portugal"}
+            {branding.tagline || `${vehiclesLabel(types)} em Portugal`}
           </div>
         </div>
         <div style={{ display: "flex", fontSize: 28, color: accent }}>

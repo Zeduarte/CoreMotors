@@ -62,7 +62,7 @@ export function HomeContentForm({ initial }: { initial: HomeContentValues }) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
       {/* HERO */}
-      <Section title="Destaque (topo) — carros">
+      <Section title="Destaque (topo)">
         <div className="space-y-4">
           <Field label="Etiqueta (eyebrow)" error={errors.hero?.eyebrow?.message}>
             <input className="field" {...register("hero.eyebrow")} />
@@ -112,10 +112,11 @@ export function HomeContentForm({ initial }: { initial: HomeContentValues }) {
       </Section>
 
       {/* HERO DAS MOTAS */}
-      <Section title="Destaque (topo) — motas">
+      <Section title="Destaque (topo) — site só de motas">
         <div className="space-y-4">
           <p className="text-xs text-paper/50">
-            O que aparece no topo da página inicial quando o visitante está nas motas.
+            O que aparece no topo da página inicial num site só de motas (Definições → Tipo de site). Com
+            carros no site, aparece o destaque acima.
           </p>
           <Field label="Etiqueta (eyebrow)" error={errors.motoHero?.eyebrow?.message}>
             <input className="field" {...register("motoHero.eyebrow")} />

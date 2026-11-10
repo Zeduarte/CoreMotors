@@ -4,7 +4,7 @@ import { requireSection } from "@/lib/guard";
 import { coverImage } from "@/lib/mappers";
 import { CarsTable, type CarListItem } from "@/components/admin/CarsTable";
 import { typeChoice } from "@/components/admin/TypeFilter";
-import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import { getActiveVehicleTypes, getAllowedVehicleTypes } from "@/lib/vehicle-context";
 
 export const dynamic = "force-dynamic";
 
@@ -15,9 +15,10 @@ export default async function CarsPage({
 }) {
   const me = await requireSection("carros");
   // Carros e motas na mesma lista; o filtro «Todos · Carros · Motas» é local.
-  const [cars, allowedTypes, { tipo }] = await Promise.all([
+  const [cars, allowedTypes, activeTypes, { tipo }] = await Promise.all([
     getAdminCars(),
     getAllowedVehicleTypes(),
+    getActiveVehicleTypes(),
     searchParams,
   ]);
 
@@ -60,9 +61,10 @@ export default async function CarsPage({
         items={items}
         isAdmin={me.role === "admin"}
         allowedTypes={allowedTypes}
-        // Um filtro de um tipo a que não tem acesso não deixa a lista vazia.
+        filterTypes={activeTypes}
+        // Um filtro de um tipo sem filtro à vista não deixa a lista vazia.
         initialType={
-          allowedTypes.length > 1 ? typeChoice(tipo) : "todos"
+          activeTypes.length > 1 ? typeChoice(tipo) : "todos"
         }
       />
     </>

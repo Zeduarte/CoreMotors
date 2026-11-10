@@ -45,3 +45,14 @@ export function typesOfMode(mode: SiteMode): VehicleType[] {
 export function primaryType(types: readonly VehicleType[]): VehicleType {
   return types.includes("car") ? "car" : "motorcycle";
 }
+
+/** «Automóveis e motas», «Automóveis» ou «Motas», conforme o que o site vende. */
+export function vehiclesLabel(types: readonly VehicleType[]): string {
+  if (types.length > 1) return "Automóveis e motas";
+  return types[0] === "motorcycle" ? "Motas" : "Automóveis";
+}
+
+/** A frase de apresentação do stand, conforme o que o site vende. */
+export function siteDescription(types: readonly VehicleType[]): string {
+  return `Stand de ${vehiclesLabel(types).toLowerCase()} em Portugal. Viaturas selecionadas, histórico transparente e uma experiência de compra sem fricção.`;
+}

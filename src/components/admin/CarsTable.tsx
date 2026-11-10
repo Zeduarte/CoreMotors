@@ -54,11 +54,15 @@ export function CarsTable({
   items,
   isAdmin = false,
   allowedTypes = ["car"],
+  filterTypes,
   initialType = "todos",
 }: {
   items: CarListItem[];
   isAdmin?: boolean;
+  /** Os tipos que o utilizador pode ver (etiqueta Carro/Mota nas linhas). */
   allowedTypes?: VehicleType[];
+  /** Os tipos do filtro «Todos · Carros · Motas» (os que o site vende). */
+  filterTypes?: VehicleType[];
   initialType?: TypeChoice;
 }) {
   const [type, setType] = useState<TypeChoice>(initialType);
@@ -141,7 +145,7 @@ export function CarsTable({
 
   return (
     <div className="space-y-4">
-      <TypeFilter value={type} allowed={allowedTypes} counts={typeCounts} onSelect={setType} />
+      <TypeFilter value={type} allowed={filterTypes ?? allowedTypes} counts={typeCounts} onSelect={setType} />
 
       {/* Filtros */}
       <div className="card flex flex-wrap items-center gap-3 p-3">

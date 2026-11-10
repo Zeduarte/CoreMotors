@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: "Sobre",
   alternates: { canonical: "/sobre" },
   description:
-    "Conheça o nosso stand de motas e automóveis — curadoria rigorosa, histórico transparente e uma experiência de compra sem fricção.",
+    "Conheça o nosso stand — curadoria rigorosa, histórico transparente e uma experiência de compra sem fricção.",
 };
 
 export const revalidate = 300;
@@ -49,10 +49,10 @@ export default async function AboutPage() {
           highlight={["premium", "costume"]}
           className="max-w-4xl text-display font-bold text-paper"
         >
-          Automóveis premium, sem o teatro do costume
+          Viaturas premium, sem o teatro do costume
         </AnimatedText>
         <p className="mt-8 max-w-2xl text-xl font-light leading-relaxed text-paper/60">
-          Nascemos de uma frustração simples: comprar um carro usado devia ser
+          Nascemos de uma frustração simples: comprar uma viatura usada devia ser
           entusiasmante, não stressante. Construímos o stand que gostaríamos de
           ter encontrado.
         </p>
@@ -66,7 +66,7 @@ export default async function AboutPage() {
           <Parallax amount={0.12} className="absolute inset-0 scale-110">
             <div
               role="img"
-              aria-label={`${companyName} — a nossa paixão por duas rodas`}
+              aria-label={`${companyName} — a nossa paixão pela estrada`}
               className="h-full w-full bg-cover bg-center"
               style={{ backgroundImage: `url(${COMMON_MEDIA.sobre})` }}
             />

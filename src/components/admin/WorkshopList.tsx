@@ -15,11 +15,17 @@ import { StatusBadge } from "./StatusBadge";
 export function WorkshopList({
   vehicles,
   allowedTypes = ["car"],
+  creatableTypes,
 }: {
   vehicles: WorkshopVehicle[];
+  /** Os tipos que o utilizador vê (etiqueta Carro/Mota nos cartões). */
   allowedTypes?: VehicleType[];
+  /** Os tipos que pode criar (os que o site vende): com dois, pergunta qual. */
+  creatableTypes?: VehicleType[];
 }) {
   const mixed = allowedTypes.length > 1;
+  const canCreate = creatableTypes ?? allowedTypes;
+  const askType = canCreate.length > 1;
   const router = useRouter();
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
@@ -67,9 +73,10 @@ export function WorkshopList({
       {adding && (
         <form
           action={submitNew}
-          className={`card grid gap-3 p-4 sm:items-end ${mixed ? "sm:grid-cols-[auto_1fr_1fr_auto]" : "sm:grid-cols-[1fr_1fr_auto]"}`}
+          className={`card grid gap-3 p-4 sm:items-end ${askType ? "sm:grid-cols-[auto_1fr_1fr_auto]" : "sm:grid-cols-[1fr_1fr_auto]"}`}
         >
-          {mixed && (
+          {!askType && <input type="hidden" name="vehicle_type" value={canCreate[0] ?? "car"} />}
+          {askType && (
             <div>
               <span className="field-label">Tipo</span>
               <select name="vehicle_type" className="field" defaultValue="car">

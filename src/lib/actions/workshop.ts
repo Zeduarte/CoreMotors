@@ -1,6 +1,6 @@
 "use server";
 
-import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import { getActiveVehicleTypes } from "@/lib/vehicle-context";
 import { revalidatePublic } from "@/lib/public-cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -187,8 +187,9 @@ export async function createWorkshopVehicle(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
-  // Carro ou mota escolhido no formulário; quem só gere um tipo, cria desse.
-  const allowed = await getAllowedVehicleTypes();
+  // Carro ou mota escolhido no formulário; só tipos que o utilizador gere e
+  // que o site vende (Definições → Tipo de site).
+  const allowed = await getActiveVehicleTypes();
   const type = parsed.data.vehicle_type ?? allowed[0] ?? "car";
   if (!allowed.includes(type)) return { ok: false, error: "Sem acesso a este tipo de viatura." };
   const supabase = await createClient();

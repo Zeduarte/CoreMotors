@@ -59,7 +59,7 @@ const queryCdnHeaders = cdnHeaders(`query,${VARY}`);
 
 // Cabeçalhos de segurança, aplicados a todas as rotas.
 // A CSP vai em modo `Report-Only` de propósito: o site depende de scripts
-// inline (layout.tsx, WorldArrival.tsx, JSON-LD), de scripts de terceiros
+// inline (layout.tsx, JSON-LD), de scripts de terceiros
 // carregados em runtime (GA4, Meta Pixel, SDK do Facebook), de mapas
 // (iframes Google, tiles ArcGIS/OSM no backoffice), do Supabase e de imagens e
 // vídeo de vários hosts. Uma CSP imposta sem nonces (que obrigariam a render

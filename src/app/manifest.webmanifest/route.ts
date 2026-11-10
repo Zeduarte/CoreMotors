@@ -1,8 +1,10 @@
 import type { MetadataRoute } from "next";
 import { site } from "@/lib/site";
+import { getSiteVehicleTypes } from "@/lib/queries";
+import { siteDescription, vehiclesLabel } from "@/lib/site-types";
 
-// Gerado no build, como os ficheiros estáticos.
-export const dynamic = "force-static";
+// Muda pouco: o nome diz o que o stand vende (Definições → Tipo de site).
+export const revalidate = 3600;
 
 /**
  * Web App Manifest (PWA). Permite "Adicionar ao ecrã inicial" no telemóvel,
@@ -14,11 +16,12 @@ export const dynamic = "force-static";
  * do seu (`/admin/manifest.webmanifest`). O `<link rel="manifest">` vem do
  * `metadata` do layout raiz, que o de `/admin` substitui.
  */
-export function GET() {
+export async function GET() {
+  const types = await getSiteVehicleTypes();
   const manifest: MetadataRoute.Manifest = {
-    name: `${site.name} — Motas e Automóveis`,
+    name: `${site.name} — ${vehiclesLabel(types)}`,
     short_name: site.name,
-    description: site.description,
+    description: siteDescription(types),
     start_url: "/",
     display: "standalone",
     background_color: "#0A0A0A",

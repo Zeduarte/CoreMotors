@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getVehicles } from "@/lib/queries";
 import { formatKm, priceLabel } from "@/lib/format";
 import type { Vehicle } from "@/types/vehicle";
+import { CAR_BODIES, MOTORCYCLE_BODIES } from "@/lib/vehicle-categories";
 
 /**
  * Ferramenta de pesquisa de stock do assistente virtual.
@@ -24,19 +25,12 @@ const FUELS = [
   "GPL",
 ] as const;
 
-const BODIES = [
-  "Berlina",
-  "SUV",
-  "Coupé",
-  "Carrinha",
-  "Citadino",
-  "Utilitário",
-  "Descapotável",
-  "Monovolume",
-] as const;
+// Carroçarias dos carros e categorias das motas (o site tem os dois).
+const BODIES = [...CAR_BODIES, ...MOTORCYCLE_BODIES] as const;
 
 /** Valida o input do modelo antes de correr a pesquisa. */
 export const SearchInput = z.object({
+  tipo: z.enum(["carro", "mota"]).optional(),
   marca: z.string().max(60).optional(),
   modelo: z.string().max(60).optional(),
   texto: z.string().max(120).optional(),
@@ -62,7 +56,12 @@ export const SEARCH_TOOL: Anthropic.Tool = {
   input_schema: {
     type: "object",
     properties: {
-      marca: { type: "string", description: "Marca, ex.: BMW, Renault." },
+      tipo: {
+        type: "string",
+        enum: ["carro", "mota"],
+        description: "Carro ou mota. Use sempre que o cliente disser o que procura.",
+      },
+      marca: { type: "string", description: "Marca, ex.: BMW, Renault, Yamaha." },
       modelo: { type: "string", description: "Modelo, ex.: Clio, Série 1." },
       texto: {
         type: "string",
@@ -74,7 +73,11 @@ export const SEARCH_TOOL: Anthropic.Tool = {
       km_max: { type: "number", description: "Quilometragem máxima." },
       combustivel: { type: "string", enum: [...FUELS] },
       transmissao: { type: "string", enum: ["Manual", "Automática"] },
-      carrocaria: { type: "string", enum: [...BODIES] },
+      carrocaria: {
+        type: "string",
+        enum: [...BODIES],
+        description: "Carroçaria (carros) ou categoria (motas: Scooter, Naked, Trail…).",
+      },
       lugares_min: { type: "number", description: "Número mínimo de lugares." },
     },
     required: [],
@@ -96,6 +99,7 @@ export async function runSearch(input: SearchInput): Promise<SearchOutcome> {
   const needle = input.texto?.toLowerCase().trim();
 
   const matches = all.filter((v) => {
+    if (input.tipo && (v.vehicleType ?? "car") !== (input.tipo === "mota" ? "motorcycle" : "car")) return false;
     if (input.marca && !eq(v.make, input.marca)) return false;
     if (input.modelo && !contains(v.model, input.modelo)) return false;
     if (input.combustivel && v.fuel !== input.combustivel) return false;
@@ -142,7 +146,9 @@ export async function runSearch(input: SearchInput): Promise<SearchOutcome> {
 
 function line(v: Vehicle): string {
   const bits = [
+    v.vehicleType === "motorcycle" ? "MOTA" : "CARRO",
     `${v.make} ${v.model}${v.variant ? ` ${v.variant}` : ""}`,
+    v.body,
     String(v.year),
     formatKm(v.mileage),
     v.fuel,

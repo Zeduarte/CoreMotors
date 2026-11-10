@@ -211,11 +211,14 @@ await test("one site: cars and motorcycles together in every public list and in 
  assert.deepEqual(ids(await getAdminCars()),[bike.id,car.id].sort());
  assert.deepEqual((await getAdminCars("motas")).map(v=>v.id),[bike.id]);
  assert.equal((await getAdminCarById(bike.id)).id,bike.id);
- // Site só de carros: a ficha de uma mota não abre, nem aparece no backoffice.
+ // Site só de carros: a ficha de uma mota não abre no site; no backoffice
+ // continua (para acabar vendas e retirar anúncios), mas já não se criam motas.
  siteTypes=["car"];
  assert.equal(await getVehicleBySlug(bike.slug),undefined);
- assert.deepEqual((await getAdminCars()).map(v=>v.id),[car.id]);
- assert.equal(await getAdminCarById(bike.id),null);
+ assert.deepEqual(ids(await getAdminCars()),[bike.id,car.id].sort());
+ assert.equal((await getAdminCarById(bike.id)).id,bike.id);
+ const {getActiveVehicleTypes}=load("src/lib/vehicle-context.ts");
+ assert.deepEqual(await getActiveVehicleTypes(),["car"]);
  bike.status=car.status="sold";
  assert.deepEqual((await getSoldVehicles()).map(v=>v.id),[car.id]);
  siteTypes=["car","motorcycle"];

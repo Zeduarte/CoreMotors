@@ -1,4 +1,4 @@
-import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import { getActiveVehicleTypes, getAllowedVehicleTypes } from "@/lib/vehicle-context";
 import { TypeFilter, TypeTag, typeChoice, withTipo } from "@/components/admin/TypeFilter";
 import { createClient } from "@/lib/supabase/server";
 import { OperationalDashboard } from "@/components/admin/OperationalDashboard";
@@ -74,7 +74,7 @@ export default async function DashboardPage({
   searchParams: Promise<{ tipo?: string }>;
 }) {
   // Carros e motas juntos; «Carros» ou «Motas» em cima restringe os números.
-  const [{ tipo }, allowedTypes] = await Promise.all([searchParams, getAllowedVehicleTypes()]);
+  const [{ tipo }, allowedTypes, activeTypes] = await Promise.all([searchParams, getAllowedVehicleTypes(), getActiveVehicleTypes()]);
   const choice = typeChoice(tipo);
   const mixed = allowedTypes.length > 1;
   // O mecânico não tem dashboard — vai direto para a Oficina.
@@ -91,7 +91,7 @@ export default async function DashboardPage({
   ]);
 
   const filter = (
-    <TypeFilter className="mb-6" value={choice} allowed={allowedTypes} hrefFor={(c) => withTipo("/admin", {}, c)} />
+    <TypeFilter className="mb-6" value={choice} allowed={activeTypes} hrefFor={(c) => withTipo("/admin", {}, c)} />
   );
 
   if (stats.total === 0) {

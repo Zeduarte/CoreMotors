@@ -67,14 +67,21 @@ test('the public manifest is a plain metadata link, so /admin can replace it', a
     assert.ok(!existsSync(file) || !statSync(file).isFile(), name);
   }
   assert.match(readFileSync('src/app/layout.tsx', 'utf8'), /manifest: "\/manifest\.webmanifest"/);
-  const route = load('src/app/manifest.webmanifest/route.ts', { '@/lib/site': { site: { name: 'Supermotas', description: 'Stand' } } });
-  assert.equal(route.dynamic, 'force-static');
-  const res = route.GET();
+  let types = ['car', 'motorcycle'];
+  const route = load('src/app/manifest.webmanifest/route.ts', {
+    '@/lib/site': { site: { name: 'Supermotas', description: 'Stand' } },
+    '@/lib/queries': { getSiteVehicleTypes: async () => types },
+  });
+  assert.equal(route.revalidate, 3600);
+  const res = await route.GET();
   assert.equal(res.headers.get('content-type'), 'application/manifest+json');
   const body = await res.json();
   assert.equal(body.start_url, '/');
-  assert.equal(body.name, 'Supermotas — Motas e Automóveis');
+  // O nome diz o que o stand vende (Definições → Tipo de site).
+  assert.equal(body.name, 'Supermotas — Automóveis e motas');
   assert.equal(body.scope, undefined);
+  types = ['motorcycle'];
+  assert.equal((await (await route.GET()).json()).name, 'Supermotas — Motas');
 });
 
 test('the admin manifest route answers JSON with the fixed app name', async () => {

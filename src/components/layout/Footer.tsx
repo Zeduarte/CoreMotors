@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
-import { site } from "@/lib/site";
+import { siteDescription } from "@/lib/site-types";
+import type { VehicleType } from "@/lib/vehicle-categories";
 import { DEFAULT_BRANDING, type Branding } from "@/lib/branding";
 import { LEGAL_NAME, NIF } from "@/lib/legal";
 import { ManageCookiesButton } from "@/components/site/ManageCookiesButton";
@@ -21,10 +22,13 @@ const LEGAL_LINKS: { label: string; href: string; external?: boolean }[] = [
 export function Footer({
   branding = DEFAULT_BRANDING,
   background = null,
+  siteTypes = ["car", "motorcycle"],
 }: {
   branding?: Branding;
-  /** rodape.jpg do mundo escolhido, se existir. */
+  /** rodape.jpg do tipo principal do site, se existir. */
   background?: string | null;
+  /** O que o site vende (para a frase de apresentação). */
+  siteTypes?: VehicleType[];
 }) {
   return (
     <footer className="relative overflow-hidden border-t border-white/10 bg-ink">
@@ -58,7 +62,7 @@ export function Footer({
             </p>
           )}
           <p className="mt-4 max-w-sm text-sm text-paper/85">
-            {branding.tagline || site.description}
+            {branding.tagline || siteDescription(siteTypes)}
           </p>
         </div>
 

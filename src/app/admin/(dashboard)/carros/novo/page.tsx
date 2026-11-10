@@ -1,4 +1,4 @@
-import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import { getActiveVehicleTypes } from "@/lib/vehicle-context";
 import { requireSection } from "@/lib/guard";
 import { getShowroomContent } from "@/lib/showroom-queries";
 import Link from "next/link";
@@ -16,7 +16,8 @@ export default async function NewCarPage({
   const me = await requireSection("carros");
   // O tipo escolhe-se no próprio formulário. Vem já escolhido se o link o
   // disser (`?tipo=motas`) ou se o utilizador só puder gerir um tipo.
-  const [{ tipo }, allowedTypes] = await Promise.all([searchParams, getAllowedVehicleTypes()]);
+  // Só os tipos que o site vende (Definições → Tipo de site).
+  const [{ tipo }, allowedTypes] = await Promise.all([searchParams, getActiveVehicleTypes()]);
   const selected = tipo === "motas" ? "motorcycle" : tipo === "carros" ? "car" : null;
   const vehicleType = selected && allowedTypes.includes(selected)
     ? selected

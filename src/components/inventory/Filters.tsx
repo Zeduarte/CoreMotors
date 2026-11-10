@@ -105,9 +105,10 @@ export function Filters({
       }
     >
       {/* Carros e motas no mesmo stock: «Todos · Carros · Motas», a primeira
-          escolha. Ao mudar de tipo, a categoria escolhida deixa de fazer sentido. */}
+          escolha. Ao mudar de tipo, a categoria, a marca, o modelo e os campos
+          do OLX deixam de fazer sentido (uma Renault não aparece nas motas). */}
       {typeChoices && typeChoices.length > 1 && (
-        <div role="radiogroup" aria-label="Tipo de viatura" className="mb-5 inline-flex gap-1 rounded-full border border-white/10 bg-ink/40 p-1">
+        <div role="group" aria-label="Tipo de viatura" className="mb-5 inline-flex gap-1 rounded-full border border-white/10 bg-ink/40 p-1">
           {([null, ...typeChoices] as (VehicleType | null)[]).map((t) => {
             const on = filters.vehicleType === t;
             const n = typeCounts ? (t ? typeCounts[t] : typeCounts.all) : undefined;
@@ -115,9 +116,8 @@ export function Filters({
               <button
                 key={t ?? "all"}
                 type="button"
-                role="radio"
-                aria-checked={on}
-                onClick={() => !on && onChange({ vehicleType: t, body: null })}
+                aria-pressed={on}
+                onClick={() => !on && onChange({ vehicleType: t, body: null, make: null, model: null, olx: {} })}
                 className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                   on ? "bg-paper text-ink" : "text-paper/65 hover:bg-white/10 hover:text-paper"
                 }`}

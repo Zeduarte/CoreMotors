@@ -7,7 +7,7 @@ import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
 import { submitLead, type LeadActionState } from "@/lib/actions/leads";
 import { criteriaLabel, type AlertCriteria } from "@/lib/stock-alerts";
 import { CAR_BRANDS } from "@/lib/car-brands";
-import { MOTORCYCLE_BRANDS, bodiesFor, type VehicleType } from "@/lib/vehicle-categories";
+import { MOTORCYCLE_BRANDS, bodiesFor, isMotorcycleBody, type VehicleType } from "@/lib/vehicle-categories";
 
 export type AlertDefaults = Partial<{
   make: string | null;
@@ -40,15 +40,30 @@ const toDraft = (d: AlertDefaults = {}): Draft => ({
  * No stock, os critérios acompanham a pesquisa (`defaults`) até a pessoa
  * mexer neles: quem filtrou "Yamaha até 8 000 €" e não encontrou nada tem o
  * alerta já preenchido.
+ *
+ * Carro ou mota: vem do stock (o filtro «Carros»/«Motas») ou, com «Todos»,
+ * adivinha-se pela categoria/marca pesquisada — e a pessoa pode mudar.
  */
+function guessType(defaults: AlertDefaults | undefined, fallback: VehicleType): VehicleType {
+  if (defaults?.body) return isMotorcycleBody(defaults.body) ? "motorcycle" : "car";
+  const make = defaults?.make?.toLowerCase();
+  if (make && MOTORCYCLE_BRANDS.some((b) => b.toLowerCase() === make) && !CAR_BRANDS.some((b) => b.toLowerCase() === make))
+    return "motorcycle";
+  return fallback;
+}
+
 export function StockAlertForm({
-  vehicleType,
+  vehicleType: fixedType,
+  vehicleTypes = [],
   defaults,
   makes = [],
   title = "Avisamos quando entrar",
   eyebrow = "Não encontrou o que procura?",
 }: {
-  vehicleType: VehicleType;
+  /** O tipo do stock; `null` com o filtro em «Todos». */
+  vehicleType: VehicleType | null;
+  /** Os tipos que o site vende: com os dois, a pessoa escolhe Carro ou Mota. */
+  vehicleTypes?: VehicleType[];
   defaults?: AlertDefaults;
   /** Marcas em stock (vão primeiro nas sugestões). */
   makes?: string[];
@@ -56,6 +71,9 @@ export function StockAlertForm({
   eyebrow?: string;
 }) {
   const [state, formAction, pending] = useActionState<LeadActionState, FormData>(submitLead, { ok: false });
+  const fallback = vehicleTypes[0] ?? "car";
+  const [vehicleType, setVehicleType] = useState<VehicleType>(() => fixedType ?? guessType(defaults, fallback));
+  const [typePicked, setTypePicked] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [draft, setDraft] = useState<Draft>(() => toDraft(defaults));
   const [dirty, setDirty] = useState(false);
@@ -66,8 +84,17 @@ export function StockAlertForm({
   const defaultsKey = JSON.stringify(defaults ?? {});
   useEffect(() => {
     if (!dirty) setDraft(toDraft(defaults));
+    // O tipo acompanha o stock (ou a pesquisa, em «Todos») até a pessoa o escolher.
+    if (!typePicked) setVehicleType(fixedType ?? guessType(defaults, fallback));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultsKey]);
+  }, [defaultsKey, fixedType]);
+
+  function pickType(t: VehicleType) {
+    setTypePicked(true);
+    setVehicleType(t);
+    // A categoria de um tipo não serve para o outro.
+    setDraft((d) => (d.body && !bodiesFor(t).includes(d.body) ? { ...d, body: "" } : d));
+  }
 
   useEffect(() => {
     if (state.ok) formRef.current?.reset();
@@ -150,6 +177,27 @@ export function StockAlertForm({
         <input type="hidden" name="kind" value="alert" />
         <input type="hidden" name="vehicle_type" value={vehicleType} />
         {criteria.fuel && <input type="hidden" name="alert_fuel" value={criteria.fuel} />}
+
+        {vehicleTypes.length > 1 && (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className={label + " mb-0"}>Procura</span>
+            <div role="group" aria-label="Carro ou mota" className="inline-flex gap-1 rounded-full border border-white/10 p-1">
+              {vehicleTypes.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={vehicleType === t}
+                  onClick={() => pickType(t)}
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                    vehicleType === t ? "bg-paper text-ink" : "text-paper/65 hover:text-paper"
+                  }`}
+                >
+                  {t === "motorcycle" ? "Mota" : "Carro"}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <fieldset className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <legend className="sr-only">O que procura</legend>

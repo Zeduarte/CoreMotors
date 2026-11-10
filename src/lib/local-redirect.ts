@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
  * Não usar `new URL(caminho, request.url)`: no Netlify o `request.url` traz o
  * endereço interno do site (ex.: nome-aleatorio.netlify.app), não o domínio
  * por onde a pessoa entrou — ela saltava para outro endereço, sem os cookies
- * (consentimento, carros/motas, sessão) e com tudo para escolher de novo.
+ * (consentimento, sessão) e com tudo para escolher de novo.
  *
  * Atenção: quando o `Location` não tem pesquisa (`?…`), o Netlify junta-lhe a
  * pesquisa do pedido original (mesmo num endereço absoluto). Para destinos

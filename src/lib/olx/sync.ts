@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getBranding } from "@/lib/queries";
+import { getBranding, getSiteVehicleTypes } from "@/lib/queries";
 import { site } from "@/lib/site";
 import { publicMediaUrl } from "@/lib/storage";
 import { buildAdvert, type AdvertCar } from "@/lib/olx/advert";
@@ -105,8 +105,11 @@ export async function syncListing(db: Db, carId: string): Promise<SyncOutcome> {
       return { ok: true, action: "deactivate" };
     }
 
+    // Um tipo que o site deixou de vender (Definições → Tipo de site) sai do
+    // OLX como um rascunho: o link do anúncio já não abria a ficha.
+    const sold = (await getSiteVehicleTypes()).includes(car.vehicle_type ?? "car");
     const action = desiredAction({
-      status: car.status,
+      status: sold ? car.status : "draft",
       channels: car.channels ?? [],
       externalId: listing.external_id,
       remoteStatus: listing.remote_status,
