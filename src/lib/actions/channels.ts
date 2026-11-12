@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireSection } from "@/lib/guard";
 import { CHANNEL_IDS } from "@/lib/schemas";
 import type { ChannelListingInsert } from "@/lib/supabase/database.types";
+import { carTypesError } from "@/lib/vehicle-access";
 
 export interface ListingResult {
   ok: boolean;
@@ -44,6 +45,9 @@ export async function saveListing(input: ListingInput): Promise<ListingResult> {
   const v = parsed.data;
 
   const supabase = await createClient();
+  // A RLS dos anúncios só pede sessão da equipa: o tipo da viatura vê-se aqui.
+  const denied = await carTypesError(supabase, profile, [v.car_id]);
+  if (denied) return { ok: false, error: denied };
 
   // Já existe registo para (car_id, channel)?
   const { data: existing } = await supabase
@@ -92,8 +96,13 @@ export async function saveListing(input: ListingInput): Promise<ListingResult> {
 
 /** Remove o registo de publicação de um canal (não afeta o feed). */
 export async function deleteListing(id: string): Promise<ListingResult> {
-  await requireSection("carros");
+  const profile = await requireSection("carros");
+  if (!z.string().uuid().safeParse(id).success) return { ok: false, error: "Registo inválido." };
   const supabase = await createClient();
+  const { data: listing } = await supabase.from("channel_listings").select("car_id").eq("id", id).maybeSingle();
+  if (!listing) return { ok: false, error: "Registo não encontrado." };
+  const denied = await carTypesError(supabase, profile, [listing.car_id]);
+  if (denied) return { ok: false, error: denied };
   const { error } = await supabase
     .from("channel_listings")
     .delete()

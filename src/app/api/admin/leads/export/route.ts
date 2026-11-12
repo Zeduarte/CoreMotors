@@ -1,11 +1,11 @@
-import { filterByVehicleType, getAdminVehicleTypes } from "@/lib/vehicle-context";
+import { filterByVehicleType, getAdminTipo, getAdminVehicleTypes } from "@/lib/vehicle-context";
 import { createClient } from "@/lib/supabase/server";
 import { leadFilters,leadSearchOr } from "@/lib/lead-filters";
 import { csvCell } from "@/lib/operations";
 export async function GET(request:Request) {
  const db=await createClient();const {data:allowed}=await db.rpc("has_section",{section:"leads"});
  if(!allowed)return new Response("Sem permissão",{status:403});
- const params=new URL(request.url).searchParams;const general=params.get("gerais")==="1";const tipo=params.get("tipo");const types=await getAdminVehicleTypes(tipo);const includeNull=tipo!=="carros"&&tipo!=="motas";
+ const params=new URL(request.url).searchParams;const general=params.get("gerais")==="1";const tipo=await getAdminTipo(params.get("tipo"));const types=await getAdminVehicleTypes(tipo);const includeNull=tipo!=="carros"&&tipo!=="motas";
  const f=leadFilters(Object.fromEntries(new URL(request.url).searchParams));
  // Pull one page per stream request. Memory stays bounded for large exports.
  // O responsável pelo nome, não pelo id.

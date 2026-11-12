@@ -1,4 +1,4 @@
-import { filterByVehicleType, getActiveVehicleTypes, getAdminVehicleTypes, getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import { filterByVehicleType, getAdminTipo, getAdminVehicleTypes, getAllowedVehicleTypes } from "@/lib/vehicle-context";
 import { TypeFilter, typeChoice, withTipo } from "@/components/admin/TypeFilter";
 import Link from "next/link";
 import { requireSection } from "@/lib/guard";
@@ -23,8 +23,8 @@ export const dynamic="force-dynamic";
 export default async function LeadsPage({searchParams}: {searchParams:Promise<Record<string,string|undefined>>}) {
  const me=await requireSection("leads");const raw=await searchParams;const f=leadFilters(raw);const db=await createClient();
  // Carros e motas na mesma lista (e os contactos sem tipo, em «Todos»).
- const choice=typeChoice(raw.tipo);const general=raw.gerais==="1";
- const [types,allowedTypes,activeTypes]=await Promise.all([getAdminVehicleTypes(raw.tipo),getAllowedVehicleTypes(),getActiveVehicleTypes()]);
+ const tipo=await getAdminTipo(raw.tipo);const choice=typeChoice(tipo);const general=raw.gerais==="1";
+ const [types,allowedTypes]=await Promise.all([getAdminVehicleTypes(tipo),getAllowedVehicleTypes()]);
  let query=db.from("leads").select("*",{count:"exact"});
  query=filterByVehicleType(query,types,{includeNull:choice==="todos",onlyNull:general});
  if(f.status)query=query.eq("status",f.status);
@@ -39,7 +39,7 @@ export default async function LeadsPage({searchParams}: {searchParams:Promise<Re
  function href(page:number){const p=new URLSearchParams();for(const[k,v]of Object.entries(raw))if(v&&k!=="page")p.set(k,v);p.set("page",String(page));return `/admin/leads?${p}`;}
  const exportParams=new URLSearchParams();for(const[k,v]of Object.entries(raw))if(v&&k!=="page")exportParams.set(k,v);
  return <div className="space-y-6"><header className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-bold">Contactos e acompanhamento</h1><p className="mt-1 text-sm text-paper/50">{count??0} contactos encontrados</p></div><a className="btn-ghost" href={`/api/admin/leads/export?${exportParams}`}>Exportar resultados CSV</a></header>
- <div className="flex flex-wrap items-center gap-3">{general?<Link href="/admin/leads" className="text-sm text-accent">← Todos os contactos</Link>:<TypeFilter value={choice} allowed={activeTypes} hrefFor={(c)=>withTipo("/admin/leads",raw,c)}/>}{!general&&<Link href="/admin/leads?gerais=1" className="text-sm text-paper/50 hover:text-paper">Só os sem tipo</Link>}</div>{general && <p className="text-sm text-paper/60">Contactos sem tipo definido (nem carro nem mota). Associe uma viatura para os classificar.</p>}
+ <div className="flex flex-wrap items-center gap-3">{general?<Link href="/admin/leads" className="text-sm text-accent">← Todos os contactos</Link>:<TypeFilter value={choice} allowed={allowedTypes} hrefFor={(c)=>withTipo("/admin/leads",raw,c)}/>}{!general&&<Link href="/admin/leads?gerais=1" className="text-sm text-paper/50 hover:text-paper">Só os sem tipo</Link>}</div>{general && <p className="text-sm text-paper/60">Contactos sem tipo definido (nem carro nem mota). Associe uma viatura para os classificar.</p>}
  <form className="card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">{general && <input type="hidden" name="gerais" value="1"/>}{raw.tipo&&!general&&<input type="hidden" name="tipo" value={raw.tipo}/>}<label className="text-sm">Pesquisar<input className="field mt-1" name="q" defaultValue={f.q} placeholder="Nome, telefone, email ou viatura"/></label>
  <label className="text-sm">Estado<select className="field mt-1" name="status" defaultValue={f.status??""}><option value="">Todos</option>{Object.entries(LEAD_STATUS_LABELS).map(([v,l])=><option value={v} key={v}>{l}</option>)}</select></label>
  <label className="text-sm">Responsável<select className="field mt-1" name="assigned" defaultValue={f.assigned??""}><option value="">Todos</option>{staff?.map(p=><option value={p.id} key={p.id}>{p.full_name}</option>)}</select></label>

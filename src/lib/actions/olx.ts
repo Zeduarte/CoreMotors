@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireSection } from "@/lib/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { olxConfigured } from "@/lib/olx/client";
 import { unwrap, type OlxCategory } from "@/lib/olx/categories";
 import { olxFetch } from "@/lib/olx/client";
@@ -11,13 +12,15 @@ import { browseCategories, loadCategories, refreshStats, storeCategory, storeCat
 import { queueOlxSync } from "@/lib/olx/queue";
 import { getCurrentProfile } from "@/lib/admin-queries";
 import { canAccess } from "@/lib/permissions";
+import { carTypesError } from "@/lib/vehicle-access";
 
 /**
  * Ações do painel do OLX (Plataformas de anúncios) e da ficha da viatura.
  *
  * Correm com o cliente de serviço (os tokens do OLX não são legíveis por
  * nenhuma sessão), por isso cada uma começa por verificar o separador de quem
- * a chama.
+ * a chama — e, nas da ficha, o tipo da viatura: a RLS por tipo não se aplica
+ * ao cliente de serviço.
  */
 
 export interface OlxActionResult {
@@ -32,6 +35,17 @@ function admin() {
   const db = createAdminClient();
   if (!db) throw new Error("SUPABASE_SERVICE_ROLE_KEY em falta.");
   return db;
+}
+
+/**
+ * As ações da ficha: separador «Viaturas», id válido e acesso ao tipo da
+ * viatura, verificado com a sessão de quem pede (e a RLS dela). Devolve o erro
+ * a mostrar, ou null.
+ */
+async function carActionError(carId: string): Promise<string | null> {
+  const me = await requireSection("carros");
+  if (!z.string().uuid().safeParse(carId).success) return "Viatura inválida.";
+  return carTypesError(await createClient(), me, [carId]);
 }
 
 export async function disconnectOlx(): Promise<OlxActionResult> {
@@ -96,8 +110,8 @@ export async function syncOlxNow(): Promise<OlxActionResult> {
  */
 export async function refreshOlxStats(carId?: string): Promise<OlxActionResult> {
   if (carId) {
-    await requireSection("carros");
-    if (!z.string().uuid().safeParse(carId).success) return { ok: false, error: "Viatura inválida." };
+    const denied = await carActionError(carId);
+    if (denied) return { ok: false, error: denied };
   } else {
     await requireSection("anuncios");
   }
@@ -117,8 +131,8 @@ export async function refreshOlxStats(carId?: string): Promise<OlxActionResult> 
 
 /** "Tentar outra vez", na ficha da viatura. */
 export async function retryOlxListing(carId: string): Promise<OlxActionResult> {
-  await requireSection("carros");
-  if (!z.string().uuid().safeParse(carId).success) return { ok: false, error: "Viatura inválida." };
+  const denied = await carActionError(carId);
+  if (denied) return { ok: false, error: denied };
   const db = admin();
   await db.from("channel_listings").update({ sync_state: "pending", attempts: 0 }).eq("car_id", carId).eq("channel", "olx");
   const r = await syncListing(db, carId);
@@ -189,8 +203,8 @@ export async function setCarOlxCategory(
   categoryId: number | null,
   path?: string,
 ): Promise<OlxActionResult> {
-  await requireSection("carros");
-  if (!z.string().uuid().safeParse(carId).success) return { ok: false, error: "Viatura inválida." };
+  const denied = await carActionError(carId);
+  if (denied) return { ok: false, error: denied };
   const db = admin();
 
   if (categoryId === null) {

@@ -184,8 +184,17 @@ const handle = z.string().trim().min(1).max(10);
 export const RegisterInput = z.object({
   nome: z.string().trim().min(2).max(120),
   matricula: z.string().trim().min(2).max(20),
-  tipo: z.enum(["car", "motorcycle"]).default("car"),
+  // Sem tipo: o único que a pessoa pode criar neste site (senão carro).
+  tipo: z.enum(["car", "motorcycle"]).optional(),
 });
+
+/** «O site não vende motas»: Definições → Tipo de site. */
+function offSite(tipo: string): BuildResult {
+  return {
+    ok: false,
+    error: `O site não vende ${tipo === "motorcycle" ? "motas" : "carros"} (Definições → Tipo de site). Só se registam viaturas dos tipos que o site vende.`,
+  };
+}
 
 export const CostInput = z.object({
   viatura: handle,
@@ -308,9 +317,13 @@ export function canUseCategory(
 export function buildRegister(
   input: z.infer<typeof RegisterInput>,
   sections: readonly string[],
+  /** Os tipos que a pessoa gere e o site vende (Actor.tiposNoSite). */
+  creatable: readonly string[] = ["car", "motorcycle"],
 ): BuildResult {
   if (!sections.includes("oficina"))
     return { ok: false, error: "Não tem acesso à Oficina. Fale com o responsável." };
+  const tipo = input.tipo ?? (creatable.length === 1 ? (creatable[0] as "car" | "motorcycle") : "car");
+  if (!creatable.includes(tipo)) return offSite(tipo);
   if (!isPlausiblePlate(input.matricula))
     return {
       ok: false,
@@ -322,7 +335,7 @@ export function buildRegister(
       kind: "register_vehicle",
       nome: input.nome,
       matricula: plateKey(input.matricula),
-      tipo: input.tipo,
+      tipo,
     },
   };
 }
@@ -401,6 +414,8 @@ export function buildCreateCar(
   input: z.infer<typeof CreateCarInput>,
   sections: readonly string[],
   vehicleTypes: readonly string[],
+  /** Os que o site vende (Actor.tiposNoSite); sem isto, `vehicleTypes`. */
+  creatable: readonly string[] = vehicleTypes,
 ): BuildResult {
   if (!sections.includes("carros")) return semSecao("carros");
   if (!vehicleTypes.includes(input.tipo))
@@ -408,6 +423,7 @@ export function buildCreateCar(
       ok: false,
       error: `Não tem acesso a ${input.tipo === "motorcycle" ? "motas" : "carros"}. Fale com o responsável.`,
     };
+  if (!creatable.includes(input.tipo)) return offSite(input.tipo);
   if (input.matricula && !isPlausiblePlate(input.matricula))
     return {
       ok: false,

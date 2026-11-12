@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireSection } from "@/lib/guard";
 import { verifyAlertCancelToken } from "@/lib/alert-token";
+import { leadTypeError } from "@/lib/vehicle-access";
 
 /**
  * O cliente cancela o alerta de stock pelo link da mensagem. O contacto fica
@@ -33,15 +34,23 @@ export async function cancelStockAlert(token: string): Promise<{ ok: boolean; er
 
 /** A equipa avisou o cliente do seu WhatsApp (ou por telefone). */
 export async function markAlertMatchSent(data: FormData): Promise<{ ok: boolean; error?: string }> {
-  await requireSection("leads");
+  const me = await requireSection("leads");
   const parsed = z.object({ id: z.string().uuid(), lead_id: z.string().uuid() }).safeParse(Object.fromEntries(data));
   if (!parsed.success) return { ok: false, error: "Correspondência inválida." };
   const db = await createClient();
-  const { error } = await db
+  // As correspondências só pedem o separador: o tipo vê-se pelo contacto, e a
+  // correspondência tem de ser desse contacto.
+  const denied = await leadTypeError(db, me, parsed.data.lead_id);
+  if (denied) return { ok: false, error: denied };
+  const { data: match, error } = await db
     .from("stock_alert_matches")
     .update({ status: "sent", sent_at: new Date().toISOString(), error: null })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .eq("lead_id", parsed.data.lead_id)
+    .select("id")
+    .maybeSingle();
   if (error) return { ok: false, error: error.message };
+  if (!match) return { ok: false, error: "Correspondência não encontrada." };
   // Avisado: a ação «Avisar o cliente» deixa de estar pendente.
   const { data: lead } = await db.from("leads").select("next_action").eq("id", parsed.data.lead_id).maybeSingle();
   if (lead?.next_action?.startsWith("Avisar o cliente")) {

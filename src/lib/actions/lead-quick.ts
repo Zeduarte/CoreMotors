@@ -2,11 +2,11 @@
 
 import { z } from "zod";
 import { requireSection } from "@/lib/guard";
-import { effectiveVehicleTypes } from "@/lib/permissions";
 import { revalidatePublic } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import { assigneeTypeError } from "@/lib/vehicle-access";
 import { zonedParts, zonedToUtc } from "@/lib/visits";
 
 /**
@@ -68,11 +68,10 @@ export async function quickAssign(id: string, assignedTo: string): Promise<Resul
     const { data: staff } = await db.rpc("staff_directory");
     if (!staff?.some((p) => p.id === assignedTo && p.role !== "mecanico")) return { ok: false, error: "Responsável inválido." };
     // Quem recebe é avisado por WhatsApp: tem de trabalhar este tipo de viatura.
-    if (found.lead.vehicle_type) {
-      const { data: person } = await db.from("profiles").select("role, allowed_vehicle_types").eq("id", assignedTo).maybeSingle();
-      if (!person || !effectiveVehicleTypes(person.role, person.allowed_vehicle_types).includes(found.lead.vehicle_type as "car" | "motorcycle"))
-        return { ok: false, error: "Essa pessoa não trabalha este tipo de viatura." };
-    }
+    // (O perfil dele não se lê com esta sessão — a RLS só mostra o próprio —, por
+    // isso pergunta-se à base de dados.)
+    const wrong = await assigneeTypeError(db, assignedTo, found.lead.vehicle_type);
+    if (wrong) return { ok: false, error: wrong };
     responsible = assignedTo;
   }
   const { error } = await db.from("leads").update({ assigned_to: responsible }).eq("id", id);

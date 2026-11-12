@@ -7,6 +7,7 @@ import { handleExternal } from "@/lib/whatsapp/contact";
 import { afterWrite } from "@/lib/whatsapp/after-write";
 import { deliverReply, recoverFailedImages } from "@/lib/whatsapp/delivery";
 import { handleInbound, toActor, type HandleResult } from "@/lib/whatsapp/handle";
+import { DEFAULT_SITE_TYPES, parseSiteTypes } from "@/lib/site-types";
 import { extractFailedStatuses, extractMessages, type InboundMessage } from "@/lib/whatsapp/payload";
 import { REPLIES } from "@/lib/whatsapp/replies";
 import { handleVisitButton, isVisitPayload } from "@/lib/whatsapp/visit-button";
@@ -131,6 +132,16 @@ export async function POST(request: Request) {
 
 type Db = NonNullable<ReturnType<typeof createAdminClient>>;
 
+/** O que o site vende (Definições → Tipo de site); na dúvida, os dois tipos. */
+async function siteVehicleTypes(db: Db): Promise<readonly string[]> {
+  try {
+    const { data } = await db.from("site_content").select("content").eq("key", "site").maybeSingle();
+    return parseSiteTypes(data?.content ?? null);
+  } catch {
+    return DEFAULT_SITE_TYPES;
+  }
+}
+
 async function processOne(
   db: Db,
   msg: InboundMessage,
@@ -247,9 +258,13 @@ async function processOne(
             : {}),
         })
       : null;
+    // Só se criam viaturas dos tipos que o site vende (Definições → Tipo de site).
+    const actor = toActor(profile);
+    const siteTypes: readonly string[] = await siteVehicleTypes(db);
+    actor.tiposNoSite = actor.tipos.filter((t) => siteTypes.includes(t));
     result = await handleInbound(
       { from: msg.from, text: msg.text, type: msg.type, ...(msg.media ? { media: msg.media } : {}) },
-      toActor(profile),
+      actor,
       // O número também serve para descarregar as fotografias (photos.ts).
       { db, anthropic, origin, number },
     );

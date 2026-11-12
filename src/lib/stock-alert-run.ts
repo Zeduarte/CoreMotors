@@ -17,6 +17,7 @@ import {
   type AlertCar,
 } from "@/lib/stock-alerts";
 import { parseCriteria } from "@/lib/stock-alert-schema";
+import { VEHICLE_TYPES, type VehicleType } from "@/lib/vehicle-categories";
 
 type Db = SupabaseClient<Database>;
 
@@ -58,10 +59,19 @@ function missingMigration(error: { code?: string; message?: string }): boolean {
 
 export async function processStockAlerts(
   db: Db,
-  options: { baseUrl: string; companyName: string; now?: Date },
+  options: {
+    baseUrl: string;
+    companyName: string;
+    now?: Date;
+    /** O que o site vende (Tipo de site): as outras viaturas não têm ficha. */
+    siteTypes?: readonly VehicleType[];
+  },
 ): Promise<StockAlertRun> {
   const run: StockAlertRun = { matched: 0, sent: 0, manual: 0, failed: 0 };
   const now = options.now ?? new Date();
+  const siteTypes: readonly VehicleType[] = options.siteTypes ?? VEHICLE_TYPES;
+  const onSite = (car: { vehicle_type?: string | null }) =>
+    (siteTypes as readonly string[]).includes(car.vehicle_type ?? "car");
   const since = new Date(now.getTime() - ALERT_MAX_AGE_DAYS * 86_400_000).toISOString();
 
   const { data: settings, error: settingsError } = await db
@@ -93,6 +103,7 @@ export async function processStockAlerts(
     .from("cars")
     .select(CAR_COLUMNS)
     .eq("status", "published")
+    .in("vehicle_type", [...siteTypes])
     .gte("published_at", alerts[0]!.created_at)
     .order("published_at", { ascending: false })
     .limit(500);
@@ -140,7 +151,9 @@ export async function processStockAlerts(
   for (const match of pending) {
     const alert = alerts.find((a) => a.id === match.lead_id)!;
     const car = carById.get(match.car_id);
-    if (!car || car.status !== "published") {
+    // Já não está à venda — ou o site deixou de vender esse tipo (a ficha dá
+    // 404): não se avisa o cliente.
+    if (!car || car.status !== "published" || !onSite(car)) {
       await db.from("stock_alert_matches").update({ status: "cancelled" }).eq("id", match.id).eq("status", "pending");
       continue;
     }
@@ -228,10 +241,15 @@ export async function runStockAlerts(db: Db): Promise<StockAlertRun> {
     // Importada aqui: as consultas públicas criam o cliente do Supabase ao
     // carregar, e este módulo também serve páginas do backoffice.
     const { getBranding } = await import("@/lib/queries");
-    const branding = await getBranding().catch(() => null);
+    const { getSiteVehicleTypes } = await import("@/lib/site-types-query");
+    const [branding, siteTypes] = await Promise.all([
+      getBranding().catch(() => null),
+      getSiteVehicleTypes(),
+    ]);
     return await processStockAlerts(db, {
       baseUrl: backofficeBaseUrl(),
       companyName: branding?.companyName || site.name,
+      siteTypes,
     });
   } catch (e) {
     console.error("Alertas de stock:", e);

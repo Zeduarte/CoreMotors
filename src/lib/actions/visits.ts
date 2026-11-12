@@ -8,7 +8,7 @@ import { publicSubmissionClient } from "@/lib/public-submissions";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 import { requireSection } from "@/lib/guard";
 import { compactPhone, isValidPhone } from "@/lib/phone";
-import { getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import { getActiveVehicleTypes, getAllowedVehicleTypes } from "@/lib/vehicle-context";
 import { getCustomerSettings, sendVisitMessage, sendVisitTemplate, takenSlots, visitContext } from "@/lib/visit-run";
 import { isBookable, visitDays, visitWhenLabel, zonedParts, type VisitDay } from "@/lib/visits";
 import type { VisitStatus } from "@/lib/supabase/database.types";
@@ -308,11 +308,13 @@ export async function createVisit(data: FormData): Promise<Result> {
   const db = await createClient();
   let carLabel: string | null = null;
   // O tipo vem da viatura; sem viatura, do campo «Tipo» do formulário (ou do
-  // único tipo que o utilizador gere).
-  const allowed = await getAllowedVehicleTypes();
+  // único tipo que o utilizador gere e o site vende — num site só de motas,
+  // uma visita sem viatura é de mota).
+  const [allowed, active] = await Promise.all([getAllowedVehicleTypes(), getActiveVehicleTypes()]);
   const chosen = v.vehicle_type || null;
   if (chosen && !allowed.includes(chosen)) return { ok: false, error: "Sem acesso a este tipo de viatura." };
-  let vehicleType: "car" | "motorcycle" | null = chosen ?? (allowed.length === 1 ? allowed[0]! : null);
+  let vehicleType: "car" | "motorcycle" | null =
+    chosen ?? (active.length === 1 ? active[0]! : allowed.length === 1 ? allowed[0]! : null);
   if (v.car_id) {
     const { data: car } = await db.from("cars").select("make, model, year, vehicle_type").eq("id", v.car_id).maybeSingle();
     if (!car) return { ok: false, error: "Viatura não encontrada." };

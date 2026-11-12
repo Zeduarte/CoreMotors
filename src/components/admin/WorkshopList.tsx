@@ -61,16 +61,18 @@ export function WorkshopList({
           placeholder="Procurar por marca, modelo ou matrícula…"
           className="field flex-1"
         />
-        <button
-          type="button"
-          onClick={() => setAdding((v) => !v)}
-          className="btn-primary whitespace-nowrap"
-        >
-          {adding ? "Fechar" : "＋ Nova viatura"}
-        </button>
+        {canCreate.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setAdding((v) => !v)}
+            className="btn-primary whitespace-nowrap"
+          >
+            {adding ? "Fechar" : "＋ Nova viatura"}
+          </button>
+        )}
       </div>
 
-      {adding && (
+      {adding && canCreate.length > 0 && (
         <form
           action={submitNew}
           className={`card grid gap-3 p-4 sm:items-end ${askType ? "sm:grid-cols-[auto_1fr_1fr_auto]" : "sm:grid-cols-[1fr_1fr_auto]"}`}

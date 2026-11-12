@@ -4,7 +4,8 @@ import { requireSection } from "@/lib/guard";
 import { coverImage } from "@/lib/mappers";
 import { CarsTable, type CarListItem } from "@/components/admin/CarsTable";
 import { typeChoice } from "@/components/admin/TypeFilter";
-import { getActiveVehicleTypes, getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import { getActiveVehicleTypes, getAllowedVehicleTypes, getSiteVehicleTypes } from "@/lib/vehicle-context";
+import { SiteTypeNotice } from "@/components/admin/SiteTypeNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +16,11 @@ export default async function CarsPage({
 }) {
   const me = await requireSection("carros");
   // Carros e motas na mesma lista; o filtro «Todos · Carros · Motas» é local.
-  const [cars, allowedTypes, activeTypes, { tipo }] = await Promise.all([
+  const [cars, allowedTypes, activeTypes, siteTypes, { tipo }] = await Promise.all([
     getAdminCars(),
     getAllowedVehicleTypes(),
     getActiveVehicleTypes(),
+    getSiteVehicleTypes(),
     searchParams,
   ]);
 
@@ -52,19 +54,27 @@ export default async function CarsPage({
             {items.length} {items.length === 1 ? "viatura" : "viaturas"} no total
           </p>
         </div>
-        <Link href="/admin/carros/novo" className="btn-primary">
-          ＋ Nova viatura
-        </Link>
+        {activeTypes.length > 0 && (
+          <Link href="/admin/carros/novo" className="btn-primary">
+            ＋ Nova viatura
+          </Link>
+        )}
       </div>
+      <SiteTypeNotice
+        className="mb-6"
+        allowedTypes={allowedTypes}
+        siteTypes={siteTypes}
+        isAdmin={me.role === "admin"}
+      />
 
       <CarsTable
         items={items}
         isAdmin={me.role === "admin"}
         allowedTypes={allowedTypes}
-        filterTypes={activeTypes}
+        siteTypes={siteTypes}
         // Um filtro de um tipo sem filtro à vista não deixa a lista vazia.
         initialType={
-          activeTypes.length > 1 ? typeChoice(tipo) : "todos"
+          allowedTypes.length > 1 ? typeChoice(tipo) : "todos"
         }
       />
     </>

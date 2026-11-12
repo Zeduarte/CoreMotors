@@ -1,4 +1,5 @@
-import { getActiveVehicleTypes, getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import { getAdminTipo, getAllowedVehicleTypes, getSiteVehicleTypes } from "@/lib/vehicle-context";
+import { SiteTypeNotice } from "@/components/admin/SiteTypeNotice";
 import { TypeFilter, TypeTag, typeChoice, withTipo } from "@/components/admin/TypeFilter";
 import { createClient } from "@/lib/supabase/server";
 import { OperationalDashboard } from "@/components/admin/OperationalDashboard";
@@ -74,7 +75,8 @@ export default async function DashboardPage({
   searchParams: Promise<{ tipo?: string }>;
 }) {
   // Carros e motas juntos; «Carros» ou «Motas» em cima restringe os números.
-  const [{ tipo }, allowedTypes, activeTypes] = await Promise.all([searchParams, getAllowedVehicleTypes(), getActiveVehicleTypes()]);
+  const [{ tipo: rawTipo }, allowedTypes, siteTypes] = await Promise.all([searchParams, getAllowedVehicleTypes(), getSiteVehicleTypes()]);
+  const tipo = (await getAdminTipo(rawTipo)) ?? undefined;
   const choice = typeChoice(tipo);
   const mixed = allowedTypes.length > 1;
   // O mecânico não tem dashboard — vai direto para a Oficina.
@@ -91,7 +93,15 @@ export default async function DashboardPage({
   ]);
 
   const filter = (
-    <TypeFilter className="mb-6" value={choice} allowed={activeTypes} hrefFor={(c) => withTipo("/admin", {}, c)} />
+    <>
+      <SiteTypeNotice
+        className="mb-4"
+        allowedTypes={allowedTypes}
+        siteTypes={siteTypes}
+        isAdmin={profile?.role === "admin"}
+      />
+      <TypeFilter className="mb-6" value={choice} allowed={allowedTypes} hrefFor={(c) => withTipo("/admin", {}, c)} />
+    </>
   );
 
   if (stats.total === 0) {
@@ -211,14 +221,22 @@ export default async function DashboardPage({
                 {stats.conversion.map((c) => (
                   <tr key={c.slug || c.name}>
                     <td className="p-3">
-                      <Link
-                        prefetch={false}
-                        href={`/viaturas/${c.slug}`}
-                        className="inline-flex items-center gap-2 text-paper hover:text-accent"
-                      >
-                        {c.name}
-                        {mixed && <TypeTag type={c.vehicleType} />}
-                      </Link>
+                      {/* A ficha pública só existe nos tipos que o site vende. */}
+                      {siteTypes.includes(c.vehicleType) ? (
+                        <Link
+                          prefetch={false}
+                          href={`/viaturas/${c.slug}`}
+                          className="inline-flex items-center gap-2 text-paper hover:text-accent"
+                        >
+                          {c.name}
+                          {mixed && <TypeTag type={c.vehicleType} />}
+                        </Link>
+                      ) : (
+                        <span className="inline-flex items-center gap-2 text-paper/70">
+                          {c.name}
+                          {mixed && <TypeTag type={c.vehicleType} />}
+                        </span>
+                      )}
                     </td>
                     <td className="p-3 text-right tabular-nums text-paper/80">
                       {c.views}

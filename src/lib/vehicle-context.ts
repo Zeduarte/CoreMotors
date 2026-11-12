@@ -47,15 +47,16 @@ export const getAllowedVehicleTypes = cache(
 
 /**
  * Os tipos com que o utilizador trabalha NESTE site: as suas permissões que
- * o site vende (Definições → Tipo de site). Decide o filtro «Todos · Carros ·
- * Motas» e o que se pode criar (nova viatura, oficina, visita). Num site só de
- * carros não há filtro nem se criam motas. (Se as permissões do utilizador e o
- * site não tiverem nada em comum, ficam as permissões — senão não fazia nada.)
+ * o site vende (Definições → Tipo de site). Decide o que se pode criar ou pôr
+ * à venda (nova viatura, duplicar, publicar, oficina, visita): num site só de
+ * carros não se criam motas. Pode ficar vazio — um vendedor só de motas num
+ * site só de carros não tem nada para pôr no site (`SiteTypeNotice` explica).
+ * O filtro «Todos · Carros · Motas» segue o que o utilizador VÊ
+ * (`getAllowedVehicleTypes`), para se poderem separar as do outro tipo.
  */
 export const getActiveVehicleTypes = cache(async (): Promise<VehicleType[]> => {
   const [mine, site] = await Promise.all([getAllowedVehicleTypes(), getSiteVehicleTypes()]);
-  const both = mine.filter((t) => site.includes(t));
-  return both.length ? both : mine;
+  return mine.filter((t) => site.includes(t));
 });
 
 /** O valor de `?tipo=` nos ecrãs do backoffice. */
@@ -65,6 +66,21 @@ export const ADMIN_TYPE_PARAM: Record<VehicleType, AdminTypeParam> = {
   car: "carros",
   motorcycle: "motas",
 };
+
+/**
+ * O `?tipo=` que vale: «carros» ou «motas» só se o utilizador vir esse tipo e
+ * mais algum (é aí que há filtro à vista). Senão `null` — «Todos», contactos
+ * sem tipo incluídos. Um `?tipo=` sem acesso (ou inválido) não pode esconder
+ * os contactos sem tipo sem nenhum filtro à vista que o explique.
+ */
+export async function getAdminTipo(
+  tipo?: string | null,
+): Promise<AdminTypeParam | null> {
+  const allowed = await getAllowedVehicleTypes();
+  if (allowed.length < 2) return null;
+  const picked = tipo === "carros" ? "car" : tipo === "motas" ? "motorcycle" : null;
+  return picked && allowed.includes(picked) ? ADMIN_TYPE_PARAM[picked] : null;
+}
 
 /**
  * O backoffice é um só: mostra carros e motas juntos. Devolve os tipos que o

@@ -204,6 +204,28 @@ test("alertas automáticos: viatura que saiu de venda cancela; recusa da Meta n�
   assert.equal(match.status, "cancelled");
 });
 
+test("alertas automáticos: num site que deixou de vender motas, uma mota não avisa ninguém", async () => {
+  const { processStockAlerts } = load("src/lib/stock-alert-run.ts");
+  const lead = { id: "55555555-5555-4555-8555-555555555555", kind: "alert", status: "new", name: "Inês", phone: "915000000", created_at: "2026-10-03T00:00:00Z", next_action: null, car_details: { criteria: { vehicle_type: "motorcycle", make: "Ducati" }, whatsapp_opt_in_at: "x" } };
+  tables.leads.push(lead);
+  tables.cars.push(car({ id: "c6", slug: "ducati-monster", make: "Ducati", model: "Monster", published_at: "2026-10-06T00:00:00Z" }));
+  const before = sent.length;
+  const opts = { baseUrl: "https://stand.pt", companyName: "S", now: new Date("2026-10-20T12:00:00Z") };
+  await processStockAlerts(db, { ...opts, siteTypes: ["car"] });
+  assert.ok(!tables.stock_alert_matches.some((m) => m.lead_id === lead.id), "a ficha da mota daria 404");
+  assert.equal(sent.length, before);
+
+  // Uma correspondência de quando o site vendia motas fica cancelada.
+  await processStockAlerts(db, { ...opts, siteTypes: ["car", "motorcycle"], now: new Date("2026-10-20T13:00:00Z") });
+  const match = tables.stock_alert_matches.find((m) => m.lead_id === lead.id);
+  assert.ok(match);
+  match.status = "pending";
+  const sentBefore = sent.length;
+  await processStockAlerts(db, { ...opts, siteTypes: ["car"], now: new Date("2026-10-21T13:00:00Z") });
+  assert.equal(match.status, "cancelled");
+  assert.equal(sent.length, sentBefore);
+});
+
 // ---- Visitas ------------------------------------------------------------------
 
 test("visitas: horas de Lisboa com a hora de verão e de inverno", () => {

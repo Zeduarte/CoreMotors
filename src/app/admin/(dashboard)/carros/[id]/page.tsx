@@ -15,7 +15,7 @@ import { StatusBadge } from "@/components/admin/StatusBadge";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { WorkshopStage } from "@/components/admin/WorkshopStage";
 import type { CarFormValues } from "@/lib/schemas";
-import { getActiveVehicleTypes } from "@/lib/vehicle-context";
+import { getActiveVehicleTypes, getSiteVehicleTypes } from "@/lib/vehicle-context";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +48,9 @@ export default async function EditCarPage({ params }: { params: Params }) {
 
   const showroom = await getShowroomContent();
   // Mudar de tipo só para um que o site vende (o tipo atual mantém-se sempre).
-  const allowedTypes = await getActiveVehicleTypes();
+  const [allowedTypes, siteTypes] = await Promise.all([getActiveVehicleTypes(), getSiteVehicleTypes()]);
+  // Num site que deixou de vender este tipo, a ficha pública dá 404.
+  const onSite = siteTypes.includes(car.vehicle_type ?? "car");
   const badgeOptions = await getBadges();
   const olxFields = await getOlxFieldsForForm({
     categoryId: (car as { olx_category_id?: number | null }).olx_category_id ?? null,
@@ -121,7 +123,15 @@ export default async function EditCarPage({ params }: { params: Params }) {
         {(car.status === "prepared" || car.status === "draft") && (
           <WorkshopStage carId={car.id} status={car.status} leaveTo="/admin/carros" />
         )}
-        {(car.status === "published" || car.status === "reserved" || car.status === "sold") && (
+        {(car.status === "published" || car.status === "reserved" || car.status === "sold") && !onSite && (
+          <span
+            className="rounded-full bg-amber-400/15 px-3 py-1.5 text-xs font-semibold text-amber-300"
+            title="Definições → Tipo de site"
+          >
+            Fora do site: o site não vende {car.vehicle_type === "motorcycle" ? "motas" : "carros"}
+          </span>
+        )}
+        {(car.status === "published" || car.status === "reserved" || car.status === "sold") && onSite && (
           <Link
             prefetch={false}
             href={`/viaturas/${car.slug}`}

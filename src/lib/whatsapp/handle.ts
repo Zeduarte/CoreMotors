@@ -125,6 +125,11 @@ export interface Actor {
   papel: string;
   secoes: string[];
   tipos: string[];
+  /**
+   * Os tipos que esta pessoa gere E que o site vende (Definições → Tipo de
+   * site): os únicos que pode criar. Sem isto, todos os seus (`tipos`).
+   */
+  tiposNoSite?: string[];
 }
 
 export interface HandleDeps {
@@ -515,6 +520,7 @@ async function interpret(
         papel: actor.papel,
         secoes: actor.secoes,
         tipos: actor.tipos,
+        tiposNoSite: actor.tiposNoSite,
         hoje,
         categorias: allowedCategories(actor),
       }),
@@ -864,9 +870,9 @@ async function runProposal(
 
   switch (use.name) {
     case TOOL.register:
-      return fromBuild(buildRegister(data, actor.secoes));
+      return fromBuild(buildRegister(data, actor.secoes, actor.tiposNoSite ?? actor.tipos));
     case TOOL.createCar:
-      return fromBuild(buildCreateCar(data, actor.secoes, actor.tipos));
+      return fromBuild(buildCreateCar(data, actor.secoes, actor.tipos, actor.tiposNoSite));
     case TOOL.leadStatus:
     case TOOL.assignLead:
     case TOOL.leadNote: {

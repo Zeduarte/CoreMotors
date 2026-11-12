@@ -6,7 +6,7 @@ import { requireSection } from "@/lib/guard";
 import { worklogHours } from "@/lib/operations";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
 import { carsWithExpiredReservations, queueOlxSync } from "@/lib/olx/queue";
-import { carTypesError, leadTypeError } from "@/lib/vehicle-access";
+import { assigneeTypeError, carTypesError, leadTypeError } from "@/lib/vehicle-access";
 
 const uuid = z.string().uuid();
 const optionalId = z.union([uuid, z.literal("")]).transform(v => v || null);
@@ -40,6 +40,16 @@ export async function saveLeadFollowup(data: FormData) {
   if (v.assigned_to) {
     const {data: staff} = await db.rpc("staff_directory");
     if (!staff?.some(p => p.id === v.assigned_to && p.role !== "mecanico")) return {ok: false, error: "Responsável inválido"};
+    // Quem recebe tem de trabalhar o tipo do contacto (o da viatura escolhida,
+    // se mudar — o gatilho da 0019 copia-o): senão nem o via. Só quando muda
+    // o responsável ou a viatura, para não prender um contacto antigo.
+    const {data: lead} = await db.from("leads").select("assigned_to,car_id,vehicle_type").eq("id", id).maybeSingle();
+    if (!lead) return {ok: false, error: "Contacto não encontrado."};
+    if (v.assigned_to !== lead.assigned_to || v.car_id !== lead.car_id) {
+      const {data: car} = v.car_id ? await db.from("cars").select("vehicle_type").eq("id", v.car_id).maybeSingle() : {data: null};
+      const wrong = await assigneeTypeError(db, v.assigned_to, v.car_id ? car?.vehicle_type : lead.vehicle_type);
+      if (wrong) return {ok: false, error: wrong};
+    }
   }
   const {error} = await db.from("leads").update({...v, next_action: v.next_action || null,
     next_action_at: v.next_action_at ? new Date(v.next_action_at).toISOString() : null,
@@ -59,10 +69,14 @@ export async function addLeadActivity(data: FormData) {
   refresh(); return result(error);
 }
 export async function saveFinancials(data: FormData) {
-  await requireSection("financeiro");
+  const me = await requireSection("financeiro");
   const parsed = z.object({car_id: uuid, acquired_on: optionalDate, purchase_price: optionalMoney}).safeParse(Object.fromEntries(data));
   if (!parsed.success) return {ok:false,error:"Verifique a data e o preço de aquisição."};
   const db = await createClient();
+  // A RLS das finanças, custos, tarefas e horas só olha ao separador: o tipo
+  // da viatura é verificado aqui (e nas ações seguintes).
+  const denied = await carTypesError(db, me, [parsed.data.car_id]);
+  if (denied) return {ok:false,error:denied};
   const {error} = await db.from("vehicle_financials").upsert({...parsed.data, updated_at: new Date().toISOString()});
   refresh(); return result(error);
 }
@@ -71,7 +85,7 @@ export async function saveFinancials(data: FormData) {
  * NULL — e a viatura volta a usar o valor por defeito de Custos e margens.
  */
 export async function saveVehicleRate(data: FormData) {
-  await requireSection("financeiro");
+  const me = await requireSection("financeiro");
   const parsed = z.object({
     car_id: uuid,
     override: z.union([z.literal("on"), z.literal("")]).optional(),
@@ -91,6 +105,8 @@ export async function saveVehicleRate(data: FormData) {
   }
 
   const db = await createClient();
+  const denied = await carTypesError(db, me, [parsed.data.car_id]);
+  if (denied) return {ok:false,error:denied};
   const {error} = await db.from("vehicle_financials").upsert({
     car_id: parsed.data.car_id, hourly_rate_override: value,
     updated_at: new Date().toISOString(),
@@ -102,36 +118,47 @@ export async function addVehicleCost(data: FormData) {
   const parsed = z.object({car_id: uuid, category: z.enum(["transport","parts","labour","preparation","other"]), description: z.string().trim().min(1).max(500), amount: z.coerce.number().positive().max(9999999999), incurred_on: z.string().date()}).safeParse(Object.fromEntries(data));
   if (!parsed.success) return {ok:false,error:"Preencha a descrição, data e um custo positivo."};
   const db = await createClient();
+  const denied = await carTypesError(db, me, [parsed.data.car_id]);
+  if (denied) return {ok:false,error:denied};
   const {error} = await db.from("vehicle_costs").insert({...parsed.data,created_by:me.id});
   refresh(); return result(error);
 }
 export async function deleteVehicleCost(data: FormData) {
-  await requireSection("financeiro");
+  const me = await requireSection("financeiro");
   const id = uuid.safeParse(data.get("id")); if (!id.success) return {ok:false,error:"Registo inválido"};
   const db = await createClient();
+  const {data: cost} = await db.from("vehicle_costs").select("car_id").eq("id",id.data).maybeSingle();
+  if (!cost) return {ok:false,error:"Registo não encontrado."};
+  const denied = await carTypesError(db, me, [cost.car_id]);
+  if (denied) return {ok:false,error:denied};
   const {error} = await db.from("vehicle_costs").delete().eq("id",id.data).select("id").single();
   refresh(); return result(error);
 }
 export async function savePreparationTask(data: FormData) {
   const db = await createClient();
   const {data: allowed} = await db.rpc("has_section", {section:"oficina"});
-  if (!allowed) await requireSection("carros");
+  const me = await requireSection(allowed ? "oficina" : "carros");
   const parsed = z.object({id: optionalId, car_id:uuid, title:z.string().trim().min(1).max(200), stage:z.enum(["preparation","delivery"]), status:z.enum(["pending","in_progress","waiting_parts","done"]), assigned_to:optionalId, parts:z.string().max(1000), due_on:optionalDate}).safeParse(Object.fromEntries(data));
   if (!parsed.success) return {ok:false,error:"Verifique os campos da tarefa."};
   const {id, ...v} = parsed.data;
+  // A alteração filtra também por car_id: basta verificar o tipo desta viatura.
+  const denied = await carTypesError(db, me, [v.car_id]);
+  if (denied) return {ok:false,error:denied};
   const query = id ? db.from("preparation_tasks").update({...v,updated_at:new Date().toISOString()}).eq("id",id).eq("car_id",v.car_id) : db.from("preparation_tasks").insert(v);
   const {error} = await query.select("id").single(); refresh(); return result(error);
 }
 export async function finishWorklog(data: FormData) {
-  await requireSection("oficina");
+  const me = await requireSection("oficina");
   const parsed = z.object({id:uuid,end_time:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),overnight:z.coerce.boolean().default(false)}).safeParse({...Object.fromEntries(data),overnight:data.get("overnight")==="on"});
   if (!parsed.success) return {ok:false,error:"Hora inválida"};
   const db = await createClient();
   // As horas TÊM de ser recalculadas aqui: antes só se gravava o fim, e o
   // turno fechado ficava a 0 h — a mão de obra dessa viatura nunca entrava nos
   // custos.
-  const {data:registo} = await db.from("vehicle_tasks").select("start_time").eq("id",parsed.data.id).is("end_time",null).maybeSingle();
+  const {data:registo} = await db.from("vehicle_tasks").select("car_id,start_time").eq("id",parsed.data.id).is("end_time",null).maybeSingle();
   if (!registo) return {ok:false,error:"Registo não encontrado ou já fechado."};
+  const denied = await carTypesError(db, me, [registo.car_id]);
+  if (denied) return {ok:false,error:denied};
   const duracao = worklogHours(String(registo.start_time).slice(0,5),parsed.data.end_time,parsed.data.overnight);
   if ("error" in duracao) return {ok:false,error:duracao.error};
   const {error} = await db.from("vehicle_tasks").update({end_time:parsed.data.end_time,hours:duracao.hours}).eq("id",parsed.data.id).is("end_time",null).select("id").single();

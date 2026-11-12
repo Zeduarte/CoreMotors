@@ -54,15 +54,19 @@ export function CarsTable({
   items,
   isAdmin = false,
   allowedTypes = ["car"],
-  filterTypes,
+  siteTypes,
   initialType = "todos",
 }: {
   items: CarListItem[];
   isAdmin?: boolean;
-  /** Os tipos que o utilizador pode ver (etiqueta Carro/Mota nas linhas). */
+  /**
+   * Os tipos que o utilizador pode ver: etiqueta Carro/Mota nas linhas e o
+   * filtro «Todos · Carros · Motas» (num site de um só tipo, separa as do
+   * outro tipo, que ficam guardadas mas fora do site).
+   */
   allowedTypes?: VehicleType[];
-  /** Os tipos do filtro «Todos · Carros · Motas» (os que o site vende). */
-  filterTypes?: VehicleType[];
+  /** Os tipos que o site vende (Definições → Tipo de site): só esses têm ficha. */
+  siteTypes?: VehicleType[];
   initialType?: TypeChoice;
 }) {
   const [type, setType] = useState<TypeChoice>(initialType);
@@ -145,7 +149,7 @@ export function CarsTable({
 
   return (
     <div className="space-y-4">
-      <TypeFilter value={type} allowed={filterTypes ?? allowedTypes} counts={typeCounts} onSelect={setType} />
+      <TypeFilter value={type} allowed={allowedTypes} counts={typeCounts} onSelect={setType} />
 
       {/* Filtros */}
       <div className="card flex flex-wrap items-center gap-3 p-3">
@@ -327,6 +331,14 @@ export function CarsTable({
                               {car.make} {car.model}
                             </span>
                             {mixed && <TypeTag type={car.vehicleType} />}
+                            {siteTypes && !siteTypes.includes(car.vehicleType) && (
+                              <span
+                                className="shrink-0 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-300"
+                                title="O site não vende este tipo de viatura (Definições → Tipo de site)"
+                              >
+                                Fora do site
+                              </span>
+                            )}
                           </p>
                           <p className="text-xs text-paper/50">
                             {car.year} · {car.fuel} · {car.mediaCount} media
@@ -383,9 +395,11 @@ export function CarsTable({
                     </td>
                     <td className="p-3">
                       <div className="flex items-center justify-end gap-1">
-                        {/* Só as que estão no site (à venda, reservadas ou vendidas): um
-                            rascunho abria uma página que não existe (404). */}
-                        {car.status === "published" || car.status === "reserved" || car.status === "sold" ? (
+                        {/* Só as que estão no site (à venda, reservadas ou vendidas, de um
+                            tipo que o site vende): as outras abriam uma página que não
+                            existe (404). */}
+                        {(car.status === "published" || car.status === "reserved" || car.status === "sold") &&
+                        (siteTypes ?? allowedTypes).includes(car.vehicleType) ? (
                           <Link
                             prefetch={false}
                             href={`/viaturas/${car.slug}`}
@@ -398,7 +412,11 @@ export function CarsTable({
                         ) : (
                           <span
                             className="cursor-not-allowed rounded-lg px-2 py-1 text-xs text-paper/20"
-                            title="Ainda não está no site"
+                            title={
+                              (siteTypes ?? allowedTypes).includes(car.vehicleType)
+                                ? "Ainda não está no site"
+                                : `Fora do site: o site não vende ${car.vehicleType === "motorcycle" ? "motas" : "carros"}`
+                            }
                             aria-hidden
                           >
                             ↗

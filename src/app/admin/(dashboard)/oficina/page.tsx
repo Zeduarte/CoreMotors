@@ -1,13 +1,14 @@
 import { requireSection } from "@/lib/guard";
 import { getWorkshopVehicles } from "@/lib/workshop";
 import { WorkshopList } from "@/components/admin/WorkshopList";
-import { getActiveVehicleTypes, getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import { getActiveVehicleTypes, getAllowedVehicleTypes, getSiteVehicleTypes } from "@/lib/vehicle-context";
+import { SiteTypeNotice } from "@/components/admin/SiteTypeNotice";
 
 export const dynamic = "force-dynamic";
 
 export default async function OficinaPage() {
-  await requireSection("oficina");
-  const [vehicles, allowedTypes, activeTypes] = await Promise.all([getWorkshopVehicles(), getAllowedVehicleTypes(), getActiveVehicleTypes()]);
+  const me = await requireSection("oficina");
+  const [vehicles, allowedTypes, activeTypes, siteTypes] = await Promise.all([getWorkshopVehicles(), getAllowedVehicleTypes(), getActiveVehicleTypes(), getSiteVehicleTypes()]);
 
   return (
     <>
@@ -19,6 +20,12 @@ export default async function OficinaPage() {
           preparada: sai da Oficina e passa para Viaturas.
         </p>
       </div>
+      <SiteTypeNotice
+        className="mb-6"
+        allowedTypes={allowedTypes}
+        siteTypes={siteTypes}
+        isAdmin={me.role === "admin"}
+      />
       <WorkshopList vehicles={vehicles} allowedTypes={allowedTypes} creatableTypes={activeTypes} />
     </>
   );

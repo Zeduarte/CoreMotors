@@ -113,13 +113,24 @@ export function buildActorContext(actor: {
   papel: string;
   secoes: readonly string[];
   tipos: readonly string[];
+  /** Os que o site vende (Tipo de site): só desses se criam viaturas. */
+  tiposNoSite?: readonly string[];
   hoje: string;
   categorias: readonly string[];
 }): string {
+  const novos = actor.tiposNoSite ?? actor.tipos;
   const linhas = [
     `Quem está a escrever: ${actor.nome} (${actor.papel}).`,
     `Separadores a que tem acesso: ${actor.secoes.join(", ") || "nenhum"}.`,
     `Tipos de viatura: ${actor.tipos.join(", ")}.`,
+    ...(novos.length !== actor.tipos.length
+      ? [
+          `O site só vende: ${novos.join(", ") || "nenhum destes"}. Viaturas novas (registar, criar) só destes tipos; as outras que já existem continuam a poder ser trabalhadas.`,
+        ]
+      : []),
+    ...(novos.length === 1
+      ? [`Viatura nova sem tipo dito: é ${novos[0]}.`]
+      : []),
     `Hoje: ${actor.hoje} (Europe/Lisbon).`,
     `Categorias de despesa que ESTA pessoa pode usar: ${actor.categorias.join(", ") || "nenhuma"}.`,
   ];

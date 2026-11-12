@@ -1,4 +1,5 @@
-import { getActiveVehicleTypes } from "@/lib/vehicle-context";
+import { getActiveVehicleTypes, getAllowedVehicleTypes, getSiteVehicleTypes } from "@/lib/vehicle-context";
+import { SiteTypeNotice } from "@/components/admin/SiteTypeNotice";
 import { requireSection } from "@/lib/guard";
 import { getShowroomContent } from "@/lib/showroom-queries";
 import Link from "next/link";
@@ -17,7 +18,12 @@ export default async function NewCarPage({
   // O tipo escolhe-se no próprio formulário. Vem já escolhido se o link o
   // disser (`?tipo=motas`) ou se o utilizador só puder gerir um tipo.
   // Só os tipos que o site vende (Definições → Tipo de site).
-  const [{ tipo }, allowedTypes] = await Promise.all([searchParams, getActiveVehicleTypes()]);
+  const [{ tipo }, allowedTypes, mine, siteTypes] = await Promise.all([
+    searchParams,
+    getActiveVehicleTypes(),
+    getAllowedVehicleTypes(),
+    getSiteVehicleTypes(),
+  ]);
   const selected = tipo === "motas" ? "motorcycle" : tipo === "carros" ? "car" : null;
   const vehicleType = selected && allowedTypes.includes(selected)
     ? selected
@@ -34,11 +40,18 @@ export default async function NewCarPage({
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-paper">Nova viatura</h1>
         <p className="mt-1 text-sm text-paper/50">
-          Escolha primeiro se pretende anunciar um carro ou uma mota. Depois de
-          criar o anúncio, poderá adicionar fotografias e vídeo.
+          {allowedTypes.length > 1
+            ? "Escolha primeiro se pretende anunciar um carro ou uma mota. "
+            : ""}
+          Depois de criar o anúncio, poderá adicionar fotografias e vídeo.
         </p>
       </div>
+      {/* Nada que o site venda e o utilizador possa gerir: não há formulário. */}
+      {!allowedTypes.length ? (
+        <SiteTypeNotice allowedTypes={mine} siteTypes={siteTypes} isAdmin={me.role === "admin"} />
+      ) : (
       <CarForm allowedTypes={allowedTypes} isAdmin={me.role === "admin"} locations={showroom.locations} olxFields={olxFields} badgeOptions={badgeOptions} defaults={vehicleType ? {vehicle_type:vehicleType,body:vehicleType === "motorcycle" ? "Naked" : "Berlina",doors:vehicleType === "motorcycle" ? 0 : 5,seats:vehicleType === "motorcycle" ? 2 : 5} : undefined} />
+      )}
     </>
   );
 }

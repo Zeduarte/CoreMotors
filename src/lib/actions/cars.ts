@@ -15,6 +15,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { manualStatusError } from "@/lib/car-status";
 import { canUseVehicleType, carTypesError, VEHICLE_TYPE_DENIED } from "@/lib/vehicle-access";
 import type { ProfileRow } from "@/lib/supabase/database.types";
+import { getSiteVehicleTypes } from "@/lib/site-types-query";
 
 export interface SaveResult {
   ok: boolean;
@@ -53,6 +54,17 @@ async function salesState(db: Db, ids: string[]) {
 }
 
 const carLabel = (c: { make: string; model: string }) => `${c.make} ${c.model}`.trim();
+
+/**
+ * Num site que não vende este tipo (Definições → Tipo de site), não se criam
+ * viaturas dele nem se põem à venda: a ficha pública daria 404. As que já
+ * existem continuam a poder ser trabalhadas (contactos, reservas, vendas).
+ */
+async function offSiteError(type: string | null | undefined): Promise<string | null> {
+  const site: readonly string[] = await getSiteVehicleTypes();
+  if (site.includes(type ?? "car")) return null;
+  return `O site não vende ${type === "motorcycle" ? "motas" : "carros"} (Definições → Tipo de site).`;
+}
 
 /** Revalida as páginas públicas afetadas por uma alteração de inventário. */
 function revalidatePublic(slug?: string) {
@@ -141,6 +153,8 @@ export async function createCar(input: unknown): Promise<SaveResult> {
     };
   }
   if (!canUseVehicleType(me, parsed.data.vehicle_type)) return { ok: false, error: VEHICLE_TYPE_DENIED };
+  const offSite = await offSiteError(parsed.data.vehicle_type);
+  if (offSite) return { ok: false, error: offSite, fieldErrors: { vehicle_type: offSite } };
   const statusError = manualStatusError(null, parsed.data.status, { isAdmin: me.role === "admin" });
   if (statusError) return { ok: false, error: statusError, fieldErrors: { status: statusError } };
 
@@ -199,6 +213,15 @@ export async function updateCar(
   // O tipo atual e o novo: quem só tem motas não transforma um carro em mota.
   if (!canUseVehicleType(me, current.vehicle_type) || !canUseVehicleType(me, parsed.data.vehicle_type))
     return { ok: false, error: VEHICLE_TYPE_DENIED };
+  // Passar a um tipo que o site não vende, ou pôr à venda uma viatura dele.
+  const typeChanged = parsed.data.vehicle_type !== (current.vehicle_type ?? "car");
+  const publishing = parsed.data.status === "published" && current.status !== "published";
+  if (typeChanged || publishing) {
+    const offSite = await offSiteError(parsed.data.vehicle_type);
+    if (offSite) {
+      return { ok: false, error: offSite, fieldErrors: { [typeChanged ? "vehicle_type" : "status"]: offSite } };
+    }
+  }
   const statusError = await statusChangeError(supabase, me, id, current.status, parsed.data.status);
   if (statusError) return { ok: false, error: statusError, fieldErrors: { status: statusError } };
   const row = toRow(parsed.data);
@@ -274,6 +297,10 @@ export async function setCarStatus(
     .maybeSingle();
   if (!current) return { ok: false, error: "Viatura não encontrada." };
   if (!canUseVehicleType(me, current.vehicle_type)) return { ok: false, error: VEHICLE_TYPE_DENIED };
+  if (status === "published" && current.status !== "published") {
+    const offSite = await offSiteError(current.vehicle_type);
+    if (offSite) return { ok: false, error: offSite };
+  }
   const statusError = await statusChangeError(supabase, me, id, current.status, status);
   if (statusError) return { ok: false, error: statusError };
   const { data, error } = await supabase
@@ -320,6 +347,8 @@ export async function duplicateCar(id: string): Promise<SaveResult> {
     .single();
   if (readErr || !src) return { ok: false, error: "Viatura não encontrada." };
   if (!canUseVehicleType(me, src.vehicle_type)) return { ok: false, error: VEHICLE_TYPE_DENIED };
+  const offSite = await offSiteError(src.vehicle_type);
+  if (offSite) return { ok: false, error: offSite };
 
   const base = vehicleSlug(
     src.make,
@@ -462,13 +491,16 @@ export async function bulkSetStatus(
     .select("id, make, model, status, vehicle_type")
     .in("id", ids);
   const state = await salesState(supabase, ids);
+  const site: readonly string[] = status === "published" ? await getSiteVehicleTypes() : [];
   const allowed: string[] = [];
   const refused: string[] = [];
   for (const car of cars ?? []) {
     if (car.status === status) continue;
     const reason = !canUseVehicleType(me, car.vehicle_type)
       ? VEHICLE_TYPE_DENIED
-      : manualStatusError(car.status, status, {
+      : status === "published" && !site.includes(car.vehicle_type ?? "car")
+        ? `O site não vende ${car.vehicle_type === "motorcycle" ? "motas" : "carros"}.`
+        : manualStatusError(car.status, status, {
           isAdmin: me.role === "admin",
           saleRecorded: state.saleRecorded(car.id),
           activeReservation: state.activeReservation(car.id),

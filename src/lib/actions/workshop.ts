@@ -10,6 +10,7 @@ import { getCurrentProfile } from "@/lib/admin-queries";
 import { canAccess } from "@/lib/permissions";
 import { canManageHoursOf } from "@/lib/workshop";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
+import { carTypesError } from "@/lib/vehicle-access";
 
 export interface ActionResult {
   ok: boolean;
@@ -50,6 +51,10 @@ export async function createWorklog(formData: FormData): Promise<ActionResult> {
   const hours = duracao.hours;
 
   const supabase = await createClient();
+  // A RLS das horas e dos custos só olha ao separador «Oficina»: quem só
+  // trabalha motas não regista nada num carro (nem o contrário).
+  const denied = await carTypesError(supabase, profile, [v.car_id]);
+  if (denied) return { ok: false, error: denied };
   const { error } = await supabase.from("vehicle_tasks").insert({
     car_id: v.car_id,
     work_date: v.work_date,
@@ -90,6 +95,8 @@ export async function deleteWorklog(id: string): Promise<ActionResult> {
     .eq("id", id)
     .maybeSingle();
   if (!registo) return { ok: false, error: "Registo não encontrado." };
+  const denied = await carTypesError(supabase, me, [registo.car_id]);
+  if (denied) return { ok: false, error: denied };
   if (!(await canManageHoursOf(supabase, me, registo.created_by))) {
     return { ok: false, error: "Só pode apagar as horas que registou." };
   }
@@ -132,6 +139,8 @@ export async function addWorkshopCost(formData: FormData): Promise<ActionResult>
   }
 
   const supabase = await createClient();
+  const denied = await carTypesError(supabase, profile, [parsed.data.car_id]);
+  if (denied) return { ok: false, error: denied };
   const { error } = await supabase
     .from("vehicle_costs")
     .insert({ ...parsed.data, created_by: profile.id });
@@ -149,8 +158,13 @@ export async function addWorkshopCost(formData: FormData): Promise<ActionResult>
 
 /** Apaga um custo lançado pela oficina (a RLS só deixa apagar os próprios). */
 export async function deleteWorkshopCost(id: string): Promise<ActionResult> {
-  await requireSection("oficina");
+  const me = await requireSection("oficina");
+  if (!z.string().uuid().safeParse(id).success) return { ok: false, error: "Registo inválido." };
   const supabase = await createClient();
+  const { data: cost } = await supabase.from("vehicle_costs").select("car_id").eq("id", id).maybeSingle();
+  if (!cost) return { ok: false, error: "Custo não encontrado." };
+  const denied = await carTypesError(supabase, me, [cost.car_id]);
+  if (denied) return { ok: false, error: denied };
   const { data, error } = await supabase
     .from("vehicle_costs")
     .delete()

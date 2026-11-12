@@ -80,6 +80,7 @@ const STUBS = {
   '@/lib/whatsapp/photos': { pruneWaMedia: async () => {} },
   '@/lib/stock-alert-run': { runStockAlerts: async () => {} },
   '@/lib/visit-run': { runVisitReminders: async () => {} },
+  '@/lib/site-types-query': { getSiteVehicleTypes: async () => ['car', 'motorcycle'] },
 };
 const cache = new Map();
 function withExt(base) { for (const ext of ['.ts', '.tsx', '/index.ts']) if (existsSync(base + ext)) return base + ext; throw new Error(`não resolvido: ${base}`); }

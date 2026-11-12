@@ -21,6 +21,7 @@ import {
   workshopSchema,
 } from "@/lib/schemas";
 import { webhookUrlProblem } from "@/lib/webhook-url";
+import { queueOlxSync } from "@/lib/olx/queue";
 
 export interface SettingsResult {
   ok: boolean;
@@ -76,6 +77,16 @@ export async function saveSiteMode(mode: unknown): Promise<SettingsResult> {
   // Muda o stock, a página inicial, os menus e o backoffice inteiro.
   revalidatePublic("/", "layout");
   revalidatePublic("/admin", "layout");
+  // Os anúncios do OLX seguem o tipo de site: os do tipo que deixou de ser
+  // vendido saem (o link já dava 404) e os do tipo que voltou, voltam. Só se
+  // marca como pendente; a sincronização corre depois da resposta.
+  const [{ data: wanted }, { data: listed }] = await Promise.all([
+    supabase.from("cars").select("id").contains("channels", ["olx"]),
+    supabase.from("channel_listings").select("car_id").eq("channel", "olx"),
+  ]);
+  await queueOlxSync([
+    ...new Set([...(wanted ?? []).map((c) => c.id), ...(listed ?? []).map((l) => l.car_id)]),
+  ]);
   return { ok: true };
 }
 
