@@ -13,12 +13,19 @@ const DOCK = ["/admin", "/admin/carros", "/admin/leads", "/admin/leads/agenda", 
  * Pílula de atalhos, flutuante e centrada em baixo: texto nos separadores, o
  * ativo em branco, e um «+» para criar uma viatura.
  */
-export function AdminDock({ sections }: { sections: Section[] }) {
+export function AdminDock({
+  sections,
+  canCreate = true,
+}: {
+  sections: Section[];
+  /** Há algum tipo que o utilizador gere e o site vende (Tipo de site). */
+  canCreate?: boolean;
+}) {
   const pathname = usePathname();
   const tabs = DOCK.map((href) => ADMIN_NAV.find((i) => i.href === href)).filter(
     (i): i is (typeof ADMIN_NAV)[number] => !!i && canSeeNavItem(i, sections),
   );
-  const create = sections.includes("carros");
+  const create = canCreate && sections.includes("carros");
 
   return (
     <nav

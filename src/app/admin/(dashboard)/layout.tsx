@@ -1,4 +1,4 @@
-import { filterByVehicleType, getAllowedVehicleTypes } from "@/lib/vehicle-context";
+import { filterByVehicleType, getAllowedVehicleTypes, getSiteVehicleTypes } from "@/lib/vehicle-context";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/admin-queries";
@@ -21,7 +21,7 @@ export default async function DashboardLayout({
   if (!profile) redirect("/admin/login");
 
   const supabase = await createClient();
-  const allowedTypes = await getAllowedVehicleTypes();
+  const [allowedTypes, siteTypes] = await Promise.all([getAllowedVehicleTypes(), getSiteVehicleTypes()]);
   const { error: schemaError } = await supabase.rpc("has_section", {section:"dashboard"});
   if (schemaError) return <main className="mx-auto max-w-xl space-y-4 px-6 py-16 text-paper">
     <h1 className="text-2xl font-bold">{schemaError.code === "PGRST202" ? "Atualização do backoffice pendente" : "Backoffice temporariamente indisponível"}</h1>
@@ -62,7 +62,7 @@ export default async function DashboardLayout({
         <div className="fixed bottom-24 left-[max(1rem,env(safe-area-inset-left))] top-[5.5rem] z-30">
           <Sidebar sections={sections} newLeads={count ?? 0} />
         </div>
-        <AdminDock sections={sections} />
+        <AdminDock sections={sections} canCreate={allowedTypes.some((t) => siteTypes.includes(t))} />
       </div>
       <main className="min-w-0 pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] md:pb-28 md:pl-[7.5rem] md:pt-[6rem]"><div className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-4 lg:px-10">{children}</div></main>
     </div>
