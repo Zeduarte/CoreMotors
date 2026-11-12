@@ -345,3 +345,18 @@ test("site type (Definições → Tipo de site): only cars, cars and motorcycles
   assert.equal(primaryType(["car", "motorcycle"]), "car");
   assert.equal(primaryType(["motorcycle"]), "motorcycle");
 });
+
+test("/carros and /motas answer a real 404 when the site does not sell that type (guard in the layout, before the skeleton)", async () => {
+  for (const [dir, type] of [["carros", "car"], ["motas", "motorcycle"]]) {
+    assert.ok(existsSync(`src/app/(public)/${dir}/(todos)/loading.tsx`), `${dir}: esqueleto`);
+    let types = ["car", "motorcycle"];
+    const load = loader({
+      "next/navigation": { notFound: () => { throw Object.assign(new Error("NEXT_NOT_FOUND"), { digest: "NEXT_HTTP_ERROR_FALLBACK;404" }); } },
+      "@/lib/queries": { getSiteVehicleTypes: async () => types },
+    });
+    const Layout = load(`src/app/(public)/${dir}/(todos)/layout.tsx`).default;
+    assert.equal(await Layout({ children: "lista" }), "lista", dir);
+    types = [type === "car" ? "motorcycle" : "car"];
+    await assert.rejects(Layout({ children: "lista" }), /NEXT_NOT_FOUND/, dir);
+  }
+});

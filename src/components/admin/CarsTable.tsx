@@ -383,15 +383,27 @@ export function CarsTable({
                     </td>
                     <td className="p-3">
                       <div className="flex items-center justify-end gap-1">
-                        <Link
-                          prefetch={false}
-            href={`/viaturas/${car.slug}`}
-                          target="_blank"
-                          className="rounded-lg px-2 py-1 text-xs text-paper/60 hover:bg-white/5 hover:text-paper"
-                          title="Ver no site"
-                        >
-                          ↗
-                        </Link>
+                        {/* Só as que estão no site (à venda, reservadas ou vendidas): um
+                            rascunho abria uma página que não existe (404). */}
+                        {car.status === "published" || car.status === "reserved" || car.status === "sold" ? (
+                          <Link
+                            prefetch={false}
+                            href={`/viaturas/${car.slug}`}
+                            target="_blank"
+                            className="rounded-lg px-2 py-1 text-xs text-paper/60 hover:bg-white/5 hover:text-paper"
+                            title="Ver no site"
+                          >
+                            ↗
+                          </Link>
+                        ) : (
+                          <span
+                            className="cursor-not-allowed rounded-lg px-2 py-1 text-xs text-paper/20"
+                            title="Ainda não está no site"
+                            aria-hidden
+                          >
+                            ↗
+                          </span>
+                        )}
                         <Link
                           href={`/admin/carros/${car.id}`}
                           className="rounded-lg px-2 py-1 text-xs text-paper/60 hover:bg-white/5 hover:text-paper"

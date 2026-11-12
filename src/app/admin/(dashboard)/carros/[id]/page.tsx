@@ -121,7 +121,7 @@ export default async function EditCarPage({ params }: { params: Params }) {
         {(car.status === "prepared" || car.status === "draft") && (
           <WorkshopStage carId={car.id} status={car.status} leaveTo="/admin/carros" />
         )}
-        {car.status === "published" && (
+        {(car.status === "published" || car.status === "reserved" || car.status === "sold") && (
           <Link
             prefetch={false}
             href={`/viaturas/${car.slug}`}
