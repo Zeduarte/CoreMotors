@@ -1,6 +1,6 @@
 import { getAdminTipo, getAllowedVehicleTypes, getSiteVehicleTypes } from "@/lib/vehicle-context";
 import { SiteTypeNotice } from "@/components/admin/SiteTypeNotice";
-import { TypeFilter, TypeTag, typeChoice, withTipo } from "@/components/admin/TypeFilter";
+import { TypeFilter, TypeTag, typeChoice, withTipo, type TypeChoice } from "@/components/admin/TypeFilter";
 import { createClient } from "@/lib/supabase/server";
 import { OperationalDashboard } from "@/components/admin/OperationalDashboard";
 import Link from "next/link";
@@ -107,7 +107,7 @@ export default async function DashboardPage({
   if (stats.total === 0) {
     return (
       <>
-        <Header name={profile?.full_name || profile?.email || ""} />
+        <Header name={profile?.full_name || profile?.email || ""} choice={choice} canCreate={allowedTypes.some((t) => siteTypes.includes(t))} />
         {filter}
         <OperationalDashboard tipo={tipo} />
         {choice === "todos" ? (
@@ -125,7 +125,7 @@ export default async function DashboardPage({
 
   return (
     <>
-      <Header name={profile?.full_name || profile?.email || ""} />
+      <Header name={profile?.full_name || profile?.email || ""} choice={choice} canCreate={allowedTypes.some((t) => siteTypes.includes(t))} />
 
       {filter}
       <OperationalDashboard tipo={tipo} />
@@ -221,8 +221,8 @@ export default async function DashboardPage({
                 {stats.conversion.map((c) => (
                   <tr key={c.slug || c.name}>
                     <td className="p-3">
-                      {/* A ficha pública só existe nos tipos que o site vende. */}
-                      {siteTypes.includes(c.vehicleType) ? (
+                      {/* A ficha pública só existe no que está no site (de um tipo que ele vende). */}
+                      {siteTypes.includes(c.vehicleType) && ["published", "reserved", "sold"].includes(c.status) ? (
                         <Link
                           prefetch={false}
                           href={`/viaturas/${c.slug}`}
@@ -269,7 +269,7 @@ export default async function DashboardPage({
             Últimas viaturas editadas
           </h2>
           <Link
-            href="/admin/carros"
+            href={withTipo("/admin/carros", {}, choice)}
             className="text-sm text-accent hover:underline"
           >
             Ver todas →
@@ -318,7 +318,17 @@ export default async function DashboardPage({
   );
 }
 
-function Header({ name }: { name: string }) {
+function Header({
+  name,
+  choice = "todos",
+  canCreate = true,
+}: {
+  name: string;
+  /** O filtro do Dashboard, que «Gerir viaturas» leva para Viaturas. */
+  choice?: TypeChoice;
+  /** Há algum tipo que o utilizador gere e o site vende. */
+  canCreate?: boolean;
+}) {
   const first = name.split(/[\s@]/)[0] ?? "";
   return (
     <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -332,10 +342,12 @@ function Header({ name }: { name: string }) {
         </p>
       </div>
       <div className="flex gap-3">
-        <Link href="/admin/carros/novo" className="btn-primary">
-          ＋ Nova viatura
-        </Link>
-        <Link href="/admin/carros" className="btn-ghost">
+        {canCreate && (
+          <Link href="/admin/carros/novo" className="btn-primary">
+            ＋ Nova viatura
+          </Link>
+        )}
+        <Link href={withTipo("/admin/carros", {}, choice)} className="btn-ghost">
           Gerir viaturas
         </Link>
       </div>

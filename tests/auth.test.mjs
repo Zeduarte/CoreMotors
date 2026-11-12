@@ -43,3 +43,18 @@ test('a connection failure returns an actionable error and a successful login st
   const success = action(async () => ({ error: null }));
   await assert.rejects(success.login({}, form()), /REDIRECT:\/admin/);
 });
+
+test('depois do login só se vai para o backoffice: o caminho é normalizado antes de se ver', async () => {
+  const success = action(async () => ({ error: null }));
+  const go = async (target) => {
+    const data = form();
+    data.set('redirect', target);
+    try { await success.login({}, data); } catch (e) { return e.message.replace('REDIRECT:', ''); }
+    return null;
+  };
+  assert.equal(await go('/admin/carros?tipo=motas'), '/admin/carros?tipo=motas');
+  assert.equal(await go('/admin'), '/admin');
+  for (const bad of ['/admin/../../inventario', '/admin/%2e%2e/inventario', '//evil.example/admin', '/admin\\@evil', 'https://evil.example/admin', '/administrador', '/inventario']) {
+    assert.equal(await go(bad), '/admin', bad);
+  }
+});

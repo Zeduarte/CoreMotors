@@ -11,10 +11,13 @@ export function AdminTopBar({
   user,
   companyName,
   newLeads = 0,
+  showLeads = true,
 }: {
   user: { name: string };
   companyName: string;
   newLeads?: number;
+  /** Só quem tem o separador Contactos (o mecânico não). */
+  showLeads?: boolean;
 }) {
   const first = user.name.split(/[\s@]/)[0] ?? user.name;
   return (
@@ -35,14 +38,14 @@ export function AdminTopBar({
         <div className="hidden w-[132px] sm:block">
           <ThemeToggle compact />
         </div>
-        <Link
+        {showLeads && <Link
           href="/admin/leads"
           aria-label={newLeads > 0 ? `${newLeads} contactos novos` : "Contactos"}
           className="relative grid h-10 w-10 place-items-center rounded-full bg-paper text-ink transition-transform hover:scale-105"
         >
           <AdminIcon name="bell" size={18} />
           {newLeads > 0 && <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-paper" />}
-        </Link>
+        </Link>}
       </div>
     </header>
   );

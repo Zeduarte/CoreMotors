@@ -244,6 +244,16 @@ await test('sold and reserved are only set through the lead flow; reverting a sa
   assert.deepEqual(olx.queued, [CAR]);
 });
 
+await test('em lote, nem o administrador tira uma viatura de «Vendida» (só uma a uma, com confirmação)', async () => {
+  seed();
+  t.cars[1].status = 'sold';
+  const bulk = await cars.bulkSetStatus([CAR, BIKE], 'draft');
+  assert.match(bulk.error, /Yamaha MT-07: está vendida: tira-se de «Vendida» uma a uma/);
+  assert.deepEqual(t.cars.map((c) => c.status), ['draft', 'sold']);
+  // Na linha (com a confirmação no browser), o administrador continua a poder.
+  assert.equal((await cars.setCarStatus(BIKE, 'published')).ok, true);
+});
+
 // ---- 13. Um só backoffice: sem troca carros/motas ------------------------------------
 await test('the backoffice no longer has an /admin/vehicle-context switch', () => {
   const fs = require('node:fs');

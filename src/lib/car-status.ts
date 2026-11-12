@@ -9,7 +9,9 @@ import type { CarStatus } from "@/lib/supabase/database.types";
  *    margem. Marcada à mão ficava vendida sem nada disso.
  *  - «Reservada» só pelo contacto («Confirmar reserva»): a reserva tem prazo e
  *    sinal e expira sozinha. Marcada à mão ficava reservada para sempre.
- *  - Sair de «Vendida» é para corrigir um engano: só o administrador, e nunca
+ *  - Sair de «Vendida» é para corrigir um engano: só o administrador, uma a
+ *    uma (na linha ou na ficha, com confirmação — nunca num lote, onde um
+ *    «Selecionar tudo» + «Publicar» punha vendidas à venda sem aviso), e nunca
  *    quando a venda foi registada num contacto (o contacto ganho e a margem
  *    ficavam a apontar para uma viatura que voltou ao stand).
  *  - Sair de «Reservada» com uma reserva ativa: cancela-se no contacto (a base
@@ -22,6 +24,8 @@ export interface StatusChangeContext {
   saleRecorded?: boolean;
   /** Há uma reserva ativa para a viatura. */
   activeReservation?: boolean;
+  /** Ação em lote (várias viaturas de uma vez, sem confirmação de cada uma). */
+  bulk?: boolean;
 }
 
 export const SOLD_VIA_LEAD =
@@ -44,6 +48,8 @@ export function manualStatusError(
       return "A venda foi concluída num contacto e não se desfaz aqui.";
     if (!ctx.isAdmin)
       return "Só um administrador pode tirar uma viatura de «Vendida».";
+    if (ctx.bulk)
+      return "está vendida: tira-se de «Vendida» uma a uma, na linha ou na ficha.";
   }
   return null;
 }

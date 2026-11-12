@@ -5,6 +5,7 @@ import {
   VEHICLE_TYPES,
   bodiesFor,
   type VehicleType,
+  MOTORCYCLE_FUELS,
 } from "@/lib/vehicle-categories";
 import { manualStatusOptions, UNSELL_CONFIRM } from "@/lib/car-status";
 import { BodyPicker } from "@/components/ui/BodyPicker";
@@ -136,6 +137,13 @@ export function CarForm({
   });
 
   const vehicleType = watch("vehicle_type");
+  // As motas são a gasolina ou elétricas (como na encomenda do site); o valor
+  // que a viatura já tenha fica sempre na lista.
+  const currentFuel = watch("fuel");
+  const fuelOptions: readonly string[] =
+    vehicleType === "motorcycle"
+      ? [...MOTORCYCLE_FUELS, ...(currentFuel && !(MOTORCYCLE_FUELS as readonly string[]).includes(currentFuel) ? [currentFuel] : [])]
+      : FUEL_TYPES;
   const onRequest = watch("price_on_request");
   const make = watch("make") ?? "";
   const modelOptions =
@@ -203,19 +211,33 @@ export function CarForm({
 
   function chooseType(kind: VehicleType) {
     if (kind !== vehicleType) {
+      // Numa viatura que já existe, mudar o tipo é corrigir um engano: a
+      // marca, o modelo e a versão ficam. O equipamento é do outro tipo (um
+      // carro não leva quickshifter nem uma mota vidros elétricos) e sai —
+      // com confirmação, para não se perder sem dar por isso.
+      if (
+        carId &&
+        extras.length > 0 &&
+        !confirm(
+          `Mudar para ${kind === "motorcycle" ? "mota" : "carro"}? O equipamento marcado (${extras.length}) é do outro tipo e sai da ficha.`,
+        )
+      )
+        return;
       setValue("vehicle_type", kind, { shouldDirty: true });
       setValue("body", kind === "motorcycle" ? "Naked" : "Berlina", {
         shouldDirty: true,
       });
       setValue("doors", kind === "motorcycle" ? 0 : 5, { shouldDirty: true });
       setValue("seats", kind === "motorcycle" ? 2 : 5, { shouldDirty: true });
-      setValue("make", "", { shouldDirty: true });
-      setValue("model", "", { shouldDirty: true });
-      setValue("variant", "", { shouldDirty: true });
-      // O equipamento já marcado era do outro tipo de viatura: um carro não
-      // leva quickshifter nem uma mota vidros elétricos.
+      if (!carId) {
+        setValue("make", "", { shouldDirty: true });
+        setValue("model", "", { shouldDirty: true });
+        setValue("variant", "", { shouldDirty: true });
+      }
       setExtras([]);
       setValue("extras", [], { shouldDirty: true });
+      // Os campos do OLX são os da categoria do outro tipo.
+      setOlxValues({} as OlxValues);
     }
     setTypeChosen(true);
   }
@@ -469,7 +491,7 @@ export function CarForm({
           <Field label="Combustível" error={errors.fuel?.message} required>
             <select className="field" {...register("fuel")}>
               <option value="">Por confirmar — selecione</option>
-              {FUEL_TYPES.map((f) => (
+              {fuelOptions.map((f) => (
                 <option key={f} value={f}>
                   {f}
                 </option>

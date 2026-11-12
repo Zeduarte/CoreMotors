@@ -62,13 +62,32 @@ export async function login(
   }
 
   // Fora do try: o redirect do Next funciona lançando uma exceção.
-  // Só caminhos do backoffice (com ou sem pesquisa); nada de //outro-site.
-  redirect(/^\/admin(\/(?!\/)|\?|$)/.test(redirectTo) && !redirectTo.includes("\\") ? redirectTo : "/admin");
+  redirect(adminRedirect(redirectTo));
+}
+
+/**
+ * Para onde ir depois do login: só caminhos do backoffice (com ou sem
+ * pesquisa) — nada de //outro-site, nem `/admin/../inventario`, que o browser
+ * resolvia para fora do backoffice. O caminho é normalizado antes de se ver.
+ */
+function adminRedirect(target: string): string {
+  if (!target.startsWith("/") || target.startsWith("//") || target.includes("\\")) return "/admin";
+  let url: URL;
+  try {
+    url = new URL(target, "http://x");
+  } catch {
+    return "/admin";
+  }
+  if (url.origin !== "http://x") return "/admin";
+  const path = url.pathname;
+  if (path !== "/admin" && !path.startsWith("/admin/")) return "/admin";
+  return `${path}${url.search}`;
 }
 
 /** Termina a sessão e volta ao login. */
 export async function logout() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  // Só esta sessão: por defeito o Supabase termina-as em todos os dispositivos.
+  await supabase.auth.signOut({ scope: "local" });
   redirect("/admin/login");
 }

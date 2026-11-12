@@ -20,6 +20,8 @@ export const dynamic = "force-dynamic";
 export default async function LeadPage({params}: {params:Promise<{id:string}>}) {
   const me = await requireSection("leads");
   const {id} = await params;
+  // Um id que não é UUID: o PostgREST recusava a consulta (erro 500).
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const db = await createClient();
   const types = await getAllowedVehicleTypes();
   const [{data:lead,error},{data:staff},{data:activities},{data:reservations},{data:cars}] = await Promise.all([

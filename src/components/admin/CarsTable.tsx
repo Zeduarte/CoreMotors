@@ -50,6 +50,11 @@ export interface CarListItem {
 
 type SortKey = "recent" | "price-desc" | "price-asc" | "year-desc";
 
+/** Preço para ordenar; sem preço (ou sob consulta) vai para o fim nos dois sentidos. */
+function priceKey(c: CarListItem, dir: 1 | -1): number {
+  return c.priceOnRequest || !c.price ? dir * Number.MAX_SAFE_INTEGER : c.price;
+}
+
 export function CarsTable({
   items,
   isAdmin = false,
@@ -70,6 +75,14 @@ export function CarsTable({
   initialType?: TypeChoice;
 }) {
   const [type, setType] = useState<TypeChoice>(initialType);
+  // O filtro fica no endereço (?tipo=): recarregar ou partilhar o link mantém-no.
+  function pickType(choice: TypeChoice) {
+    setType(choice);
+    const url = new URL(window.location.href);
+    if (choice === "todos") url.searchParams.delete("tipo");
+    else url.searchParams.set("tipo", choice);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  }
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<CarStatus | "">("");
   const [fuel, setFuel] = useState<FuelType | "">("");
@@ -100,8 +113,9 @@ export function CarsTable({
     });
     const sorters: Record<SortKey, (a: CarListItem, b: CarListItem) => number> = {
       recent: (a, b) => b.updatedAt.localeCompare(a.updatedAt),
-      "price-desc": (a, b) => (b.price ?? 0) - (a.price ?? 0),
-      "price-asc": (a, b) => (a.price ?? 0) - (b.price ?? 0),
+      // Sob consulta (ou sem preço) fica sempre no fim, como no site.
+      "price-desc": (a, b) => priceKey(b, -1) - priceKey(a, -1),
+      "price-asc": (a, b) => priceKey(a, 1) - priceKey(b, 1),
       "year-desc": (a, b) => (b.year ?? 0) - (a.year ?? 0),
     };
     return [...list].sort(sorters[sort]);
@@ -149,7 +163,7 @@ export function CarsTable({
 
   return (
     <div className="space-y-4">
-      <TypeFilter value={type} allowed={allowedTypes} counts={typeCounts} onSelect={setType} />
+      <TypeFilter value={type} allowed={allowedTypes} counts={typeCounts} onSelect={pickType} />
 
       {/* Filtros */}
       <div className="card flex flex-wrap items-center gap-3 p-3">

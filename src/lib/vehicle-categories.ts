@@ -18,6 +18,8 @@ export const CAR_BODIES = [
   "Descapotável",
   "Monovolume",
 ] as const;
+/** Combustíveis que se oferecem para uma mota (como na encomenda do site). */
+export const MOTORCYCLE_FUELS = ["Gasolina", "Elétrico"] as const;
 export const VEHICLE_TYPES = ["car", "motorcycle"] as const;
 export type VehicleType = (typeof VEHICLE_TYPES)[number];
 

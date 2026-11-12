@@ -2,6 +2,8 @@ import { filterByVehicleType, getAdminTipo, getAdminVehicleTypes } from "@/lib/v
 import { createClient } from "@/lib/supabase/server";
 import { leadFilters,leadSearchOr } from "@/lib/lead-filters";
 import { csvCell } from "@/lib/operations";
+/** Data e hora de Lisboa, legível numa folha de cálculo (o servidor está em UTC). */
+const lisbon=(iso:string|null)=>iso?new Date(iso).toLocaleString("pt-PT",{timeZone:"Europe/Lisbon",day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"";
 export async function GET(request:Request) {
  const db=await createClient();const {data:allowed}=await db.rpc("has_section",{section:"leads"});
  if(!allowed)return new Response("Sem permissão",{status:403});
@@ -13,7 +15,7 @@ export async function GET(request:Request) {
  let offset=0;let first=true;
  const stream=new ReadableStream({async pull(controller){
   try {
-   if(first){controller.enqueue(new TextEncoder().encode("\uFEFF"+["Nome","Email","Telefone","Viatura","Estado","Responsável","Próxima ação","Quando","Motivo de perda"].map(csvCell).join(",")+"\r\n"));first=false;}
+   if(first){controller.enqueue(new TextEncoder().encode("\uFEFF"+["Data do pedido","Nome","Email","Telefone","Tipo","Viatura","Estado","Responsável","Próxima ação","Quando","Motivo de perda"].map(csvCell).join(",")+"\r\n"));first=false;}
    let q=db.from("leads").select("*");
    q=filterByVehicleType(q,types,{includeNull,onlyNull:general});
    if(f.status)q=q.eq("status",f.status);
@@ -24,7 +26,7 @@ export async function GET(request:Request) {
    if(f.due==="unassigned")q=q.is("assigned_to",null).in("status",["new","contacted","proposal"]);
    const {data,error}=await q.order("created_at",{ascending:false}).order("id").range(offset,offset+499);
    if(error)throw new Error("Exportação interrompida");
-   const csv=(data??[]).map(l=>[l.name,l.email,l.phone,l.car_label,l.status,l.assigned_to?staffName.get(l.assigned_to)??"":"",l.next_action,l.next_action_at,l.loss_reason].map(csvCell).join(",")).join("\r\n");
+   const csv=(data??[]).map(l=>[lisbon(l.created_at),l.name,l.email,l.phone,l.vehicle_type==="motorcycle"?"Mota":l.vehicle_type==="car"?"Carro":"",l.car_label,l.status,l.assigned_to?staffName.get(l.assigned_to)??"":"",l.next_action,l.next_action_at,l.loss_reason].map(csvCell).join(",")).join("\r\n");
    if(csv)controller.enqueue(new TextEncoder().encode(csv+"\r\n"));
    offset+=500;if(!data||data.length<500)controller.close();
   }catch(e){controller.error(e);}

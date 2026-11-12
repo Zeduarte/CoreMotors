@@ -57,7 +57,7 @@ export default async function DashboardLayout({
           de atalhos em baixo, todas a flutuar. Safe-area para o modo app. */}
       <div className="hidden md:block">
         <div className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-30">
-          <AdminTopBar user={user} companyName={companyName} newLeads={count ?? 0} />
+          <AdminTopBar user={user} companyName={companyName} newLeads={count ?? 0} showLeads={sections.includes("leads")} />
         </div>
         <div className="fixed bottom-24 left-[max(1rem,env(safe-area-inset-left))] top-[5.5rem] z-30">
           <Sidebar sections={sections} newLeads={count ?? 0} />

@@ -504,6 +504,7 @@ export async function bulkSetStatus(
           isAdmin: me.role === "admin",
           saleRecorded: state.saleRecorded(car.id),
           activeReservation: state.activeReservation(car.id),
+          bulk: true,
         });
     if (reason) refused.push(`${carLabel(car)}: ${reason}`);
     else allowed.push(car.id);
