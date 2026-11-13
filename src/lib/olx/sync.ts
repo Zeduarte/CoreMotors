@@ -4,6 +4,7 @@ import { getBranding, getSiteVehicleTypes } from "@/lib/queries";
 import { site } from "@/lib/site";
 import { publicMediaUrl } from "@/lib/storage";
 import { buildAdvert, type AdvertCar } from "@/lib/olx/advert";
+import { isStandvirtualExport, STANDVIRTUAL_NOTE, suggestCar } from "@/lib/olx/adverts";
 import type { OlxAttributeDef } from "@/lib/olx/attributes";
 import { categoryCandidates, isVehicleCategory, unwrap, type OlxCategory } from "@/lib/olx/categories";
 import { getConnection, olxFetch } from "@/lib/olx/client";
@@ -105,6 +106,30 @@ export async function syncListing(db: Db, carId: string): Promise<SyncOutcome> {
       return { ok: true, action: "deactivate" };
     }
 
+    // Anúncios da conta (0051). Um anúncio do Standvirtual nunca recebe nada
+    // (o OLX recusa alterá-lo); um anúncio associado à viatura é adotado em vez
+    // de se criar outro.
+    const { data: linked } = await db
+      .from("olx_adverts")
+      .select("id, origin, url, status")
+      .eq("car_id", carId)
+      .maybeSingle();
+    const { data: current } = listing.external_id
+      ? await db.from("olx_adverts").select("id, origin").eq("id", Number(listing.external_id)).maybeSingle()
+      : { data: null };
+    if (current?.origin === "standvirtual" || (!listing.external_id && linked?.origin === "standvirtual")) {
+      return managedByStandvirtual(db, listing.id);
+    }
+    if (!listing.external_id && linked) {
+      listing.external_id = String(linked.id);
+      listing.external_url = linked.url ?? listing.external_url;
+      listing.remote_status = linked.status;
+      await db
+        .from("channel_listings")
+        .update({ external_id: listing.external_id, external_url: listing.external_url, remote_status: listing.remote_status })
+        .eq("id", listing.id);
+    }
+
     // Um tipo que o site deixou de vender (Definições → Tipo de site) sai do
     // OLX como um rascunho: o link do anúncio já não abria a ficha.
     const sold = (await getSiteVehicleTypes()).includes(car.vehicle_type ?? "car");
@@ -128,6 +153,7 @@ export async function syncListing(db: Db, carId: string): Promise<SyncOutcome> {
         method: "POST",
         body: { command: "deactivate", is_success: action === "deactivate_sold" },
       });
+      if (!r.ok && isStandvirtualExport(r.error)) return managedByStandvirtual(db, listing.id, Number(listing.external_id));
       if (!r.ok) return fail(action, r.error ?? "falha ao desativar");
       await db
         .from("channel_listings")
@@ -220,6 +246,26 @@ export async function syncListing(db: Db, carId: string): Promise<SyncOutcome> {
     let externalId = listing.external_id;
 
     if (action === "create") {
+      // Um anúncio por associar que é, sem dúvida, desta viatura (marca, modelo
+      // e preço iguais): criar outro duplicava-o no OLX.
+      const { data: loose } = await db
+        .from("olx_adverts")
+        .select("id, title, price, category_name")
+        .is("car_id", null);
+      const clash = (loose ?? []).find(
+        (a) =>
+          suggestCar(
+            { id: a.id, title: a.title, price: a.price, categoryName: a.category_name },
+            [{ id: car.id, make: car.make, model: car.model, price: car.price }],
+          )?.strong,
+      );
+      if (clash) {
+        return fail(
+          action,
+          `Já existe no OLX um anúncio que parece ser desta viatura («${clash.title}»). Associe-o, ou desative-o, em Plataformas de anúncios.`,
+        );
+      }
+
       // Idempotência: se uma tentativa anterior chegou a criar o anúncio mas
       // a resposta se perdeu, ele já existe com o nosso external_id.
       const found = await olxFetch<unknown>(db, `/adverts?external_id=${encodeURIComponent(car.id)}`);
@@ -239,6 +285,7 @@ export async function syncListing(db: Db, carId: string): Promise<SyncOutcome> {
         method: "PUT",
         body: built.advert,
       });
+      if (!r.ok && isStandvirtualExport(r.error)) return managedByStandvirtual(db, listing.id, Number(externalId));
       if (!r.ok) return fail(action, r.error ?? "falha ao atualizar");
       remote = unwrap<RemoteAdvert>(r.data) ?? remote;
     }
@@ -248,6 +295,7 @@ export async function syncListing(db: Db, carId: string): Promise<SyncOutcome> {
         method: "POST",
         body: { command: "activate" },
       });
+      if (!r.ok && isStandvirtualExport(r.error)) return managedByStandvirtual(db, listing.id, Number(externalId));
       if (!r.ok) return fail(action, r.error ?? "falha ao reativar");
     }
 
@@ -279,6 +327,20 @@ export async function syncListing(db: Db, carId: string): Promise<SyncOutcome> {
     console.error("olx syncListing:", error);
     return fail("error", error instanceof Error ? error.message : "Falha inesperada.");
   }
+}
+
+/**
+ * O anúncio vem do Standvirtual: o OLX não o deixa alterar, por isso a
+ * sincronização pára aqui, sem erro, e o backoffice diz onde se gere. Quando
+ * foi o OLX a dizê-lo (`advertId`), a origem fica corrigida no espelho.
+ */
+async function managedByStandvirtual(db: Db, listingId: string, advertId?: number): Promise<SyncOutcome> {
+  if (advertId) await db.from("olx_adverts").update({ origin: "standvirtual" }).eq("id", advertId);
+  await db
+    .from("channel_listings")
+    .update({ sync_state: "idle", last_error: null, attempts: 0, notes: STANDVIRTUAL_NOTE })
+    .eq("id", listingId);
+  return { ok: true, action: "none" };
 }
 
 /** Repete o que ficou pendente ou falhou. Chamado pelo /api/maintenance. */

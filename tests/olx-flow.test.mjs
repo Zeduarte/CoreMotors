@@ -90,6 +90,8 @@ function makeDb(){
    {code:'make',label:'Marca',validation:{required:true},values:[{code:'bmw',label:'BMW'}]},
    {code:'fuel',label:'Combustível',validation:{required:true},values:[{code:'diesel',label:'Diesel'}]}]}],
   olx_category_details:[],
+  // Anúncios da conta (0051): vazia, como numa conta sem anúncios de fora.
+  olx_adverts:[],
  };
  let seq=1;
  const q=(table)=>{
@@ -103,7 +105,7 @@ function makeDb(){
   };
   const api={
    select(){return api;},eq(c,v){f.push(r=>r[c]===v);return api;},in(c,v){f.push(r=>v.includes(r[c]));return api;},
-   lt(c,v){f.push(r=>r[c]<v);return api;},not(c,_o,_v){f.push(r=>r[c]!==null&&r[c]!==undefined);return api;},
+   lt(c,v){f.push(r=>r[c]<v);return api;},is(c,v){f.push(r=>(r[c]??null)===v);return api;},not(c,_o,_v){f.push(r=>r[c]!==null&&r[c]!==undefined);return api;},
    limit(n){lim=n;return api;},
    update(p){op='update';patch=p;return api;},delete(){op='delete';return api;},
    insert(row){t[table].push({id:`l${seq++}`,sync_state:'idle',attempts:0,status:'pending',external_id:null,external_url:null,

@@ -180,3 +180,79 @@ test('com stats, guarda as estatísticas de todos e copia-as para a viatura asso
   assert.equal(d._t.channel_listings[0].views, 50);
   assert.ok(row(d, 1).stats_at);
 });
+
+// ---- Sincronização: adota, respeita o Standvirtual e não duplica ----------
+const S = load('src/lib/olx/sync.ts');
+const CAR2 = '22222222-2222-4222-8222-222222222222';
+function sdb(extra = {}) {
+  return makeDb({
+    olx_connection: [connectionRow(olx)],
+    cars: [{ id: CAR2, slug: 'bmw-320d', make: 'BMW', model: '320d', variant: null, year: 2018, registration_month: null, mileage: 120000,
+      fuel: 'Diesel', transmission: 'Manual', body: 'Berlina', power: 190, displacement: 1995, color: 'Preto', doors: 4, seats: 5,
+      price: 18500, price_on_request: false, description: 'Muito estimado.', tagline: null, extras: ['GPS'], status: 'published',
+      channels: ['olx'], vehicle_type: 'car' }],
+    car_media: [{ car_id: CAR2, storage_path: 'bmw/1.jpg', kind: 'image', position: 0, is_cover: true }],
+    olx_category_cache: [{ vehicle_type: 'car', category_id: 181, category_name: 'Carros', photos_limit: 8, attributes: [
+      { code: 'make', label: 'Marca', validation: { required: true }, values: [{ code: 'bmw', label: 'BMW' }] },
+      { code: 'fuel', label: 'Combustível', validation: { required: true }, values: [{ code: 'diesel', label: 'Diesel' }] }] }],
+    channel_listings: [{ id: 'l1', car_id: CAR2, channel: 'olx', status: 'pending', sync_state: 'pending', attempts: 0, external_id: null,
+      external_url: null, remote_status: null, last_error: null, notes: null, published_at: null }],
+    ...extra,
+  });
+}
+const lst = (d) => d._t.channel_listings[0];
+const creates = () => olx.calls.filter((c) => c === 'POST /api/partner/adverts');
+
+test('adota o anúncio OLX associado em vez de criar', async () => {
+  reset(); ad(42, { category_id: 741 });
+  const d = sdb({ olx_adverts: [{ id: 42, origin: 'olx', status: 'active', title: 'BMW 320d', url: 'https://www.olx.pt/d/anuncio/42', car_id: CAR2 }] });
+  const r = await S.syncListing(d, CAR2);
+  assert.equal(r.ok, true, r.error);
+  assert.deepEqual(creates(), []);
+  assert.ok(olx.calls.includes('PUT /api/partner/adverts/42'));
+  assert.equal(lst(d).external_id, '42');
+});
+
+test('anúncio do Standvirtual associado: zero pedidos de escrita, sempre', async () => {
+  reset(); ad(43, { _standvirtual: true, external_id: '8097' });
+  const d = sdb({ olx_adverts: [{ id: 43, origin: 'standvirtual', status: 'active', title: 'BMW 320d', car_id: CAR2 }] });
+  for (let i = 0; i < 3; i++) await S.syncListing(d, CAR2);
+  assert.deepEqual(writes(olx), []);
+  assert.deepEqual([lst(d).sync_state, lst(d).notes, lst(d).last_error], ['idle', 'Gerido no Standvirtual', null]);
+});
+
+test('com external_id de um anúncio do Standvirtual também não envia nada', async () => {
+  reset(); ad(43, { _standvirtual: true, external_id: '8097' });
+  const d = sdb({ olx_adverts: [{ id: 43, origin: 'standvirtual', status: 'active', title: 'BMW 320d', car_id: null }] });
+  lst(d).external_id = '43'; lst(d).remote_status = 'active';
+  await S.syncListing(d, CAR2);
+  assert.deepEqual(writes(olx), []);
+  assert.equal(lst(d).notes, 'Gerido no Standvirtual');
+});
+
+test('sugestão forte por associar bloqueia a criação', async () => {
+  reset();
+  const d = sdb({ olx_adverts: [{ id: 44, origin: 'standvirtual', status: 'active', title: 'BMW 320d Pack M', price: 18500, category_name: 'BMW', car_id: null }] });
+  const r = await S.syncListing(d, CAR2);
+  assert.equal(r.ok, false);
+  assert.deepEqual(creates(), []);
+  assert.equal(lst(d).sync_state, 'error');
+  assert.equal(lst(d).last_error, 'Já existe no OLX um anúncio que parece ser desta viatura («BMW 320d Pack M»). Associe-o, ou desative-o, em Plataformas de anúncios.');
+});
+
+test('sugestão fraca não bloqueia', async () => {
+  reset();
+  const d = sdb({ olx_adverts: [{ id: 44, origin: 'standvirtual', status: 'active', title: 'BMW 320d Pack M', price: 17000, category_name: 'BMW', car_id: null }] });
+  const r = await S.syncListing(d, CAR2);
+  assert.equal(r.ok, true, r.error);
+  assert.equal(creates().length, 1);
+});
+
+test('PUT recusado por ser do Standvirtual: passa a standvirtual, sem erro', async () => {
+  reset(); ad(45, { _standvirtual: true });
+  const d = sdb({ olx_adverts: [{ id: 45, origin: 'olx', status: 'active', title: 'BMW 320d', car_id: CAR2 }] });
+  const r = await S.syncListing(d, CAR2);
+  assert.equal(r.ok, true, r.error);
+  assert.equal(row(d, 45).origin, 'standvirtual');
+  assert.deepEqual([lst(d).sync_state, lst(d).notes, lst(d).last_error], ['idle', 'Gerido no Standvirtual', null]);
+});

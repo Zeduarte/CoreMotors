@@ -22,6 +22,9 @@ export function advertOrigin(externalId: string | null | undefined, siteCarIds: 
   return siteCarIds.has(externalId) ? "site" : "standvirtual";
 }
 
+/** O que o backoffice diz de um anúncio que só se altera no Standvirtual. */
+export const STANDVIRTUAL_NOTE = "Gerido no Standvirtual";
+
 /** A recusa do OLX a alterar um anúncio que veio do Standvirtual. */
 export function isStandvirtualExport(error: string | null | undefined): boolean {
   return !!error && /exportado do\s+standvirtual/i.test(error);
