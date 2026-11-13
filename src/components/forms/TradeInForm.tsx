@@ -1,15 +1,22 @@
 "use client";
 
+import { useSiteTypes, useVehicleWorld } from "@/components/site/VehicleWorld";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
 import { submitLead, type LeadActionState } from "@/lib/actions/leads";
+import { submitKeepingFields } from "@/lib/form-submit";
 
 /**
  * Retoma (trade-in): o cliente descreve o carro atual e pede avaliação.
  * Cria uma lead `trade_in` com os detalhes do carro em `car_details`.
  */
 export function TradeInForm() {
+  const primary = useVehicleWorld();
+  const siteTypes = useSiteTypes();
+  // Num site com carros e motas, o cliente diz o que quer trocar (como na
+  // encomenda): a retoma de uma mota entrava sem tipo.
+  const [type, setType] = useState(primary);
   const [state, formAction, pending] = useActionState<
     LeadActionState,
     FormData
@@ -76,12 +83,30 @@ export function TradeInForm() {
           <motion.form
             key="form"
             ref={ref}
-            action={action}
+            onSubmit={submitKeepingFields(action)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="mt-6 grid gap-4"
           >
             <input type="hidden" name="kind" value="trade_in" />
+            <input type="hidden" name="vehicle_type" value={type} />
+            {siteTypes.length > 1 && (
+              <div role="group" aria-label="Carro ou mota" className="inline-flex w-fit gap-1 rounded-full border border-white/10 p-1">
+                {siteTypes.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    aria-pressed={type === t}
+                    onClick={() => setType(t)}
+                    className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                      type === t ? "bg-paper text-ink" : "text-paper/65 hover:text-paper"
+                    }`}
+                  >
+                    {t === "motorcycle" ? "Mota" : "Carro"}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <p className="text-xs font-semibold uppercase tracking-wider text-paper/40">
               A sua viatura atual
@@ -168,8 +193,11 @@ function Field({
 }) {
   return (
     <div>
-      <span className="field-label">{label}</span>
-      {children}
+      {/* <label> à volta do campo: o rótulo é o nome acessível dele. */}
+      <label className="block">
+        <span className="field-label">{label}</span>
+        {children}
+      </label>
       {error && <p className="field-error">{error}</p>}
     </div>
   );

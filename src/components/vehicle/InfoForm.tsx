@@ -5,6 +5,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
 import { submitLead, type LeadActionState } from "@/lib/actions/leads";
+import { submitKeepingFields } from "@/lib/form-submit";
 
 /**
  * Formulário "Pedir mais informações" sobre uma viatura. Persiste como lead
@@ -71,8 +72,8 @@ export function InfoForm({
   return (
     <form
       ref={formRef}
-      action={formAction}
-      onSubmit={validate}
+      
+      onSubmit={submitKeepingFields(formAction, validate)}
       className="grid gap-4"
     >
       <input type="hidden" name="kind" value="contact" />

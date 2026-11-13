@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
 import { submitLead, type LeadActionState } from "@/lib/actions/leads";
 import { formatPrice } from "@/lib/format";
+import { submitKeepingFields } from "@/lib/form-submit";
 
 /**
  * Reserva de viatura com sinal.
@@ -81,8 +82,8 @@ export function ReserveForm({
           <motion.form
             key="form"
             ref={formRef}
-            action={formAction}
-            onSubmit={validate}
+            
+            onSubmit={submitKeepingFields(formAction, validate)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="mt-6 grid gap-4"

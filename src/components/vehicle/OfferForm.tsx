@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
 import { submitLead, type LeadActionState } from "@/lib/actions/leads";
 import { WHATSAPP_GREEN, WhatsAppIcon } from "@/components/layout/ContactIcons";
+import { submitKeepingFields } from "@/lib/form-submit";
 
 /**
  * Formulário "Fazer uma proposta" — o visitante propõe um valor para a viatura.
@@ -82,8 +83,8 @@ export function OfferForm({
   return (
     <form
       ref={formRef}
-      action={formAction}
-      onSubmit={validate}
+      
+      onSubmit={submitKeepingFields(formAction, validate)}
       className="grid gap-4"
     >
       <input type="hidden" name="kind" value="offer" />

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { login, type AuthState } from "@/lib/actions/auth";
+import { submitKeepingFields } from "@/lib/form-submit";
 
 export function LoginForm({ redirectTo }: { redirectTo: string }) {
   const [state, formAction, pending] = useActionState<AuthState, FormData>(
@@ -10,7 +11,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
   );
 
   return (
-    <form action={formAction} className="card space-y-4 p-6">
+    <form onSubmit={submitKeepingFields(formAction)} className="card space-y-4 p-6">
       <input type="hidden" name="redirect" value={redirectTo} />
 
       <div>

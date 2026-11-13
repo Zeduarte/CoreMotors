@@ -11,6 +11,7 @@ import {
   type VisitRequestState,
 } from "@/lib/actions/visits";
 import { visitIcs, visitShortLabel, visitWhenLabel } from "@/lib/visits";
+import { submitKeepingFields } from "@/lib/form-submit";
 
 const DAY = new Intl.DateTimeFormat("pt-PT", { timeZone: "UTC", weekday: "short" });
 const DATE = new Intl.DateTimeFormat("pt-PT", { timeZone: "UTC", day: "numeric", month: "short" });
@@ -146,7 +147,7 @@ export function VisitForm({
   return (
     // `min-w-0`: a fila dos dias desliza na horizontal; sem isto alargava a
     // janela inteira até caberem todos.
-    <form action={formAction} onSubmit={validate} className="grid min-w-0 gap-5 [&>*]:min-w-0">
+    <form onSubmit={submitKeepingFields(formAction, validate)} className="grid min-w-0 gap-5 [&>*]:min-w-0">
       <input type="hidden" name="car_id" value={vehicleId} />
       <input type="hidden" name="at" value={at ?? ""} />
 

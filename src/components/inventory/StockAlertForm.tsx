@@ -7,7 +7,8 @@ import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
 import { submitLead, type LeadActionState } from "@/lib/actions/leads";
 import { criteriaLabel, type AlertCriteria } from "@/lib/stock-alerts";
 import { CAR_BRANDS } from "@/lib/car-brands";
-import { MOTORCYCLE_BRANDS, bodiesFor, isMotorcycleBody, type VehicleType } from "@/lib/vehicle-categories";
+import { MOTORCYCLE_BRANDS, bodiesFor, isMotorcycleBody, type VehicleType, MOTORCYCLE_FUELS } from "@/lib/vehicle-categories";
+import { submitKeepingFields } from "@/lib/form-submit";
 
 export type AlertDefaults = Partial<{
   make: string | null;
@@ -114,7 +115,13 @@ export function StockAlertForm({
     make: draft.make.trim() || null,
     model: draft.model.trim() || null,
     body: draft.body || null,
-    fuel: defaults?.fuel ?? null,
+    // O combustível vem do stock filtrado; numa mota só Gasolina ou Elétrico
+    // (com «Todos» a Diesel e «Mota» escolhida, ficava um alerta que nunca dispara).
+    fuel:
+      defaults?.fuel &&
+      (vehicleType !== "motorcycle" || (MOTORCYCLE_FUELS as readonly string[]).includes(defaults.fuel))
+        ? defaults.fuel
+        : null,
     max_price: num(draft.max_price),
     min_year: num(draft.min_year),
     max_km: num(draft.max_km),
@@ -173,7 +180,7 @@ export function StockAlertForm({
         </div>
       </div>
 
-      <form ref={formRef} action={formAction} onSubmit={validate} className="mt-7 grid gap-6">
+      <form ref={formRef} onSubmit={submitKeepingFields(formAction, validate)} className="mt-7 grid gap-6">
         <input type="hidden" name="kind" value="alert" />
         <input type="hidden" name="vehicle_type" value={vehicleType} />
         {criteria.fuel && <input type="hidden" name="alert_fuel" value={criteria.fuel} />}

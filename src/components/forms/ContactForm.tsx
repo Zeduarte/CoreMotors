@@ -4,6 +4,8 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
 import { submitLead, type LeadActionState } from "@/lib/actions/leads";
+import { isValidPhone } from "@/lib/phone";
+import { submitKeepingFields } from "@/lib/form-submit";
 
 /**
  * Formulário de contacto geral (site público). Persiste um `lead` (kind=contact)
@@ -38,6 +40,9 @@ export function ContactForm({
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email ?? ""))
       next.email = "Email inválido.";
     if (!data.message?.trim()) next.message = "Escreva a sua mensagem.";
+    // O mesmo critério do servidor: assim o erro aparece logo, no campo.
+    if (data.phone?.trim() && !isValidPhone(data.phone))
+      next.phone = "Telefone inválido. Indique 9 dígitos (ou com o indicativo).";
     setErrors(next);
     if (Object.keys(next).length) e.preventDefault();
   }
@@ -68,8 +73,7 @@ export function ContactForm({
           <motion.form
             key="form"
             ref={ref}
-            action={formAction}
-            onSubmit={validate}
+            onSubmit={submitKeepingFields(formAction, validate)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="mt-6 grid gap-4"
@@ -112,7 +116,9 @@ export function ContactForm({
                   type="tel"
                   className="field"
                   autoComplete="tel"
+                  aria-invalid={errors.phone ? true : undefined}
                 />
+                {errors.phone && <p className="field-error">{errors.phone}</p>}
               </div>
             </div>
             <div>

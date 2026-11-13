@@ -5,6 +5,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
 import { submitLead, type LeadActionState } from "@/lib/actions/leads";
+import { submitKeepingFields } from "@/lib/form-submit";
 
 /**
  * Viatura por encomenda: o cliente descreve o carro que procura mesmo que não
@@ -75,7 +76,7 @@ export function OrderCarForm() {
           <motion.form
             key="form"
             ref={ref}
-            action={action}
+            onSubmit={submitKeepingFields(action)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="mt-6 grid gap-4"
@@ -180,8 +181,11 @@ function Field({
 }) {
   return (
     <div>
-      <span className="field-label">{label}</span>
-      {children}
+      {/* <label> à volta do campo: o rótulo é o nome acessível dele. */}
+      <label className="block">
+        <span className="field-label">{label}</span>
+        {children}
+      </label>
       {error && <p className="field-error">{error}</p>}
     </div>
   );
