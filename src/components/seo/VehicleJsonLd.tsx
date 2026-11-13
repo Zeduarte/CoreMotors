@@ -1,6 +1,7 @@
 import type { Vehicle } from "@/types/vehicle";
 import { site } from "@/lib/site";
 import { safeJsonLd } from "@/lib/json-ld";
+import { isPlaceholderImage } from "@/lib/mappers";
 
 /** Estado comercial → disponibilidade schema.org da oferta. */
 const AVAILABILITY: Record<string, string> = {
@@ -20,15 +21,21 @@ const absolute = (src: string) => (src.startsWith("/") ? `${site.url}${src}` : s
  *
  * Um zero na ficha é um campo por preencher (ou que não se aplica, como as
  * portas de uma mota): fica de fora, em vez de afirmar "0 portas" ou "0 cv".
- * Preço sob consulta não publica preço — publicar 0 € seria falso.
+ * Preço sob consulta não publica preço — publicar 0 € seria falso. Sem
+ * fotografias, sem `image` (o desenho de substituição não é a viatura).
  */
-export function buildVehicleJsonLd(vehicle: Vehicle, sellerName: string = site.name) {
+export function buildVehicleJsonLd(
+  vehicle: Vehicle,
+  sellerName: string = site.name,
+  sellerType: "AutoDealer" | "MotorcycleDealer" = "AutoDealer",
+) {
   const moto = vehicle.vehicleType === "motorcycle";
   // As moto 4 (quads) não são motociclos; ficam no tipo genérico.
   const type = moto ? (vehicle.body === "Moto 4" ? "Vehicle" : "Motorcycle") : "Car";
   const url = `${site.url}/viaturas/${vehicle.slug}`;
   const hasPrice = !vehicle.priceOnRequest && vehicle.price > 0;
   const description = vehicle.description?.trim();
+  const images = vehicle.images.filter((i) => !isPlaceholderImage(i.src)).map((i) => absolute(i.src));
 
   return {
     "@context": "https://schema.org",
@@ -42,7 +49,7 @@ export function buildVehicleJsonLd(vehicle: Vehicle, sellerName: string = site.n
       ? `${vehicle.year}-${String(vehicle.registrationMonth).padStart(2, "0")}`
       : String(vehicle.year),
     ...(description && { description }),
-    image: vehicle.images.map((i) => absolute(i.src)),
+    ...(images.length > 0 && { image: images }),
     bodyType: vehicle.body,
     ...(vehicle.color && { color: vehicle.color }),
     ...(!moto && vehicle.doors > 0 && { numberOfDoors: vehicle.doors }),
@@ -81,7 +88,8 @@ export function buildVehicleJsonLd(vehicle: Vehicle, sellerName: string = site.n
       ...(hasPrice && { priceCurrency: "EUR", price: vehicle.price }),
       availability: AVAILABILITY[vehicle.status ?? "published"] ?? AVAILABILITY.published,
       itemCondition: "https://schema.org/UsedCondition",
-      seller: { "@type": "AutoDealer", name: sellerName, url: site.url },
+      // O mesmo stand do JSON-LD do layout (DealerJsonLd), pelo `@id`.
+      seller: { "@type": sellerType, "@id": `${site.url}/#dealer`, name: sellerName, url: site.url },
     },
   };
 }
@@ -89,15 +97,17 @@ export function buildVehicleJsonLd(vehicle: Vehicle, sellerName: string = site.n
 export function VehicleJsonLd({
   vehicle,
   sellerName = site.name,
+  sellerType = "AutoDealer",
 }: {
   vehicle: Vehicle;
   sellerName?: string;
+  sellerType?: "AutoDealer" | "MotorcycleDealer";
 }) {
   return (
     <script
       type="application/ld+json"
       // `safeJsonLd` escapa `<`, `>`, `&` e U+2028/9: a descrição vem do backoffice.
-      dangerouslySetInnerHTML={{ __html: safeJsonLd(buildVehicleJsonLd(vehicle, sellerName)) }}
+      dangerouslySetInnerHTML={{ __html: safeJsonLd(buildVehicleJsonLd(vehicle, sellerName, sellerType)) }}
     />
   );
 }

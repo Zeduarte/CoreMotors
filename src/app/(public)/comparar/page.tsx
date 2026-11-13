@@ -1,15 +1,21 @@
 import { Fragment } from "react";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import Link from "next/link";
 import Image from "next/image";
 import { getVehicleBySlug } from "@/lib/queries";
-import { formatKm, formatNumber, priceLabel } from "@/lib/format";
+import { bodyFieldLabel, formatKm, formatNumber, priceLabel } from "@/lib/format";
 import type { Vehicle } from "@/types/vehicle";
+import { CompareRemove } from "@/components/inventory/CompareRemove";
 
-export const metadata: Metadata = {
-  title: "Comparar viaturas",
-  robots: { index: false, follow: true },
-};
+export function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, {
+    path: "/comparar",
+    canonical: false,
+    title: "Comparar viaturas",
+    robots: { index: false, follow: true },
+  });
+}
 
 export const revalidate = 60;
 
@@ -28,6 +34,8 @@ const ROWS: {
   metric?: (v: Vehicle) => number | null;
   /** Esconde a linha quando nenhuma viatura tem valor. */
   hideIfEmpty?: boolean;
+  /** Rótulo que depende das viaturas comparadas (carros, motas ou os dois). */
+  labelFor?: (vehicles: Vehicle[]) => string;
 }[] = [
   {
     label: "Preço",
@@ -44,7 +52,11 @@ const ROWS: {
   },
   { label: "Combustível", get: (v) => v.fuel },
   { label: "Caixa", get: (v) => v.transmission },
-  { label: "Carroçaria", get: (v) => v.body },
+  {
+    label: "Carroçaria",
+    get: (v) => v.body,
+    labelFor: (list) => bodyFieldLabel(list.map((v) => v.vehicleType)),
+  },
   {
     label: "Potência",
     get: (v) => (v.power ? `${v.power} cv` : "—"),
@@ -91,11 +103,8 @@ function winningValue(
 
 export default async function ComparePage({ searchParams }: Params) {
   const { ids } = await searchParams;
-  const slugs = (ids ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, 3);
+  // Sem repetidos: `?ids=a,a` comparava a viatura consigo própria.
+  const slugs = [...new Set((ids ?? "").split(",").map((s) => s.trim()).filter(Boolean))].slice(0, 3);
 
   const found = (await Promise.all(slugs.map((s) => getVehicleBySlug(s)))).filter(
     (v): v is Vehicle => Boolean(v),
@@ -139,10 +148,10 @@ export default async function ComparePage({ searchParams }: Params) {
             {/* Cabeçalho: foto + nome de cada viatura */}
             <div className="bg-ink" />
             {found.map((v) => (
+              <div key={v.slug} className="bg-ink p-2 sm:p-3">
               <Link
-                key={v.slug}
                 href={`/viaturas/${v.slug}`}
-                className="group bg-ink p-2 sm:p-3"
+                className="group block"
               >
                 <div className="relative mb-2 aspect-[4/3] overflow-hidden rounded-lg bg-ink-muted sm:mb-3 sm:rounded-xl">
                   <Image
@@ -162,6 +171,9 @@ export default async function ComparePage({ searchParams }: Params) {
                   </p>
                 )}
               </Link>
+              {/* Tirar só esta (antes só havia «Limpar» na barra). */}
+              <CompareRemove slug={v.slug} rest={found.filter((o) => o.slug !== v.slug).map((o) => o.slug)} />
+              </div>
             ))}
 
             {/* Especificações */}
@@ -170,7 +182,7 @@ export default async function ComparePage({ searchParams }: Params) {
               return (
                 <Fragment key={row.label}>
                   <div className="flex items-center bg-ink p-2 text-[10px] font-semibold uppercase tracking-wider text-paper/40 sm:p-3 sm:text-xs">
-                    {row.label}
+                    {row.labelFor?.(found) ?? row.label}
                   </div>
                   {found.map((v) => {
                     const isWinner =

@@ -1,12 +1,21 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import Link from "next/link";
 import { verifyAlertCancelToken } from "@/lib/alert-token";
 import { CancelAlertButton } from "./CancelAlertButton";
 
-export const metadata: Metadata = {
-  title: "Cancelar alerta de stock",
-  robots: { index: false, follow: false },
-};
+// Fora do índice; o `og:url` é o do próprio link (não o da página inicial).
+export async function generateMetadata(
+  { params }: { params: Promise<{ token: string }> },
+  parent: ResolvingMetadata,
+): Promise<Metadata> {
+  return pageMetadata(parent, {
+    path: `/alertas/cancelar/${encodeURIComponent((await params).token)}`,
+    canonical: false,
+    title: "Cancelar alerta de stock",
+    robots: { index: false, follow: false },
+  });
+}
 
 /**
  * O link «cancelar o alerta» das mensagens de WhatsApp. Abrir a página não

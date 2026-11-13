@@ -8,7 +8,8 @@ import type {
   BodyType,
   SortKey,
 } from "@/types/vehicle";
-import { bodiesFor, type VehicleType } from "@/lib/vehicle-categories";
+import { bodiesFor, isMotorcycleBody, type VehicleType } from "@/lib/vehicle-categories";
+import { bodyFieldLabel } from "@/lib/format";
 import { activeFilterCount } from "@/lib/vehicles";
 import { BodyPicker } from "@/components/ui/BodyPicker";
 import type { SearchField } from "@/lib/olx/search";
@@ -60,6 +61,14 @@ const MOTO_CHIPS: { label: string; patch: Partial<VehicleFilters> }[] = [
   { label: "Até 5.000 €", patch: { maxPrice: 5000 } },
   { label: "Até 10.000 €", patch: { maxPrice: 10000 } },
   { label: "Até 20.000 km", patch: { maxMileage: 20000 } },
+];
+
+/** Em «Todos» (carros e motas juntos): só atalhos que servem aos dois. */
+const NEUTRAL_CHIPS: { label: string; patch: Partial<VehicleFilters> }[] = [
+  { label: "Elétrico", patch: { fuel: "Elétrico" } },
+  { label: "Até 20.000 km", patch: { maxMileage: 20000 } },
+  { label: "Até 10.000 €", patch: { maxPrice: 10000 } },
+  { label: "Até 25.000 €", patch: { maxPrice: 25000 } },
 ];
 
 const SORT_LABELS: Record<SortKey, string> = {
@@ -232,7 +241,7 @@ export function Filters({
         <div className="mt-5 border-t border-white/10 pt-5">
           {/* Atalhos rápidos */}
           <div className="mb-5 flex flex-wrap gap-2">
-            {(isMoto ? MOTO_CHIPS : QUICK_CHIPS).map((chip) => (
+            {(isMoto ? MOTO_CHIPS : filters.vehicleType === "car" ? QUICK_CHIPS : NEUTRAL_CHIPS).map((chip) => (
               <button
                 key={chip.label}
                 type="button"
@@ -253,6 +262,11 @@ export function Filters({
                 }
               >
                 <option value="">Todos</option>
+                {/* Pedido num link mas sem stock: continua à vista (como a
+                    marca), para se perceber porque não há resultados. */}
+                {filters.fuel && !options.fuels.includes(filters.fuel) && (
+                  <option value={filters.fuel}>{filters.fuel}</option>
+                )}
                 {options.fuels.map((f) => (
                   <option key={f} value={f}>
                     {f}
@@ -269,6 +283,9 @@ export function Filters({
                 }
               >
                 <option value="">Todas</option>
+                {filters.transmission && !options.transmissions.includes(filters.transmission) && (
+                  <option value={filters.transmission}>{filters.transmission}</option>
+                )}
                 {options.transmissions.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -277,10 +294,15 @@ export function Filters({
               </Select>
             </Field>
 
-            {/* A categoria escolhe-se nos quadrados do topo. Sem mundo
-                definido (raro), fica a lista aqui. */}
+            {/* A categoria escolhe-se nos quadrados do topo. Com «Todos»,
+                fica a lista aqui — com carros e motas, «Carroçaria /
+                categoria» (Naked não é uma carroçaria). */}
             {!filters.vehicleType && (
-            <Field label="Carroçaria">
+            <Field
+              label={bodyFieldLabel(
+                options.bodies.map((b) => (isMotorcycleBody(b) ? "motorcycle" : "car")),
+              )}
+            >
               <Select
                 value={filters.body ?? ""}
                 onChange={(v) =>
@@ -288,11 +310,27 @@ export function Filters({
                 }
               >
                 <option value="">Todas</option>
-                {options.bodies.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
+                {filters.body && !options.bodies.includes(filters.body) && (
+                  <option value={filters.body}>{filters.body}</option>
+                )}
+                {/* Carros e motas juntos: cada um no seu grupo. */}
+                {options.bodies.some(isMotorcycleBody) && options.bodies.some((b) => !isMotorcycleBody(b))
+                  ? (["Carros", "Motas"] as const).map((group) => (
+                      <optgroup key={group} label={group}>
+                        {options.bodies
+                          .filter((b) => isMotorcycleBody(b) === (group === "Motas"))
+                          .map((b) => (
+                            <option key={b} value={b}>
+                              {b}
+                            </option>
+                          ))}
+                      </optgroup>
+                    ))
+                  : options.bodies.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
               </Select>
             </Field>
             )}

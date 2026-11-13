@@ -3,8 +3,8 @@ IMAGENS E VÍDEOS DO SITE
 
 Tudo o que é fotografia ou vídeo fixo do site está aqui, em três pastas:
 
-  carros/  -> o que aparece quando o visitante escolhe CARROS
-  motas/   -> o que aparece quando o visitante escolhe MOTAS
+  carros/  -> fotos dos carros (o aspeto do site, salvo num site só de motas)
+  motas/   -> fotos das motas (site só de motas, e o que é só de motas)
   comum/   -> o que aparece igual nos dois (páginas Sobre e Contactos)
 
 PARA TROCAR UMA IMAGEM: substitui o ficheiro mantendo EXATAMENTE o mesmo nome.
@@ -20,9 +20,10 @@ corre antes:  node scripts/media-manifest.mjs
 
 carros/ e motas/ (os mesmos nomes nas duas pastas)
 --------------------------------------------------
-  entrada.jpg      Metade do ecrã de entrada (primeira visita, "Escolhe a tua
-                   liberdade"). Horizontal, ~1920x1080. O centro é o que se vê:
-                   as margens são cortadas.
+  entrada.jpg      Fundo do topo do stock (/inventario) e das páginas /carros e
+                   /motas: a dos carros, ou a das motas com o filtro «Motas» (ou
+                   num site só de motas). Horizontal, ~1920x1080. O centro é o
+                   que se vê: as margens são cortadas.
   topo.mp4         Topo da página inicial em VÍDEO (percorrido com o scroll).
   topo.jpg         Topo da página inicial em IMAGEM (aceita .png/.webp/.avif).
   topo-poster.jpg  Imagem mostrada enquanto o vídeo carrega (só com vídeo).

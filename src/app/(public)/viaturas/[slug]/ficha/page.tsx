@@ -1,5 +1,6 @@
 import { registrationLabel } from "@/lib/vehicle-categories";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -13,17 +14,21 @@ export const revalidate = 60;
 
 type Params = Promise<{ slug: string }>;
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Params;
-}): Promise<Metadata> {
+// Fora do índice, com o canónico da ficha (do layout); partilhada, aponta
+// também para a ficha da viatura.
+export async function generateMetadata(
+  { params }: { params: Params },
+  parent: ResolvingMetadata,
+): Promise<Metadata> {
   const { slug } = await params;
   const v = await getVehicleBySlug(slug);
-  return {
-    title: v ? `Ficha — ${v.make} ${v.model}` : "Ficha",
+  if (!v) return { title: "Ficha", robots: { index: false, follow: false } };
+  return pageMetadata(parent, {
+    title: `Ficha — ${v.make} ${v.model}`,
+    path: `/viaturas/${v.slug}`,
+    canonical: false,
     robots: { index: false, follow: false },
-  };
+  });
 }
 
 export default async function FichaPage({ params }: { params: Params }) {

@@ -2,7 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 // Ficha de uma viatura que já não está publicada (vendida há muito, retirada,
-// ou link antigo). Fica dentro do site (cabeçalho e rodapé) e leva ao stock.
+// rascunho ou link antigo). Fica dentro do site (cabeçalho e rodapé) e leva
+// ao stock.
+//
+// Está em `viaturas/` e não em `viaturas/[slug]/` de propósito: o 404 é
+// lançado no layout de `[slug]` (antes do esqueleto, para o código ser 404 a
+// sério), e o not-found de um segmento não apanha o que o próprio layout
+// lança — só o do segmento de cima.
 export const metadata: Metadata = {
   title: "Viatura não encontrada",
   robots: { index: false, follow: true },

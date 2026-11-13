@@ -1,14 +1,17 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import { AnimatedText } from "@/components/ui/AnimatedText";
 import { TradeInForm } from "@/components/forms/TradeInForm";
 import { OrderCarForm } from "@/components/forms/OrderCarForm";
 
-export const metadata: Metadata = {
-  title: "Vender ou Encomendar",
-  alternates: { canonical: "/vender" },
-  description:
-    "Avalie a retoma da sua viatura ou encomende a viatura que procura. Resposta rápida e sem compromisso.",
-};
+export function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, {
+    path: "/vender",
+    title: "Vender ou Encomendar",
+    description:
+      "Avalie a retoma da sua viatura ou encomende a viatura que procura. Resposta rápida e sem compromisso.",
+  });
+}
 
 export default function SellPage() {
   return (

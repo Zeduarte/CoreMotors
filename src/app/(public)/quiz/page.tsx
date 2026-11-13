@@ -1,16 +1,19 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import { getSiteVehicleTypes, getVehicleList } from "@/lib/queries";
 import { CarQuiz } from "@/components/quiz/CarQuiz";
 import { AnimatedText } from "@/components/ui/AnimatedText";
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: "Encontre o seu veículo ideal",
-  alternates: { canonical: "/quiz" },
-  description:
-    "Responda a umas perguntas rápidas e descubra as viaturas do nosso stand mais indicadas para si.",
-};
+export function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, {
+    path: "/quiz",
+    title: "Encontre o seu veículo ideal",
+    description:
+      "Responda a umas perguntas rápidas e descubra as viaturas do nosso stand mais indicadas para si.",
+  });
+}
 
 export default async function QuizPage() {
   // Todo o stock: o questionário começa por perguntar se procura carro ou

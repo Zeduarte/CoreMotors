@@ -6,8 +6,19 @@ import { mediaFor } from "@/lib/media";
  * Chamada para retoma / encomenda. A foto (retoma.jpg em public/media/carros|motas/) é o
  * FUNDO do card, com um escurecimento diagonal para o texto se manter legível.
  * Se a imagem não existir, fica o fundo sólido (bg-ink-soft) — nada parte.
+ *
+ * O título fala do tipo da ficha («Tem uma mota para trocar?»); na página
+ * inicial de um site com carros e motas (`mixed`), de uma viatura qualquer.
  */
-export function SellCTA({vehicleType = "car"}:{vehicleType?:VehicleType}) {
+export function SellCTA({
+  vehicleType = "car",
+  mixed = false,
+}: {
+  vehicleType?: VehicleType;
+  /** O site vende carros e motas e não há uma viatura em causa: texto neutro. */
+  mixed?: boolean;
+}) {
+  const what = mixed ? "uma viatura" : vehicleType === "motorcycle" ? "uma mota" : "um carro";
   return (
     <section className="container-px py-20 md:py-28">
       <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-ink-soft">
@@ -27,7 +38,7 @@ export function SellCTA({vehicleType = "car"}:{vehicleType?:VehicleType}) {
           <div>
             <p className="eyebrow mb-4">Retoma & Encomenda</p>
             <h2 className="text-3xl font-semibold text-paper md:text-4xl">
-              {vehicleType === "motorcycle" ? "Tem uma mota para trocar? Ou procura algo específico?" : "Tem um carro para trocar? Ou procura algo específico?"}
+              Tem {what} para trocar? Ou procura algo específico?
             </h2>
             <p className="mt-4 max-w-md text-paper/70">
               Avalie a sua retoma em minutos ou peça a viatura ideal — mesmo que

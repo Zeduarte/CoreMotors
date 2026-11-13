@@ -1,13 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import { LegalPage } from "@/components/legal/LegalPage";
 import { ManageCookiesButton } from "@/components/site/ManageCookiesButton";
 
-export const metadata: Metadata = {
-  title: "Política de Cookies",
-  alternates: { canonical: "/politica-de-cookies" },
-  description:
-    "O que são cookies, que cookies utilizamos neste site e como pode geri-los.",
-};
+export function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, {
+    path: "/politica-de-cookies",
+    title: "Política de Cookies",
+    description:
+      "O que são cookies, que cookies utilizamos neste site e como pode geri-los.",
+  });
+}
 
 export const revalidate = 3600;
 

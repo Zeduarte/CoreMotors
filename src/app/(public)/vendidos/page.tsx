@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import Link from "next/link";
 import { getSoldVehicleList } from "@/lib/queries";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
@@ -7,15 +8,15 @@ export const revalidate = 60;
 
 // Sem vendas para mostrar, a página fica fora do índice do Google (seria uma
 // página vazia) e fora do sitemap — ver `lib/sitemap.ts`.
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   const vehicles = await getSoldVehicleList();
-  return {
+  return pageMetadata(parent, {
     title: "Viaturas vendidas",
-    alternates: { canonical: "/vendidos" },
+    path: "/vendidos",
     description:
       "Histórico de viaturas já vendidas. Veja algumas das entregas que fizemos — prova da confiança de quem comprou connosco.",
     ...(vehicles.length ? {} : { robots: { index: false, follow: true } }),
-  };
+  });
 }
 
 export default async function SoldPage() {

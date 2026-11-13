@@ -1,9 +1,11 @@
 import { getPublicVehicleType, getSiteVehicleTypes } from "@/lib/vehicle-context";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import Image from "next/image";
 import { mediaFor } from "@/lib/media";
 import { asset } from "@/lib/asset";
-import { getVehicles } from "@/lib/queries";
+import { getBranding, getVehicles } from "@/lib/queries";
+import type { VehicleType } from "@/lib/vehicle-categories";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import { inventoryWithOlx } from "@/lib/olx/search";
 import { filtersFromQuery, sortFromQuery } from "@/lib/vehicles";
 import { InventoryClient } from "@/components/inventory/InventoryClient";
@@ -11,12 +13,50 @@ import { SeoLinks } from "@/components/seo/SeoLinks";
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: "Stock",
-  alternates: { canonical: "/inventario" },
-  description:
-    "Explore o stock completo da Supermotas. Filtre por marca, modelo, preço, ano, combustível e quilómetros.",
-};
+export async function generateMetadata(
+  _: unknown,
+  parent: ResolvingMetadata,
+): Promise<Metadata> {
+  // O nome do stand é o das Definições, como no resto da página.
+  const { companyName } = await getBranding();
+  return pageMetadata(parent, {
+    title: "Stock",
+    path: "/inventario",
+    description: `Explore o stock completo da ${companyName}. Filtre por marca, modelo, preço, ano, combustível e quilómetros.`,
+  });
+}
+
+/**
+ * O topo do stock: a foto do tipo escolhido (carros ou motas; com «Todos», a
+ * do tipo principal do site) a desvanecer, e o título para leitores de ecrã.
+ */
+function StockHeader({ photo, type }: { photo: VehicleType; type: VehicleType | null }) {
+  return (
+    <>
+      <div aria-hidden className="absolute inset-0 md:left-[35%]">
+        <Image
+          src={asset(mediaFor(photo).entrada)}
+          alt=""
+          fill
+          priority
+          sizes="(max-width: 768px) 100vw, 1100px"
+          className="object-cover object-center opacity-60"
+        />
+      </div>
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-t from-ink-soft via-ink-soft/90 to-ink-soft/60 md:bg-gradient-to-r md:from-ink-soft md:from-35% md:via-ink-soft/75 md:via-55% md:to-ink-soft/20"
+      />
+      <h1 className="sr-only">
+        {type === "car"
+          ? "Carros disponíveis"
+          : type === "motorcycle"
+            ? "Motas disponíveis"
+            : "Todas as viaturas disponíveis"}
+      </h1>
+    </>
+  );
+}
 
 export default async function InventoryPage({
   searchParams,
@@ -51,31 +91,16 @@ export default async function InventoryPage({
   return (
     <div className="container-px pb-24 pt-6 md:pt-10">
       <InventoryClient
-        header={
-          <>
-            {/* Fundo do cartão: a foto do mundo (carros/motas) a desvanecer. */}
-            <div aria-hidden className="absolute inset-0 md:left-[35%]">
-              <Image
-                src={asset(mediaFor(world).entrada)}
-                alt=""
-                fill
-                priority
-                sizes="(max-width: 768px) 100vw, 1100px"
-                className="object-cover object-center opacity-60"
-              />
-            </div>
-            <div
-              aria-hidden
-              className="absolute inset-0 bg-gradient-to-t from-ink-soft via-ink-soft/90 to-ink-soft/60 md:bg-gradient-to-r md:from-ink-soft md:from-35% md:via-ink-soft/75 md:via-55% md:to-ink-soft/20"
-            />
-            <h1 className="sr-only">
-              {vehicleType === "car"
-                ? "Carros disponíveis"
-                : vehicleType === "motorcycle"
-                  ? "Motas disponíveis"
-                  : "Todas as viaturas disponíveis"}
-            </h1>
-          </>
+        // A foto acompanha o tipo: ?tipo=motas (ou um site só de motas)
+        // abre com a das motas, e trocar de tipo no stock troca-a também.
+        header={<StockHeader photo={vehicleType ?? world} type={vehicleType} />}
+        headerByType={
+          siteTypes.length > 1
+            ? {
+                all: <StockHeader photo={world} type={null} />,
+                ...Object.fromEntries(siteTypes.map((t) => [t, <StockHeader key={t} photo={t} type={t} />])),
+              }
+            : undefined
         }
         key={JSON.stringify(initialFilters)}
         vehicles={vehicles}
@@ -86,12 +111,14 @@ export default async function InventoryPage({
       />
 
       {/* Pesquisas populares: páginas por marca, categoria e preço (Google),
-          uma caixa por cada tipo que o site vende. */}
+          uma caixa por cada tipo que o site vende — com o tipo no título
+          quando são duas («Pesquisas populares — motas»). */}
       {siteTypes.map((t) => (
         <SeoLinks
           key={t}
           type={t}
           vehicles={vehicles.filter((v) => (v.vehicleType ?? "car") === t)}
+          showType={siteTypes.length > 1}
           className="mt-20"
         />
       ))}

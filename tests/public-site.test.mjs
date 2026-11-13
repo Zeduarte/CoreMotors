@@ -329,7 +329,10 @@ test("/inventario?tipo= filters the single stock, and old switch links still lan
   const other = await GET(new NextRequest("https://example.test/api/vehicle-context?area=public&type=car&target=%2Fsobre&carry=1&x=1"));
   assert.equal(other.headers.get("location"), null);
   assert.match(await other.text(), /url=\/sobre"/);
-  assert.equal((await GET(new NextRequest("https://example.test/api/vehicle-context?type=truck"))).status, 400);
+  // Um tipo desconhecido segue para a página inicial (antes: JSON 400 a quem clicava).
+  const truck = await GET(new NextRequest("https://example.test/api/vehicle-context?type=truck"));
+  assert.notEqual(truck.headers.get("content-type"), "application/json");
+  assert.match(await truck.text(), /url=\/"/);
 });
 
 test("site type (Definições → Tipo de site): only cars, cars and motorcycles, or only motorcycles", () => {
@@ -359,4 +362,164 @@ test("/carros and /motas answer a real 404 when the site does not sell that type
     types = [type === "car" ? "motorcycle" : "car"];
     await assert.rejects(Layout({ children: "lista" }), /NEXT_NOT_FOUND/, dir);
   }
+});
+
+test("home segments fit any desktop width: groups for cars and motorcycles, a wrapping grid, no single nowrap row", async () => {
+  const React = require("react");
+  const { renderToStaticMarkup } = require("react-dom/server");
+  const load = loader({ "next/link": { __esModule: true, default: ({ href, children, ...p }) => React.createElement("a", { href, ...p }, children) } });
+  const { Segments } = load("src/components/home/Segments.tsx");
+  const segs = ["Berlina", "SUV", "Coupé", "Carrinha", "Citadino", "Utilitário", "Scooter", "Naked", "Desportiva", "Trail", "Touring", "Enduro", "Moto 4"].map((body) => ({ body, count: 1 }));
+  const html = renderToStaticMarkup(React.createElement(Segments, { segments: segs }));
+  // Com os dois tipos, dois grupos com título; cada um uma grelha no computador.
+  assert.equal((html.match(/<h3/g) ?? []).length, 2);
+  assert.ok(html.indexOf(">Carros<") < html.indexOf(">Motas<"));
+  assert.ok(html.indexOf("Utilitário") < html.indexOf(">Motas<") && html.indexOf("Naked") > html.indexOf(">Motas<"));
+  assert.doesNotMatch(html, /flex-nowrap/, "a fila sem quebra saía do ecrã pelos dois lados");
+  assert.match(html, /md:grid-cols-\[repeat\(auto-fill,minmax\(11rem,1fr\)\)\]/);
+  // Só um tipo: sem títulos de grupo.
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(Segments, { segments: segs.slice(0, 3) })), /<h3/);
+});
+
+test("mixed-site home asks «Tem uma viatura para trocar?»; a vehicle page keeps its own type", async () => {
+  const React = require("react");
+  const { renderToStaticMarkup } = require("react-dom/server");
+  const load = loader({ "next/link": { __esModule: true, default: ({ href, children, ...p }) => React.createElement("a", { href, ...p }, children) } });
+  const { SellCTA } = load("src/components/home/SellCTA.tsx");
+  const text = (props) => renderToStaticMarkup(React.createElement(SellCTA, props));
+  assert.match(text({ vehicleType: "car", mixed: true }), /Tem uma viatura para trocar\?/);
+  assert.match(text({ vehicleType: "motorcycle" }), /Tem uma mota para trocar\?/);
+  assert.match(text({}), /Tem um carro para trocar\?/);
+  assert.match(readFileSync("src/app/(public)/(home)/page.tsx", "utf8"), /<SellCTA vehicleType=\{type\} mixed=\{siteTypes\.length > 1\} \/>/);
+  assert.match(readFileSync("src/app/(public)/viaturas/[slug]/page.tsx", "utf8"), /<SellCTA vehicleType=\{vehicle\.vehicleType \?\? "car"\} \/>/);
+});
+
+test("header: «Stock» is active on every stock page (lists, vehicles, sold, compare), also in the mobile menu", () => {
+  const { isNavActive } = loader({ "next/navigation": {}, "framer-motion": {}, "next/link": {}, "next/image": {} })("src/components/layout/Header.tsx");
+  for (const path of ["/inventario", "/carros", "/carros/bmw", "/motas", "/motas/naked", "/viaturas/bmw-m4-2021", "/viaturas/bmw-m4-2021/ficha", "/vendidos", "/comparar"])
+    assert.ok(isNavActive("/inventario", path), path);
+  for (const path of ["/", "/sobre", "/carrosel", "/motas-x", "/servicos"]) assert.ok(!isNavActive("/inventario", path), path);
+  assert.ok(isNavActive("/", "/") && !isNavActive("/", "/sobre"));
+  assert.ok(isNavActive("/servicos", "/servicos/garantia") && !isNavActive("/servicos", "/servicos-x"));
+  const header = readFileSync("src/components/layout/Header.tsx", "utf8");
+  // O menu móvel também marca a página aberta (aria-current), favoritos incluídos.
+  assert.match(header, /\[\.\.\.NAV, \{ href: "\/favoritos", label: "Favoritos" \}\]\.map/);
+  assert.equal((header.match(/aria-current=/g) ?? []).length, 3);
+});
+
+test("stock, footer, marquee and texts: unique popular-search ids, «Termos e Condições», ?marca=, «você»", async () => {
+  const React = require("react");
+  const { renderToStaticMarkup } = require("react-dom/server");
+  const load = loader({ "next/link": { __esModule: true, default: ({ href, children, prefetch, ...p }) => React.createElement("a", { href, ...p }, children) } });
+  const { SeoLinks } = load("src/components/seo/SeoLinks.tsx");
+  const v = (vehicleType, make, body) => ({ slug: `${make}-${body}`, make, model: "X", body, fuel: "Gasolina", price: 10000, priceOnRequest: false, vehicleType });
+  const cars = renderToStaticMarkup(React.createElement(SeoLinks, { type: "car", vehicles: [v("car", "BMW", "SUV"), v("car", "BMW", "SUV")], showType: true }));
+  const motos = renderToStaticMarkup(React.createElement(SeoLinks, { type: "motorcycle", vehicles: [v("motorcycle", "Honda", "Naked"), v("motorcycle", "Honda", "Naked")], showType: true }));
+  assert.match(cars, /id="pesquisas-populares-carros"/);
+  assert.match(cars, /aria-labelledby="pesquisas-populares-carros"/);
+  assert.match(cars, /Pesquisas populares — carros/);
+  assert.match(motos, /id="pesquisas-populares-motas"/);
+  assert.match(motos, /Pesquisas populares — motas/);
+  assert.match(readFileSync("src/app/(public)/inventario/page.tsx", "utf8"), /showType=\{siteTypes\.length > 1\}/);
+  assert.match(readFileSync("src/components/layout/Footer.tsx", "utf8"), /"Termos e Condições"/);
+  assert.doesNotMatch(readFileSync("src/components/layout/Footer.tsx", "utf8"), /Termos de Condições/);
+  const marquee = readFileSync("src/components/home/BrandMarquee.tsx", "utf8");
+  assert.match(marquee, /\/inventario\?marca=/);
+  assert.doesNotMatch(marquee, /\?make=/);
+  const { DEFAULT_HOME_CONTENT } = load("src/lib/home-content.ts");
+  const moto = `${DEFAULT_HOME_CONTENT.motoHero.title} ${DEFAULT_HOME_CONTENT.motoHero.subtitle}`;
+  assert.doesNotMatch(moto, /\b(tua|teu|Explora|encontra)\b/);
+  assert.match(moto, /A sua próxima viagem/);
+});
+
+test("the stock drops filters the chosen type does not have (old links), and keeps a requested value visible", () => {
+  const { fitFiltersToType } = loader({ "framer-motion": {}, "next/dynamic": { __esModule: true, default: () => () => null } })("src/components/inventory/InventoryClient.tsx");
+  const { emptyFilters } = loader()("src/lib/vehicles.ts");
+  const stock = [
+    { slug: "a", vehicleType: "motorcycle", fuel: "Gasolina", body: "Naked", color: "Preto", power: 100, displacement: 650 },
+    { slug: "b", vehicleType: "car", fuel: "Diesel", body: "SUV", color: "Cinzento", power: 400, displacement: 4000 },
+  ];
+  // Só motas (ou ?tipo=motas): categoria e combustível de carros saem; as portas também.
+  const moto = fitFiltersToType({ ...emptyFilters(), vehicleType: "motorcycle", body: "SUV", fuel: "Diesel", doors: 5, make: "BMW" }, stock);
+  assert.deepEqual([moto.body, moto.fuel, moto.doors, moto.make], [null, null, null, "BMW"]);
+  const ok = { ...emptyFilters(), vehicleType: "motorcycle", body: "Naked", fuel: "Gasolina" };
+  assert.equal(fitFiltersToType(ok, stock), ok, "sem nada a tirar, o mesmo objeto");
+  // Com «Todos», nada se tira.
+  const all = { ...emptyFilters(), body: "SUV", fuel: "GPL" };
+  assert.equal(fitFiltersToType(all, stock), all);
+  // Ao trocar de tipo (Carros → Motas): a cor, a potência e a cilindrada
+  // mínimas que nenhuma mota tem também saem (a lista ficava vazia).
+  const car = { ...emptyFilters(), vehicleType: "motorcycle", fuel: "Diesel", color: "Cinzento", minPower: 300, minDisplacement: 3000 };
+  const moved = fitFiltersToType(car, [...stock, { slug: "c", vehicleType: "motorcycle", fuel: "Gasolina", color: " cinzento ", power: 120, displacement: 900 }]);
+  assert.deepEqual([moved.fuel, moved.color, moved.minPower, moved.minDisplacement], [null, "Cinzento", null, null]);
+  // O estado inicial e a troca de tipo passam por aqui (o endereço manda no cliente).
+  const client = readFileSync("src/components/inventory/InventoryClient.tsx", "utf8");
+  assert.match(client, /canonicalFilters\(fitFiltersToType\(\{ \.\.\.f, olx \}, vehicles\), vehicles\)/);
+  assert.match(client, /next\.vehicleType !== f\.vehicleType \? fitFiltersToType\(next, vehicles\) : next/);
+  // Um combustível ou categoria pedidos sem stock continuam à vista no seletor.
+  const filters = readFileSync("src/components/inventory/Filters.tsx", "utf8");
+  assert.match(filters, /filters\.fuel && !options\.fuels\.includes\(filters\.fuel\)/);
+  assert.match(filters, /filters\.body && !options\.bodies\.includes\(filters\.body\)/);
+});
+
+test("the stock header photo follows the type (motorcycles with «Motas» or on a motorcycle-only site)", () => {
+  const page = readFileSync("src/app/(public)/inventario/page.tsx", "utf8");
+  assert.match(page, /header=\{<StockHeader photo=\{vehicleType \?\? world\} type=\{vehicleType\} \/>\}/);
+  assert.match(page, /headerByType=/);
+  assert.match(readFileSync("src/components/inventory/InventoryClient.tsx", "utf8"), /headerByType\?\.\[filters\.vehicleType \?\? "all"\] \?\? header/);
+});
+
+test("favourites and compare counters count only what the site shows now; /favoritos is not prefetched", () => {
+  const layout = readFileSync("src/app/(public)/layout.tsx", "utf8");
+  assert.match(layout, /<Header branding=\{branding\} stockSlugs=\{stockSlugs\} \/>/);
+  assert.match(layout, /<CompareProvider available=\{stockSlugs && \[\.\.\.stockSlugs, \.\.\.sold\.map\(\(v\) => v\.slug\)\]\}>/);
+  // Sem stock lido (erro passageiro), não se filtra nem apaga nada.
+  assert.match(layout, /stock\.length \? stock\.map\(\(v\) => v\.slug\) : undefined/);
+  const header = readFileSync("src/components/layout/Header.tsx", "utf8");
+  assert.match(header, /favorites\.filter\(\(slug\) => inStock\.has\(slug\)\)\.length/);
+  assert.equal((header.match(/prefetch=\{false\}|prefetch=\{fav \? false : undefined\}/g) ?? []).length, 2);
+  assert.match(readFileSync("src/components/inventory/CompareContext.tsx", "utf8"), /prev\.filter\(\(s\) => valid\.has\(s\)\)/);
+});
+
+test("stock URL: read from the router (not window.location), first value of repeated params, brand/model in stock spelling, no unknown OLX fields", () => {
+  const load = loader({ "framer-motion": {}, "next/dynamic": { __esModule: true, default: () => () => null } });
+  const { canonicalFilters } = load("src/components/inventory/InventoryClient.tsx");
+  const { emptyFilters } = loader()("src/lib/vehicles.ts");
+  const stock = [{ make: "BMW", model: "Série 3" }, { make: "Volkswagen", model: "Golf" }];
+  const f = canonicalFilters({ ...emptyFilters(), make: "bmw", model: "serie 3" }, stock);
+  assert.deepEqual([f.make, f.model], ["BMW", "Série 3"]);
+  assert.equal(canonicalFilters({ ...emptyFilters(), model: "GOLF" }, stock).model, "Golf");
+  // Sem stock dessa marca, fica como veio (o alerta usa-a).
+  assert.equal(canonicalFilters({ ...emptyFilters(), make: "Renault" }, stock).make, "Renault");
+  const client = readFileSync("src/components/inventory/InventoryClient.tsx", "utf8");
+  assert.match(client, /useSearchParams\(\)/);
+  assert.doesNotMatch(client, /window\.location\.search\)\)/, "o endereço antigo voltava ao clicar «Stock» no stock");
+  assert.match(client, /if \(!\(k in out\)\) out\[k\] = v/, "o 1.º valor, como o servidor");
+  assert.match(client, /codes\.has\(code\)/, "campos do OLX desconhecidos saem");
+  // «Limpar» fica no tipo escolhido; em «Todos» os atalhos servem aos dois tipos.
+  assert.match(client, /vehicleType: locked \?\? filters\.vehicleType/);
+  const filters = readFileSync("src/components/inventory/Filters.tsx", "utf8");
+  assert.match(filters, /isMoto \? MOTO_CHIPS : filters\.vehicleType === "car" \? QUICK_CHIPS : NEUTRAL_CHIPS/);
+  assert.match(filters, /<optgroup key=\{group\} label=\{group\}>/);
+});
+
+test("quiz: a vehicle far above the budget (or on request, on a low budget) never outranks one that fits", () => {
+  const load = loader({ "framer-motion": {}, "next/link": {}, "next/image": {} });
+  const { scoreVehicle } = load("src/components/quiz/CarQuiz.tsx");
+  const v = (price, extra = {}) => ({ price, priceOnRequest: false, body: "Coupé", fuel: "Gasolina", transmission: "Automática", power: 500, featured: false, ...extra });
+  const a = { budget: "0-10000", body: "Coupé", usage: "performance" };
+  const fits = scoreVehicle(v(9000, { power: 90, body: "Citadino" }), { budget: "0-10000" });
+  assert.ok(scoreVehicle(v(92500), a) <= 0, "BMW M4 a 92 500 € num orçamento até 10 000 €");
+  assert.ok(scoreVehicle(v(0, { priceOnRequest: true }), a) <= 0, "Ferrari sob consulta num orçamento baixo");
+  assert.ok(fits > 0);
+  assert.ok(scoreVehicle(v(0, { priceOnRequest: true }), { budget: "70000-999999999" }) > 0, "no escalão mais alto, sob consulta conta");
+  assert.equal(scoreVehicle(v(5000), { budget: "10000-20000" }), 0, "abaixo do mínimo: sem pontos de orçamento");
+  assert.equal(scoreVehicle(v(23000), { budget: "10000-20000" }), 15, "um pouco acima");
+});
+
+test("compare: no duplicates and each vehicle can be taken out on its own", () => {
+  const page = readFileSync("src/app/(public)/comparar/page.tsx", "utf8");
+  assert.match(page, /\[\.\.\.new Set\(/);
+  assert.match(page, /<CompareRemove slug=\{v\.slug\} rest=\{found\.filter\(\(o\) => o\.slug !== v\.slug\)\.map\(\(o\) => o\.slug\)\} \/>/);
+  assert.match(readFileSync("src/components/inventory/CompareRemove.tsx", "utf8"), /compare\?\.remove\(slug\)/);
 });

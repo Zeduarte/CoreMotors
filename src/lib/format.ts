@@ -33,3 +33,15 @@ export function formatKm(value: number): string {
 export function formatNumber(value: number): string {
   return number.format(value);
 }
+
+/**
+ * O nome do campo da carroçaria: «Carroçaria» nos carros, «Categoria» nas
+ * motas (Naked, Scooter…), e os dois numa lista com carros e motas. Recebe os
+ * tipos das viaturas em causa (sem tipo conta como carro).
+ */
+export function bodyFieldLabel(types: readonly (string | null | undefined)[]): string {
+  const moto = types.some((t) => t === "motorcycle");
+  const car = types.some((t) => t !== "motorcycle");
+  if (moto && car) return "Carroçaria / categoria";
+  return moto ? "Categoria" : "Carroçaria";
+}

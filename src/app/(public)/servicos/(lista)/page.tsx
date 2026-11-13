@@ -1,11 +1,15 @@
+import type { Metadata, ResolvingMetadata } from "next";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import { getShowroomContent } from "@/lib/showroom-queries";
 import { ServiceCards } from "@/components/showroom/ServiceCards";
-export const metadata = {
-  title: "Serviços",
-  alternates: { canonical: "/servicos" },
-  description:
-    "Conheça os serviços e o acompanhamento disponíveis para a sua próxima viatura.",
-};
+export function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, {
+    path: "/servicos",
+    title: "Serviços",
+    description:
+      "Conheça os serviços e o acompanhamento disponíveis para a sua próxima viatura.",
+  });
+}
 export const revalidate = 300;
 export default async function ServicesPage() {
   const content = await getShowroomContent();

@@ -1,11 +1,12 @@
 import { getShowroomContent } from "@/lib/showroom-queries";
 import { registrationLabel } from "@/lib/vehicle-categories";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   getVehicleBySlug,
   getBranding,
+  getSiteVehicleTypes,
   getVehicleList,
 } from "@/lib/queries";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
@@ -29,6 +30,8 @@ import { getRecentViews } from "@/lib/vehicle-views";
 import { safely } from "@/lib/public-cache";
 import { site } from "@/lib/site";
 import { VehicleJsonLd } from "@/components/seo/VehicleJsonLd";
+import { dealerSchemaType } from "@/components/seo/DealerJsonLd";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import { addressLine, getVisitsEnabled } from "@/lib/visit-run";
 
 // Gerada a cada pedido. Pré-gerar as fichas (generateStaticParams) tornava a
@@ -41,12 +44,15 @@ export const dynamic = "force-dynamic";
 // Em Next 15, `params` é assíncrono.
 type Params = Promise<{ slug: string }>;
 
-/** Metadata dinâmica por viatura (title, description, Open Graph com a capa). */
-export async function generateMetadata({
-  params,
-}: {
-  params: Params;
-}): Promise<Metadata> {
+/**
+ * Metadata dinâmica por viatura (title, description, Open Graph com a capa).
+ * O `og:url`, o nome do site e a língua vêm de `pageMetadata`; a imagem é a
+ * de `opengraph-image.tsx` (gerada por viatura).
+ */
+export async function generateMetadata(
+  { params }: { params: Params },
+  parent: ResolvingMetadata,
+): Promise<Metadata> {
   const { slug } = await params;
   const vehicle = await getVehicleBySlug(slug);
   if (!vehicle) return { title: "Viatura não encontrada" };
@@ -54,21 +60,17 @@ export async function generateMetadata({
   const title = `${vehicle.make} ${vehicle.model} ${vehicle.year}`;
   const description = [vehicle.tagline?.trim(), `${priceLabel(vehicle.price, vehicle.priceOnRequest)} · ${formatKm(vehicle.mileage)} · ${vehicle.fuel}.`].filter(Boolean).join(" ");
 
-  return {
+  return pageMetadata(parent, {
     title,
     description,
-    // As imagens Open Graph vêm de `opengraph-image.tsx` (geradas por viatura).
-    openGraph: {
-      title,
-      description,
-      type: "website",
-    },
+    path: `/viaturas/${vehicle.slug}`,
+    images: false,
     twitter: {
       card: "summary_large_image",
       title,
       description,
     },
-  };
+  });
 }
 
 export default async function VehiclePage({ params }: { params: Params }) {
@@ -76,11 +78,12 @@ export default async function VehiclePage({ params }: { params: Params }) {
   const vehicle = await getVehicleBySlug(slug);
   if (!vehicle) notFound();
 
-  const [branding, recentViews, showroom, visitsEnabled] = await Promise.all([
+  const [branding, recentViews, showroom, visitsEnabled, siteTypes] = await Promise.all([
     getBranding(),
     vehicle.id ? safely("getRecentViews", () => getRecentViews(vehicle.id!), null) : null,
     getShowroomContent(),
     safely("getVisitsEnabled", () => getVisitsEnabled(), false),
+    getSiteVehicleTypes(),
   ]);
   const canReserve =
     branding.reservationEnabled && vehicle.status === "published";
@@ -120,16 +123,25 @@ export default async function VehiclePage({ params }: { params: Params }) {
         }
       : null;
 
-  // Viaturas relacionadas: prioriza a mesma marca, depois preenche com outras.
-  const all = await getVehicleList(vehicle.vehicleType ?? "car");
+  // Viaturas relacionadas: do mesmo tipo (motas com motas), prioriza a mesma
+  // marca e depois preenche com outras. As «vistas recentemente» são de todo
+  // o stock: quem viu um carro e abre uma mota continua a ver o carro.
+  const [all, sameType] = await Promise.all([
+    getVehicleList(),
+    getVehicleList(vehicle.vehicleType ?? "car"),
+  ]);
   const related = [
-    ...all.filter((v) => v.slug !== vehicle.slug && v.make === vehicle.make),
-    ...all.filter((v) => v.slug !== vehicle.slug && v.make !== vehicle.make),
+    ...sameType.filter((v) => v.slug !== vehicle.slug && v.make === vehicle.make),
+    ...sameType.filter((v) => v.slug !== vehicle.slug && v.make !== vehicle.make),
   ].slice(0, 4);
 
   return (
     <>
-      <VehicleJsonLd vehicle={vehicle} sellerName={branding.companyName} />
+      <VehicleJsonLd
+        vehicle={vehicle}
+        sellerName={branding.companyName}
+        sellerType={dealerSchemaType(siteTypes)}
+      />
       <ViewTracker carId={vehicle.id} slug={vehicle.slug} />
 
       <article className="md:pt-8 xl:pt-0">
@@ -304,7 +316,7 @@ export default async function VehiclePage({ params }: { params: Params }) {
         </div>
 
         {/* Retoma / encomenda no fim da ficha (tem o seu próprio contentor). */}
-        <SellCTA />
+        <SellCTA vehicleType={vehicle.vehicleType ?? "car"} />
 
         {/* Fora do fluxo: flutua sobre o anúncio de ponta a ponta e reserva
             sozinha o espaço que ocupa (ver `ContactBar`). */}

@@ -1,6 +1,7 @@
 import { Locations } from "@/components/showroom/Locations";
 import { getShowroomContent } from "@/lib/showroom-queries";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import { AnimatedText } from "@/components/ui/AnimatedText";
 import { Reveal } from "@/components/ui/Reveal";
 import { Parallax } from "@/components/ui/Parallax";
@@ -9,12 +10,14 @@ import { waHref } from "@/lib/branding";
 import { getBranding } from "@/lib/queries";
 import { COMMON_MEDIA } from "@/lib/media";
 
-export const metadata: Metadata = {
-  title: "Contactos",
-  alternates: { canonical: "/contactos" },
-  description:
-    "Fale connosco. Morada, horário, telefone, WhatsApp e mapa do showroom.",
-};
+export function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, {
+    path: "/contactos",
+    title: "Contactos",
+    description:
+      "Fale connosco. Morada, horário, telefone, WhatsApp e mapa do showroom.",
+  });
+}
 
 export const revalidate = 300;
 

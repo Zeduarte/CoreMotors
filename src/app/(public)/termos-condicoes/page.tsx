@@ -1,14 +1,17 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import { LegalPage } from "@/components/legal/LegalPage";
 import { getBranding } from "@/lib/queries";
 import { LEGAL_NAME, NIF } from "@/lib/legal";
 
-export const metadata: Metadata = {
-  title: "Termos e Condições",
-  alternates: { canonical: "/termos-condicoes" },
-  description:
-    "Condições de utilização deste site e da relação comercial com os nossos clientes.",
-};
+export function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, {
+    path: "/termos-condicoes",
+    title: "Termos e Condições",
+    description:
+      "Condições de utilização deste site e da relação comercial com os nossos clientes.",
+  });
+}
 
 export const revalidate = 3600;
 

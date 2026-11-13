@@ -29,6 +29,7 @@ function load(file, stubs = {}) {
     if (id === 'server-only') return {};
     if (id.startsWith('@/') || id.startsWith('.')) {
       let path = id.startsWith('@/') ? resolve('src', id.slice(2)) : resolve(dirname(file), id);
+      if (path.endsWith('.json')) return JSON.parse(readFileSync(path, 'utf8'));
       if (!existsSync(path) || !/\.[jt]sx?$/.test(path)) path = existsSync(path + '.tsx') ? path + '.tsx' : path + '.ts';
       return load(path, stubs);
     }
@@ -56,8 +57,13 @@ test('vehicle JSON-LD reflects sold/reserved availability and omits price on req
   assert.equal(car.offers.availability, 'https://schema.org/InStock');
   assert.equal(car.offers.price, 25000);
   assert.equal(car.numberOfDoors, 4);
-  assert.equal(car.image[0], 'https://stand.example/placeholder-car.svg');
+  // O desenho de substituição (sem fotografias) não é publicado como imagem.
+  assert.ok(!('image' in car), 'sem fotografias, sem image');
+  const withPhotos = buildVehicleJsonLd({ ...baseVehicle, images: [baseVehicle.images[0], { src: '/fotos/a.jpg', alt: 'a' }, { src: 'https://cdn.example/b.jpg', alt: 'b' }] });
+  assert.deepEqual(withPhotos.image, ['https://stand.example/fotos/a.jpg', 'https://cdn.example/b.jpg']);
   assert.equal(car.url, 'https://stand.example/viaturas/bmw-320d-2019');
+  assert.deepEqual(car.offers.seller, { '@type': 'AutoDealer', '@id': 'https://stand.example/#dealer', name: 'Stand', url: 'https://stand.example' });
+  assert.equal(buildVehicleJsonLd(baseVehicle, 'Stand', 'MotorcycleDealer').offers.seller['@type'], 'MotorcycleDealer');
 
   assert.equal(buildVehicleJsonLd({ ...baseVehicle, status: 'sold' }).offers.availability, 'https://schema.org/SoldOut');
   assert.equal(buildVehicleJsonLd({ ...baseVehicle, status: 'reserved' }).offers.availability, 'https://schema.org/Reserved');
@@ -109,6 +115,14 @@ test('dealer JSON-LD publishes openingHoursSpecification and no fixed priceRange
   assert.ok(!('priceRange' in ld));
   assert.ok(!('openingHours' in ld));
   assert.deepEqual(ld.openingHoursSpecification.map((s) => `${s.opens}-${s.closes}`), ['09:00-12:30', '14:00-19:00']);
+  // AutoDealer com carros (e com carros e motas); MotorcycleDealer num site só de motas.
+  assert.equal(ld['@type'], 'AutoDealer');
+  const typeOf = (siteTypes) => ldOf(renderToStaticMarkup(React.createElement(DealerJsonLd, { branding, siteTypes })))['@type'];
+  assert.equal(typeOf(['car']), 'AutoDealer');
+  assert.equal(typeOf(['car', 'motorcycle']), 'AutoDealer');
+  assert.equal(typeOf(['motorcycle']), 'MotorcycleDealer');
+  assert.match(readFileSync('src/app/(public)/layout.tsx', 'utf8'), /<DealerJsonLd branding=\{branding\} siteTypes=\{siteTypes\} \/>/);
+  assert.match(readFileSync('src/app/(public)/viaturas/[slug]/page.tsx', 'utf8'), /sellerType=\{dealerSchemaType\(siteTypes\)\}/);
 });
 
 test('SEO listing text keeps acronyms ("SUV usados", not "sUV usados")', () => {
@@ -133,9 +147,29 @@ test('generic 404 title for unknown URLs; vehicle message only on vehicle routes
   const html = renderToStaticMarkup(await root.default());
   assert.ok(html.includes('Página não encontrada'));
   assert.ok(!html.includes('viatura já saiu'));
-  const vehicle = load('src/app/(public)/viaturas/[slug]/not-found.tsx', pageStubs);
+  const vehicle = load('src/app/(public)/viaturas/not-found.tsx', pageStubs);
   assert.equal(vehicle.metadata.title, 'Viatura não encontrada');
   assert.ok(renderToStaticMarkup(vehicle.default()).includes('Esta viatura já saiu do stand'));
+  // Dentro do site (cabeçalho e rodapé) para os 404 das páginas do site.
+  const site = load('src/app/(public)/not-found.tsx', pageStubs);
+  assert.equal(site.metadata.title, 'Página não encontrada');
+  assert.deepEqual(site.metadata.robots, { index: false, follow: true });
+  const siteHtml = renderToStaticMarkup(site.default());
+  assert.ok(siteHtml.includes('Página não encontrada') && siteHtml.includes('href="/inventario"'));
+});
+
+test('404s thrown by a route layout are caught by a not-found ABOVE that layout (inside the public chrome)', () => {
+  // O notFound() de viaturas/[slug], carros|motas/[filtro] e servicos/[slug] é
+  // lançado no layout da própria rota (antes do esqueleto: 404 a sério). O
+  // not-found.tsx de um segmento não apanha o que o seu layout lança: o
+  // de viaturas/[slug]/ nunca aparecia e caía-se no 404 da raiz, sem
+  // cabeçalho nem rodapé.
+  for (const route of ['viaturas/[slug]', 'carros/[filtro]', 'motas/[filtro]', 'servicos/[slug]', 'carros/(todos)', 'motas/(todos)']) {
+    assert.match(readFileSync(`src/app/(public)/${route}/layout.tsx`, 'utf8'), /notFound\(\)/, route);
+    assert.ok(!existsSync(`src/app/(public)/${route}/not-found.tsx`), `${route}/not-found.tsx nunca seria usado`);
+  }
+  assert.ok(existsSync('src/app/(public)/viaturas/not-found.tsx'));
+  assert.ok(existsSync('src/app/(public)/not-found.tsx'));
 });
 
 test('sitemap uses real updated_at dates, lists sold pages consistently and /vendidos only with sales', () => {
@@ -436,19 +470,189 @@ test('google reviews: cached server-side, no public-submission quota spent', asy
   }
 });
 
+/** O que o layout raiz já resolveu: o nome do site, a língua e a imagem de partilha. */
+const parentMetadata = () => Promise.resolve({
+  openGraph: { type: 'website', locale: 'pt_PT', siteName: 'CoreMotors', url: null, images: [{ url: 'https://stand.example/opengraph-image-1c1a04?x' }] },
+});
+const metaStubs = {
+  '@/lib/queries': {
+    getBranding: async () => ({ companyName: 'CoreMotors', logoUrl: null, company: {} }),
+    getSoldVehicleList: async () => [],
+    getVehicleBySlug: async () => null,
+    getVehicleList: async () => [],
+    getSiteVehicleTypes: async () => ['car', 'motorcycle'],
+    getVehicles: async () => [],
+  },
+  '@/lib/vehicle-context': { getPublicVehicleType: async () => 'car', getSiteVehicleTypes: async () => ['car', 'motorcycle'] },
+  '@/lib/showroom-queries': { getShowroomContent: async () => ({ services: [{ id: 'garantia', enabled: true, title: 'Garantia', summary: 'Proteção.' }], faqs: [], locations: [], google: {} }) },
+  '@/lib/olx/search': { inventoryWithOlx: async (vehicles) => ({ vehicles, fields: [] }) },
+  __id: 'meta',
+};
+
 test('public pages declare a canonical URL without query strings', async () => {
-  for (const [file, path] of [
+  // Cada página: o seu canónico e o seu og:url (antes, todas partilhavam o da
+  // página inicial), com o nome do site, a língua e a imagem do pai.
+  for (const [file, path, props = {}] of [
     ['src/app/(public)/inventario/page.tsx', '/inventario'],
     ['src/app/(public)/sobre/page.tsx', '/sobre'],
     ['src/app/(public)/contactos/page.tsx', '/contactos'],
     ['src/app/(public)/servicos/(lista)/page.tsx', '/servicos'],
+    ['src/app/(public)/servicos/[slug]/page.tsx', '/servicos/garantia', { params: Promise.resolve({ slug: 'garantia' }) }],
     ['src/app/(public)/vender/page.tsx', '/vender'],
     ['src/app/(public)/quiz/page.tsx', '/quiz'],
+    ['src/app/(public)/vendidos/page.tsx', '/vendidos'],
+    ['src/app/(public)/termos-condicoes/page.tsx', '/termos-condicoes'],
+    ['src/app/(public)/politica-de-privacidade/page.tsx', '/politica-de-privacidade'],
+    ['src/app/(public)/politica-de-cookies/page.tsx', '/politica-de-cookies'],
     ['src/app/(public)/(home)/page.tsx', '/'],
   ]) {
-    assert.ok(readFileSync(file, 'utf8').includes(`canonical: "${path}"`), file);
+    const meta = await load(file, metaStubs).generateMetadata(props, parentMetadata());
+    assert.equal(meta.alternates.canonical, path, file);
+    assert.equal(meta.openGraph.url, path, file);
+    assert.equal(meta.openGraph.siteName, 'CoreMotors', file);
+    assert.equal(meta.openGraph.locale, 'pt_PT', file);
+    assert.equal(meta.openGraph.images[0].url, 'https://stand.example/opengraph-image-1c1a04?x', file);
+    // O og:title/og:description vêm do título e da descrição da própria página.
+    assert.ok(!('title' in meta.openGraph) && !('description' in meta.openGraph), file);
   }
+  // As páginas fora do índice também têm o seu og:url (sem canónico novo).
+  for (const [file, path, props = {}] of [
+    ['src/app/(public)/favoritos/page.tsx', '/favoritos'],
+    ['src/app/(public)/comparar/page.tsx', '/comparar'],
+    ['src/app/(public)/alertas/cancelar/[token]/page.tsx', '/alertas/cancelar/abc.def', { params: Promise.resolve({ token: 'abc.def' }) }],
+  ]) {
+    const meta = await load(file, metaStubs).generateMetadata(props, parentMetadata());
+    assert.equal(meta.openGraph.url, path, file);
+    assert.equal(meta.alternates, undefined, file);
+  }
+  // O stock diz o nome da empresa das Definições, não o fixo de site.ts.
+  const stock = await load('src/app/(public)/inventario/page.tsx', metaStubs).generateMetadata({}, parentMetadata());
+  assert.match(stock.description, /stock completo da CoreMotors/);
   const layout = load('src/app/(public)/viaturas/[slug]/layout.tsx', { '@/lib/route-guards': { vehicleExists: async () => true } });
   const meta = await layout.generateMetadata({ params: Promise.resolve({ slug: 'bmw-320d' }) });
   assert.equal(meta.alternates.canonical, '/viaturas/bmw-320d');
+});
+
+test('SEO listings share a real photo (never the SVG drawing), else the site image, keeping site name and locale', async () => {
+  const car = (slug, src) => ({ ...baseVehicle, slug, images: [{ src, alt: 'x', width: 1, height: 1 }], updatedAt: '2026-09-01' });
+  let stock = [car('sem-foto', '/placeholder-car.svg'), car('com-foto', 'https://cdn.example/bmw.jpg')];
+  const { seoMetadata } = load('src/components/seo/SeoListing.tsx', {
+    '@/lib/queries': { getBranding: async () => ({ companyName: 'CoreMotors' }), getSiteVehicleTypes: async () => ['car', 'motorcycle'], getVehicleList: async () => stock },
+    'next/navigation': { notFound: () => { throw new Error('404'); } },
+    __id: 'seo-listing',
+  });
+  const meta = await seoMetadata('car', null, parentMetadata());
+  assert.equal(meta.openGraph.url, '/carros');
+  assert.equal(meta.alternates.canonical, '/carros');
+  assert.deepEqual(meta.openGraph.images, ['https://cdn.example/bmw.jpg'], 'a 1.ª fotografia a sério');
+  assert.equal(meta.openGraph.siteName, 'CoreMotors');
+  assert.equal(meta.openGraph.locale, 'pt_PT');
+  // Só desenhos: a imagem de partilha do site (a do pai), nunca o SVG.
+  stock = [car('a', '/placeholder-moto.svg'), car('b', '/placeholder-car.svg')];
+  const drawings = await seoMetadata('car', null, parentMetadata());
+  assert.equal(drawings.openGraph.images[0].url, 'https://stand.example/opengraph-image-1c1a04?x');
+});
+
+test('root metadata: the company name from Settings in titles and og:site_name; no site-wide og:url', async () => {
+  const layout = load('src/app/layout.tsx', {
+    '@/lib/queries': { getBranding: async () => ({ companyName: 'CoreMotors' }), getSiteVehicleTypes: async () => ['car', 'motorcycle'] },
+    '@/components/site/SiteRuntime': { SiteRuntime: () => null },
+    'next/font/google': { Inter: () => ({ variable: 'f' }) },
+    './globals.css': {},
+    __id: 'root-layout',
+  });
+  const meta = await layout.generateMetadata();
+  assert.equal(meta.title.template, '%s · CoreMotors');
+  assert.equal(meta.title.default, 'CoreMotors — Automóveis e motas em Portugal');
+  assert.equal(meta.openGraph.siteName, 'CoreMotors');
+  // Com o url/título aqui, todas as páginas se partilhavam como a página inicial.
+  for (const k of ['url', 'title', 'description']) assert.ok(!(k in meta.openGraph), k);
+  assert.equal(meta.icons.apple.url, '/apple-touch-icon.png');
+  // O manifest também usa o nome das Definições.
+  const { GET } = load('src/app/manifest.webmanifest/route.ts', {
+    '@/lib/queries': { getBranding: async () => ({ companyName: 'CoreMotors' }), getSiteVehicleTypes: async () => ['motorcycle'] },
+    __id: 'manifest',
+  });
+  const manifest = await (await GET()).json();
+  assert.equal(manifest.short_name, 'CoreMotors');
+  assert.equal(manifest.name, 'CoreMotors — Motas');
+  assert.ok(manifest.icons.some((i) => i.type === 'image/png'));
+  // E nenhum texto do site traz o nome fixo «Supermotas» (o padrão de site.ts).
+  for (const file of ['src/app/(public)/inventario/page.tsx', 'src/components/home/PinnedTrust.tsx'])
+    assert.doesNotMatch(readFileSync(file, 'utf8'), /Supermotas/, file);
+});
+
+test('icons, robots and sitemap: favicon.ico and a PNG apple-touch-icon exist, /admin and /api are disallowed, /quiz is listed', async () => {
+  const png = readFileSync('public/apple-touch-icon.png');
+  assert.equal(png.subarray(1, 4).toString(), 'PNG');
+  const ico = readFileSync('public/favicon.ico');
+  assert.deepEqual([...ico.subarray(0, 4)], [0, 0, 1, 0], 'cabeçalho ICO');
+  const { default: robots } = load('src/app/robots.ts');
+  const rules = robots().rules;
+  assert.deepEqual(rules.disallow, ['/admin', '/api/']);
+  assert.ok(rules.allow.includes('/api/feeds/'), 'os feeds dos portais continuam abertos');
+  assert.match(readFileSync('src/app/sitemap.ts', 'utf8'), /"\/quiz"/);
+});
+
+test('motorcycles say «Categoria», not «Carroçaria» (specs, compare, filters)', async () => {
+  const { bodyFieldLabel } = load('src/lib/format.ts');
+  assert.equal(bodyFieldLabel(['car']), 'Carroçaria');
+  assert.equal(bodyFieldLabel(['motorcycle']), 'Categoria');
+  assert.equal(bodyFieldLabel(['motorcycle', null]), 'Carroçaria / categoria');
+  assert.equal(bodyFieldLabel([]), 'Carroçaria');
+  const moto = { ...baseVehicle, slug: 'm1', vehicleType: 'motorcycle', body: 'Naked', doors: 0, seats: 0 };
+  const { Specs } = load('src/components/vehicle/Specs.tsx', { '@/components/ui/Reveal': { Reveal: ({ children, className }) => React.createElement('div', { className }, children) } });
+  const specs = renderToStaticMarkup(React.createElement(Specs, { vehicle: moto }));
+  assert.ok(specs.includes('Categoria') && !specs.includes('Carroçaria'));
+  assert.ok(renderToStaticMarkup(React.createElement(Specs, { vehicle: baseVehicle })).includes('Carroçaria'));
+  const stubs = { ...pageStubs, '@/lib/queries': { getVehicleBySlug: async (s) => ({ m1: moto, m2: { ...moto, slug: 'm2' }, c1: baseVehicle })[s] } };
+  const Compare = load('src/app/(public)/comparar/page.tsx', stubs).default;
+  const motos = renderToStaticMarkup(await Compare({ searchParams: Promise.resolve({ ids: 'm1,m2' }) }));
+  assert.ok(motos.includes('>Categoria<') && !motos.includes('Carroçaria'));
+  const mixed = renderToStaticMarkup(await Compare({ searchParams: Promise.resolve({ ids: 'm1,c1' }) }));
+  assert.ok(mixed.includes('Carroçaria / categoria'));
+  // Cada viatura tem o seu «Tirar», que abre a comparação sem ela.
+  assert.ok(mixed.includes('href="/comparar?ids=bmw-320d-2019"') && mixed.includes('href="/comparar?ids=m1"'));
+  // ?ids=a,a não compara a viatura consigo própria.
+  assert.ok(renderToStaticMarkup(await Compare({ searchParams: Promise.resolve({ ids: 'm1,m1' }) })).includes('Escolha pelo menos'));
+  // A grelha de características não põe o ícone de um carro numa mota.
+  const { SpecGrid } = load('src/components/vehicle/SpecGrid.tsx');
+  const carIcon = 'M3 13l2-5a2';
+  assert.ok(renderToStaticMarkup(React.createElement(SpecGrid, { vehicle: baseVehicle })).includes(carIcon));
+  assert.ok(!renderToStaticMarkup(React.createElement(SpecGrid, { vehicle: moto })).includes(carIcon));
+});
+
+test('vehicles without photos get an alt text with their make and model', () => {
+  const { toVehicle, coverImage, isPlaceholderImage } = load('src/lib/mappers.ts');
+  const row = { id: '1', slug: 'honda-pcx', make: 'Honda', model: 'PCX 125', vehicle_type: 'motorcycle', year: 2023, car_media: [], extras: [], highlights: null };
+  const v = toVehicle(row);
+  assert.equal(v.images[0].src, '/placeholder-moto.svg');
+  assert.equal(v.images[0].alt, 'Honda PCX 125 — fotografia por publicar');
+  assert.equal(coverImage({ ...row, vehicle_type: 'car' }).alt, 'Honda PCX 125 — fotografia por publicar');
+  assert.ok(isPlaceholderImage('/placeholder-car.svg'));
+  assert.ok(!isPlaceholderImage('https://x.supabase.co/storage/v1/object/public/car-media/a.jpg'));
+});
+
+test('the assistant is told whether the open vehicle is a car or a motorcycle, without «Portas: 0»', () => {
+  const { vehicleFacts } = load('src/lib/chat/prompt.ts');
+  const moto = vehicleFacts({ ...baseVehicle, vehicleType: 'motorcycle', body: 'Naked', doors: 0, seats: 2, extras: [] }).join('\n');
+  assert.match(moto, /Tipo: MOTA/);
+  assert.match(moto, /Categoria: Naked/);
+  assert.doesNotMatch(moto, /Portas|Lugares|Carroçaria/);
+  const car = vehicleFacts({ ...baseVehicle, extras: [] }).join('\n');
+  assert.match(car, /Tipo: CARRO/);
+  assert.match(car, /Carroçaria: Berlina/);
+  assert.match(car, /Portas: 4 · Lugares: 5/);
+  assert.doesNotMatch(vehicleFacts({ ...baseVehicle, doors: 0, seats: 0, extras: [] }).join('\n'), /Portas|Lugares/);
+});
+
+test('the vehicle page keeps its own share image (opengraph-image next to it), with its own og:url', async () => {
+  const { pageMetadata } = load('src/components/seo/page-metadata.ts');
+  const own = await pageMetadata(parentMetadata(), { path: '/viaturas/x', images: false });
+  assert.ok(!('images' in own.openGraph), 'sem images, o Next usa o opengraph-image da pasta da ficha');
+  assert.equal(own.openGraph.url, '/viaturas/x');
+  const inherited = await pageMetadata(parentMetadata(), { path: '/sobre' });
+  assert.equal(inherited.openGraph.images[0].url, 'https://stand.example/opengraph-image-1c1a04?x');
+  assert.deepEqual((await pageMetadata(parentMetadata(), { path: '/c', images: ['https://f/a.jpg'] })).openGraph.images, ['https://f/a.jpg']);
+  assert.match(readFileSync('src/app/(public)/viaturas/[slug]/page.tsx', 'utf8'), /path: `\/viaturas\/\$\{vehicle\.slug\}`,\s*images: false,/);
 });

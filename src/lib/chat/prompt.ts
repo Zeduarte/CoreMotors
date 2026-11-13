@@ -27,7 +27,7 @@ export interface ChatContext {
  * Parte fixa do prompt. Não pode conter datas, nomes nem nada que varie entre
  * pedidos — qualquer byte diferente invalida a cache.
  */
-export const CHAT_RULES = `És o assistente virtual de um stand de automóveis. Falas com visitantes do site.
+export const CHAT_RULES = `És o assistente virtual de um stand de viaturas (o contexto diz se vende carros, motas ou os dois). Falas com visitantes do site.
 
 ## Como respondes
 - Português de Portugal, tratamento por "você", tom simples e profissional.
@@ -58,7 +58,7 @@ Destinos possíveis:
 - interessado — painel "Interessado?" da ficha aberta (pedir informações ou contacto, propostas, reserva). Só quando o visitante está numa ficha de viatura.
 - viatura:<slug> — ficha de uma viatura que apareceu nos resultados da pesquisa. Usa o slug exato devolvido pela ferramenta.
 - inventario — lista completa de viaturas.
-- vender — quem quer vender ou dar o carro de retoma.
+- vender — quem quer vender ou dar a viatura (carro ou mota) de retoma.
 - contactos — morada, horários e formulário de contacto.
 - whatsapp — falar já com a equipa por WhatsApp.
 - telefone — ligar para o stand.
@@ -120,16 +120,28 @@ export function buildContextBlock(ctx: ChatContext): string {
 
 /** Ficha da viatura em texto simples — a base das respostas numa página de detalhe. */
 export function vehicleFacts(v: Vehicle): string[] {
+  const moto = v.vehicleType === "motorcycle";
   const out: string[] = [
     `Viatura: ${v.make} ${v.model}${v.variant ? ` ${v.variant}` : ""} (${v.year})`,
+    // O stand pode vender carros e motas: o assistente tem de saber qual é.
+    `Tipo: ${moto ? "MOTA" : "CARRO"}`,
     `Slug (para o marcador): ${v.slug}`,
     `Preço: ${priceLabel(v.price, v.priceOnRequest)}`,
     `Quilómetros: ${formatKm(v.mileage)}`,
     `Combustível: ${v.fuel}`,
     `Transmissão: ${v.transmission}`,
-    `Carroçaria: ${v.body}`,
-    `Portas: ${v.doors} · Lugares: ${v.seats}`,
+    `${moto ? "Categoria" : "Carroçaria"}: ${v.body}`,
   ];
+  // As motas não têm portas (e os lugares raramente vêm preenchidos): um
+  // «Portas: 0» levava o assistente a dizer disparates. Um zero é um campo
+  // em branco, também nos carros.
+  if (!moto) {
+    const cabin = [
+      v.doors > 0 ? `Portas: ${v.doors}` : null,
+      v.seats > 0 ? `Lugares: ${v.seats}` : null,
+    ].filter(Boolean);
+    if (cabin.length) out.push(cabin.join(" · "));
+  }
 
   if (v.power > 0) out.push(`Potência: ${v.power} cv`);
   if (v.displacement > 0)

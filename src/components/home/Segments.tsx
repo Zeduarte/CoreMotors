@@ -11,8 +11,12 @@ export type Segment = {
  * o nome e quantas há. Leva ao stock já filtrado pela
  * categoria.
  *
- * Telemóvel: fila que desliza na horizontal (com snap). Tablet: os cartões
- * centrados, em mais de uma linha se preciso. Desktop: todos numa só linha.
+ * Num site com carros e motas, as categorias ficam em dois grupos («Carros»
+ * e «Motas»): são até 13 e, numa só fila, saíam do ecrã pelos dois lados.
+ *
+ * Telemóvel: cada grupo é uma fila que desliza na horizontal (com snap).
+ * Tablet e computador: grelha de cartões da mesma largura, em quantas linhas
+ * forem precisas — nunca mais larga do que o ecrã.
  */
 export function Segments({
   segments,
@@ -23,6 +27,13 @@ export function Segments({
 }) {
   if (!segments.length) return null;
 
+  // A categoria diz o tipo (Naked é de motas). Só com os dois há títulos.
+  const groups = [
+    { label: "Carros", items: segments.filter((s) => !isMotorcycleBody(s.body)) },
+    { label: "Motas", items: segments.filter((s) => isMotorcycleBody(s.body)) },
+  ].filter((g) => g.items.length > 0);
+  const labelled = groups.length > 1;
+
   return (
     <section aria-labelledby="segmentos" className="container-px pt-8 md:pt-24">
       <h2
@@ -32,11 +43,31 @@ export function Segments({
         {title}
       </h2>
 
-      <ul className="-mx-6 flex snap-x snap-mandatory scroll-px-6 gap-3 overflow-x-auto px-6 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] md:mx-0 md:flex-wrap md:justify-center md:gap-4 md:overflow-visible md:px-0 lg:flex-nowrap [&::-webkit-scrollbar]:hidden">
+      <div className="space-y-6 md:space-y-8">
+        {groups.map((g) => (
+          <div key={g.label}>
+            {labelled && (
+              <h3 className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-paper/45">
+                {g.label}
+              </h3>
+            )}
+            <SegmentList segments={g.items} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SegmentList({ segments }: { segments: Segment[] }) {
+  // Cartões da mesma largura: tantas colunas quantas couberem (a largura
+  // mínima deixa caber «Descapotável» sem cortar).
+  return (
+    <ul className="-mx-6 flex snap-x snap-mandatory scroll-px-6 gap-3 overflow-x-auto px-6 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] md:gap-4 md:overflow-visible md:px-0 md:pb-0 xl:grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] [&::-webkit-scrollbar]:hidden">
         {segments.map(({ body, count }) => (
           <li
             key={body}
-            className="w-[10.5rem] shrink-0 snap-start md:w-44 lg:w-auto lg:max-w-[15rem] lg:flex-1 lg:shrink"
+            className="w-[10.5rem] shrink-0 snap-start md:w-auto md:min-w-0"
           >
             <Link
               // A categoria diz o tipo (Naked é de motas): o stock abre já nele.
@@ -62,7 +93,7 @@ export function Segments({
               <span>
                 {/* Quebra depois da barra («Chopper/Cruiser») em vez de cortar. */}
                 <span
-                  className="block text-xl font-semibold leading-tight tracking-tight text-paper transition-colors duration-300 group-hover:text-accent md:text-2xl"
+                  className="block break-words text-xl font-semibold leading-tight tracking-tight text-paper transition-colors duration-300 group-hover:text-accent xl:text-2xl"
                 >
                   {body.replace("/", "/​")}
                 </span>
@@ -74,7 +105,6 @@ export function Segments({
             </Link>
           </li>
         ))}
-      </ul>
-    </section>
+    </ul>
   );
 }

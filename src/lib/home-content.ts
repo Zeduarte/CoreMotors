@@ -74,8 +74,8 @@ export const DEFAULT_HOME_CONTENT: HomeContent = {
   },
   motoHero: {
     eyebrow: "Stand premium · Portugal",
-    title: "A tua próxima viagem começa sobre duas rodas",
-    subtitle: "Explora as nossas motas e encontra a tua próxima companheira de estrada.",
+    title: "A sua próxima viagem começa sobre duas rodas",
+    subtitle: "Explore as nossas motas e encontre a sua próxima companheira de estrada.",
     primaryCta: { label: "Ver motas", href: "/inventario" },
   },
   brands: [

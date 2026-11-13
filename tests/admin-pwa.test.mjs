@@ -68,9 +68,10 @@ test('the public manifest is a plain metadata link, so /admin can replace it', a
   }
   assert.match(readFileSync('src/app/layout.tsx', 'utf8'), /manifest: "\/manifest\.webmanifest"/);
   let types = ['car', 'motorcycle'];
+  let brand = '';
   const route = load('src/app/manifest.webmanifest/route.ts', {
     '@/lib/site': { site: { name: 'Supermotas', description: 'Stand' } },
-    '@/lib/queries': { getSiteVehicleTypes: async () => types },
+    '@/lib/queries': { getSiteVehicleTypes: async () => types, getBranding: async () => ({ companyName: brand }) },
   });
   assert.equal(route.revalidate, 3600);
   const res = await route.GET();
@@ -82,6 +83,12 @@ test('the public manifest is a plain metadata link, so /admin can replace it', a
   assert.equal(body.scope, undefined);
   types = ['motorcycle'];
   assert.equal((await (await route.GET()).json()).name, 'Supermotas — Motas');
+  // O nome é o da empresa nas Definições (como no título das páginas); o de
+  // site.ts fica só como recurso.
+  brand = 'CoreMotors';
+  const named = await (await route.GET()).json();
+  assert.equal(named.name, 'CoreMotors — Motas');
+  assert.equal(named.short_name, 'CoreMotors');
 });
 
 test('the admin manifest route answers JSON with the fixed app name', async () => {

@@ -25,10 +25,30 @@ interface CompareCtx {
 
 const Ctx = createContext<CompareCtx | null>(null);
 
-/** Estado global (persistido em localStorage) das viaturas a comparar. */
-export function CompareProvider({ children }: { children: React.ReactNode }) {
+/**
+ * Estado global (persistido em localStorage) das viaturas a comparar.
+ *
+ * `available`: as viaturas que o site mostra agora (à venda, reservadas e
+ * vendidas). As outras saem da lista — uma viatura retirada, ou de um tipo
+ * que o site deixou de vender, contava na barra («2 a comparar») mas a
+ * página /comparar já não a encontrava, e não se conseguia tirar.
+ */
+export function CompareProvider({
+  children,
+  available,
+}: {
+  children: React.ReactNode;
+  available?: string[];
+}) {
   const [loaded, setLoaded] = useState(false);
   const [slugs, setSlugs] = useState<string[]>([]);
+  const valid = useMemo(() => (available ? new Set(available) : null), [available]);
+
+  // Tira as que já não estão no site (também depois de o site mudar).
+  useEffect(() => {
+    if (!loaded || !valid) return;
+    setSlugs((prev) => (prev.every((s) => valid.has(s)) ? prev : prev.filter((s) => valid.has(s))));
+  }, [loaded, valid]);
 
   // Hidrata do localStorage no cliente.
   useEffect(() => {
@@ -78,6 +98,11 @@ export function useCompare(): CompareCtx {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error("useCompare fora do CompareProvider");
   return ctx;
+}
+
+/** Como `useCompare`, mas `null` fora do provider (páginas renderizadas à parte). */
+export function useCompareIfAny(): CompareCtx | null {
+  return useContext(Ctx);
 }
 
 export const COMPARE_MAX = MAX;

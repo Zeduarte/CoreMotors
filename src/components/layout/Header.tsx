@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DEFAULT_BRANDING, type Branding } from "@/lib/branding";
 import { useLocalList, FAVORITES_KEY } from "@/hooks/useLocalList";
@@ -24,10 +24,27 @@ const NAV = [
   { href: "/contactos", label: "Contactos" },
 ];
 
+/** Páginas que contam como «Stock»: as listas por tipo, as fichas, os vendidos e o comparador. */
+const STOCK_PATHS = /^\/(inventario|carros|motas|viaturas|vendidos|comparar)(\/|$)/;
+
+/** O item do menu corresponde à página aberta? (no menu e no menu móvel) */
+export function isNavActive(href: string, path: string): boolean {
+  if (href === "/") return path === "/";
+  if (href === "/inventario") return STOCK_PATHS.test(path);
+  return path === href || path.startsWith(`${href}/`);
+}
+
 export function Header({
   branding = DEFAULT_BRANDING,
+  stockSlugs,
 }: {
   branding?: Branding;
+  /**
+   * As viaturas no site agora (à venda e reservadas). O contador dos
+   * favoritos conta só estas, como a página /favoritos: uma viatura vendida,
+   * retirada ou de um tipo que o site deixou de vender não conta.
+   */
+  stockSlugs?: string[];
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -51,7 +68,12 @@ export function Header({
     return () => window.removeEventListener(NAV_START_EVENT, onStart);
   }, []);
   const { items: favorites, ready: favReady } = useLocalList(FAVORITES_KEY);
-  const favCount = favReady ? favorites.length : 0;
+  const inStock = useMemo(() => (stockSlugs ? new Set(stockSlugs) : null), [stockSlugs]);
+  const favCount = favReady
+    ? inStock
+      ? favorites.filter((slug) => inStock.has(slug)).length
+      : favorites.length
+    : 0;
 
   useEffect(() => {
     let lastY = window.scrollY;
@@ -132,10 +154,7 @@ export function Header({
 
         <ul className="hidden items-center gap-8 md:flex">
           {NAV.map((item) => {
-            const active =
-              item.href === "/"
-                ? activePath === "/"
-                : activePath.startsWith(item.href);
+            const active = isNavActive(item.href, activePath);
             return (
               <li key={item.href}>
                 <Link
@@ -160,8 +179,13 @@ export function Header({
         </ul>
 
         <div className="hidden items-center gap-3 md:flex">
+          {/* Sem pré-carregamento: a lista dos favoritos vem do stock atual
+              (o router do Next guardava a pré-carregada até 5 minutos, e
+              mostrava viaturas que entretanto saíram do site). */}
           <Link
             href="/favoritos"
+            prefetch={false}
+            aria-current={isNavActive("/favoritos", activePath) ? "page" : undefined}
             aria-label={`Favoritos${favCount ? ` (${favCount})` : ""}`}
             className="relative grid h-10 w-10 place-items-center rounded-full border border-white/15 text-paper/70 transition-colors hover:border-rose-400/50 hover:text-rose-300"
           >
@@ -246,24 +270,30 @@ export function Header({
                 closed: { transition: { staggerChildren: 0.02, staggerDirection: -1 } },
               }}
             >
-              {NAV.map((item) => (
-                <motion.li key={item.href} variants={MENU_ITEM}>
-                  <Link
-                    href={item.href}
-                    className="block rounded-lg px-2 py-3 text-lg font-medium text-paper/80 hover:text-paper"
-                  >
-                    {item.label}
-                  </Link>
-                </motion.li>
-              ))}
-              <motion.li variants={MENU_ITEM}>
-                <Link
-                  href="/favoritos"
-                  className="block rounded-lg px-2 py-3 text-lg font-medium text-paper/80 hover:text-paper"
-                >
-                  Favoritos{favCount > 0 ? ` (${favCount})` : ""}
-                </Link>
-              </motion.li>
+              {/* A página aberta fica marcada, como no menu do computador. */}
+              {[...NAV, { href: "/favoritos", label: "Favoritos" }].map((item) => {
+                const active = isNavActive(item.href, activePath);
+                const fav = item.href === "/favoritos";
+                return (
+                  <motion.li key={item.href} variants={MENU_ITEM}>
+                    <Link
+                      href={item.href}
+                      prefetch={fav ? false : undefined}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex items-center gap-3 rounded-lg px-2 py-3 text-lg font-medium ${
+                        active ? "text-paper" : "text-paper/80 hover:text-paper"
+                      }`}
+                    >
+                      <span
+                        aria-hidden
+                        className={`h-5 w-0.5 rounded-full ${active ? "bg-accent" : "bg-transparent"}`}
+                      />
+                      {item.label}
+                      {fav && favCount > 0 ? ` (${favCount})` : ""}
+                    </Link>
+                  </motion.li>
+                );
+              })}
               <motion.li variants={MENU_ITEM}>
                 <a
                   href={branding.company.phoneHref}

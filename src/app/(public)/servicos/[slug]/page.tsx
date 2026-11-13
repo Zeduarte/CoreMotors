@@ -1,4 +1,6 @@
+import type { Metadata, ResolvingMetadata } from "next";
 import { notFound } from "next/navigation";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import Link from "next/link";
 import { getShowroomContent } from "@/lib/showroom-queries";
 import { FaqSection } from "@/components/showroom/FaqSection";
@@ -7,15 +9,12 @@ import { OrderCarForm } from "@/components/forms/OrderCarForm";
 import { ContactForm } from "@/components/forms/ContactForm";
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { slug } = await params;
   const c = await getShowroomContent();
   const s = c.services.find((x) => x.id === slug && x.enabled);
-  return {
-    title: s?.title ?? "Serviço indisponível",
-    description: s?.summary,
-    ...(s && { alternates: { canonical: `/servicos/${s.id}` } }),
-  };
+  if (!s) return { title: "Serviço indisponível" };
+  return pageMetadata(parent, { title: s.title, description: s.summary, path: `/servicos/${s.id}` });
 }
 export default async function ServicePage({ params }: Props) {
   const { slug } = await params;

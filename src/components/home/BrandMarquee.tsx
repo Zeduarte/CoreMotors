@@ -37,7 +37,7 @@ export function BrandMarquee({
               <li key={`${brand}-${i}`} aria-hidden={copy || undefined}>
                 {inStock(brand) ? (
                   <Link
-                    href={`/inventario?make=${encodeURIComponent(brand)}`}
+                    href={`/inventario?marca=${encodeURIComponent(brand)}`}
                     tabIndex={copy ? -1 : undefined}
                     title={`Ver viaturas ${brand}`}
                     className={`${label} text-paper/60 hover:text-accent focus-visible:text-accent focus-visible:outline-none`}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Vehicle, VehicleFilters, SortKey } from "@/types/vehicle";
 import {
@@ -14,7 +15,7 @@ import {
   sortFromQuery,
 } from "@/lib/vehicles";
 import type { SearchField } from "@/lib/olx/search";
-import type { VehicleType } from "@/lib/vehicle-categories";
+import { bodiesFor, type VehicleType } from "@/lib/vehicle-categories";
 import dynamic from "next/dynamic";
 
 // O alerta fica no fim da página: descarrega-se depois de a lista aparecer.
@@ -25,6 +26,56 @@ const StockAlertForm = dynamic(() => import("./StockAlertForm").then((m) => m.St
 import { sameBrand } from "@/lib/brand-name";
 import { Filters } from "./Filters";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
+
+/**
+ * Tira os filtros que o tipo escolhido não tem. Um link antigo
+ * (`?categoria=SUV` num site só de motas, `?tipo=motas&categoria=SUV`, ou
+ * `?combustivel=Diesel` sem motas a diesel) deixava a lista vazia com o
+ * filtro escondido — a categoria não aparece entre as do tipo, e só «Limpar»
+ * resolvia. Também ao trocar de tipo no stock (Carros → Motas com Diesel, uma
+ * cor ou uma potência mínima que nenhuma mota tem).
+ */
+export function fitFiltersToType(f: VehicleFilters, vehicles: Vehicle[]): VehicleFilters {
+  const type = f.vehicleType;
+  if (!type) return f;
+  const pool = vehicles.filter((v) => (v.vehicleType ?? "car") === type);
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  const next: VehicleFilters = {
+    ...f,
+    body: f.body && !bodiesFor(type).includes(f.body) ? null : f.body,
+    fuel: f.fuel && !pool.some((v) => v.fuel === f.fuel) ? null : f.fuel,
+    color: f.color && !pool.some((v) => same(v.color, f.color!)) ? null : f.color,
+    minPower: f.minPower != null && !pool.some((v) => v.power >= f.minPower!) ? null : f.minPower,
+    minDisplacement:
+      f.minDisplacement != null && !pool.some((v) => v.displacement >= f.minDisplacement!) ? null : f.minDisplacement,
+    // As motas não têm portas.
+    doors: type === "motorcycle" ? null : f.doors,
+  };
+  const changed = (Object.keys(next) as (keyof VehicleFilters)[]).some((k) => next[k] !== f[k]);
+  return changed ? next : f;
+}
+
+const fold = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+
+/**
+ * A marca e o modelo do endereço com a grafia do stock: `?marca=bmw` é a
+ * «BMW» (o seletor não encontrava «bmw» e voltava a «Todas»), `?modelo=golf`
+ * é o «Golf». Sem viatura com esse nome, fica como veio (o alerta usa-o).
+ */
+export function canonicalFilters(f: VehicleFilters, vehicles: Vehicle[]): VehicleFilters {
+  const make = f.make ? vehicles.find((v) => sameBrand(v.make, f.make!))?.make ?? f.make : f.make;
+  const model = f.model
+    ? vehicles.find((v) => (!make || sameBrand(v.make, make)) && fold(v.model) === fold(f.model!))?.model ?? f.model
+    : f.model;
+  return make === f.make && model === f.model ? f : { ...f, make, model };
+}
+
+/** A pesquisa do endereço com o 1.º valor de cada parâmetro repetido — como o servidor. */
+function firstValues(sp: Iterable<[string, string]>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of sp) if (!(k in out)) out[k] = v;
+  return out;
+}
 
 /**
  * Ilha cliente do inventário.
@@ -44,6 +95,7 @@ export function InventoryClient({
   initialSort = "relevance",
   olxFieldsByType = {},
   header,
+  headerByType,
   vehicleTypes = ["car", "motorcycle"],
 }: {
   vehicles: Vehicle[];
@@ -57,6 +109,11 @@ export function InventoryClient({
   /** Topo da página, unido ao cartão dos filtros. */
   header?: React.ReactNode;
   /**
+   * O topo para cada escolha de «Todos · Carros · Motas» (a foto das motas
+   * com «Motas»). Sem a escolha aqui, fica `header`.
+   */
+  headerByType?: Partial<Record<VehicleType | "all", React.ReactNode>>;
+  /**
    * Os tipos que o site vende. Com os dois, o stock tem o seletor «Todos ·
    * Carros · Motas»; com um só, o tipo fica fixo (e fora do endereço).
    */
@@ -65,19 +122,30 @@ export function InventoryClient({
   const locked = vehicleTypes.length === 1 ? vehicleTypes[0]! : null;
   // O endereço manda: ao voltar da ficha, o Next pode repor a página com os
   // dados do 1.º pedido (sem os filtros escritos depois), mas o endereço já
-  // os tem. No servidor e na hidratação é o mesmo endereço → mesmo resultado.
+  // os tem (o Next acompanha o `replaceState` de baixo). Lido do router e não
+  // de `window.location`: numa navegação (o «Stock» do menu, já no stock), o
+  // `window.location` ainda tinha o endereço antigo e os filtros voltavam. Num
+  // parâmetro repetido (`?tipo=motas&tipo=carros`), o 1.º, como no servidor
+  // (com critérios diferentes, a hidratação falhava).
+  const searchParams = useSearchParams();
   const [fromUrl] = useState(() => {
-    if (typeof window === "undefined") return null;
-    const sp = Object.fromEntries(new URLSearchParams(window.location.search));
+    const sp = firstValues(searchParams ?? []);
     return { filters: filtersFromQuery(sp), sort: sortFromQuery(sp) };
   });
-  const [filters, setFilters] = useState<VehicleFilters>(() => ({
-    ...emptyFilters(),
-    ...initialFilters,
-    ...(fromUrl?.filters ?? {}),
-    ...(locked ? { vehicleType: locked } : {}),
-  }));
-  const [sort, setSort] = useState<SortKey>(fromUrl?.sort ?? initialSort);
+  const [filters, setFilters] = useState<VehicleFilters>(() => {
+    const f: VehicleFilters = {
+      ...emptyFilters(),
+      ...initialFilters,
+      ...fromUrl.filters,
+      ...(locked ? { vehicleType: locked } : {}),
+    };
+    // Campos do OLX que não existem (um link antigo, `?olx_foo=bar`)
+    // esvaziavam a lista: só ficam os do tipo escolhido.
+    const codes = new Set((f.vehicleType ? olxFieldsByType[f.vehicleType] ?? [] : []).map((x) => x.code));
+    const olx = Object.fromEntries(Object.entries(f.olx ?? {}).filter(([code]) => codes.has(code)));
+    return canonicalFilters(fitFiltersToType({ ...f, olx }, vehicles), vehicles);
+  });
+  const [sort, setSort] = useState<SortKey>(fromUrl.sort ?? initialSort);
 
   // A pesquisa vai para o endereço (como no OLX): guarda-se, partilha-se e o
   // «voltar» da ficha regressa a ela. `replaceState` não cria entradas novas
@@ -173,6 +241,8 @@ export function InventoryClient({
     [pool, filters.make, olxFields],
   );
 
+  const top = headerByType?.[filters.vehicleType ?? "all"] ?? header;
+
   const results = useMemo(
     () => sortVehicles(applyFilters(vehicles, filters), sort),
     [vehicles, filters, sort],
@@ -181,23 +251,30 @@ export function InventoryClient({
   return (
     <div className="space-y-10">
       <div
-        className={header ? "relative overflow-hidden rounded-3xl border border-white/10 bg-ink-soft" : undefined}
+        className={top ? "relative overflow-hidden rounded-3xl border border-white/10 bg-ink-soft" : undefined}
       >
-        {header}
+        {top}
         <Filters
-          embedded={!!header}
+          embedded={!!top}
           filters={filters}
           sort={sort}
           options={options}
           resultCount={results.length}
-          onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
+          // Ao trocar de tipo, saem os filtros que o tipo novo não tem.
+          onChange={(patch) =>
+            setFilters((f) => {
+              const next = { ...f, ...patch };
+              return next.vehicleType !== f.vehicleType ? fitFiltersToType(next, vehicles) : next;
+            })
+          }
           onSort={setSort}
           typeChoices={locked ? undefined : vehicleTypes}
           typeCounts={typeCounts}
+          // «Limpar» tira os filtros, mas fica no tipo escolhido (Motas).
           onReset={() => {
             setFilters({
               ...emptyFilters(),
-              vehicleType: locked,
+              vehicleType: locked ?? filters.vehicleType,
             });
             setSort("relevance");
           }}

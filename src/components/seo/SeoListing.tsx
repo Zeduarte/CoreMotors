@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -14,6 +14,8 @@ import { resolveSeoPage, seoIntro, seoPath, TYPE_PATH, usedLabel, type SeoPage }
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
 import { StockAlertForm } from "@/components/inventory/StockAlertForm";
 import { SeoLinks } from "./SeoLinks";
+import { pageMetadata } from "./page-metadata";
+import { isPlaceholderImage } from "@/lib/mappers";
 import { emptyFilters } from "@/lib/vehicles";
 import type { Vehicle } from "@/types/vehicle";
 
@@ -41,27 +43,26 @@ const fromPrice = (list: Vehicle[]) => {
   return prices.length ? Math.min(...prices) : null;
 };
 
-export async function seoMetadata(type: VehicleType, slug: string | null): Promise<Metadata> {
+export async function seoMetadata(
+  type: VehicleType,
+  slug: string | null,
+  parent: ResolvingMetadata,
+): Promise<Metadata> {
   const [{ page, vehicles }, branding] = await Promise.all([load(type, slug), getBranding()]);
   const title = page?.title ?? usedLabel(type);
   const path = page ? seoPath(page) : `/${TYPE_PATH[type]}`;
   const description = seoIntro(page, type, vehicles.length, fromPrice(vehicles), branding.companyName);
-  const cover = vehicles.find((v) => v.images[0]?.src)?.images[0]?.src;
-  return {
+  // A primeira fotografia a sério da lista. As viaturas sem fotos têm o
+  // desenho em SVG, que o Facebook, o WhatsApp e o LinkedIn não mostram: sem
+  // nenhuma foto, fica a imagem de partilha do site (a do pai).
+  const cover = vehicles.flatMap((v) => v.images).find((i) => !isPlaceholderImage(i.src))?.src;
+  return pageMetadata(parent, {
     title,
     description,
-    alternates: { canonical: `${site.url}${path}` },
+    path,
     robots: vehicles.length ? undefined : { index: false, follow: true },
-    // Um `openGraph` próprio substitui o herdado, imagem incluída: sem isto,
-    // estas páginas partilhavam-se sem fotografia. Vai a da primeira viatura.
-    openGraph: {
-      title,
-      description,
-      type: "website",
-      url: `${site.url}${path}`,
-      ...(cover ? { images: [{ url: cover }] } : {}),
-    },
-  };
+    images: cover ? [cover] : undefined,
+  });
 }
 
 function JsonLd({ type, page, vehicles }: { type: VehicleType; page: SeoPage | null; vehicles: Vehicle[] }) {

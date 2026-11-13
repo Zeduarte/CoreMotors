@@ -312,6 +312,11 @@ test("pesquisa: os filtros vão para o endereço e voltam iguais", () => {
   assert.equal(F.sortFromQuery({ ordem: "price-asc" }), "price-asc");
   assert.equal(F.sortFromQuery({ ordem: "x" }), "relevance");
   assert.equal(F.filtersFromQuery({ make: "BMW" }).make, "BMW", "os links antigos continuam a funcionar");
+  // Números inválidos no endereço são ignorados (não viram 5000 nem 20).
+  const bad = F.filtersFromQuery({ preco_min: "-5000", preco_max: "20k" });
+  assert.equal(bad.minPrice, undefined);
+  assert.equal(bad.maxPrice, undefined);
+  assert.equal(F.filtersFromQuery({ preco_max: "20 000" }).maxPrice, 20000);
   assert.equal(F.activeFilterCount(f), 5, "preço, cilindrada, nacional e os dois campos do OLX (a marca tem campo próprio)");
 });
 

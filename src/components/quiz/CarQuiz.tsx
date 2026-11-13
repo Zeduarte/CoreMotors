@@ -83,17 +83,26 @@ const STEPS = [
   },
 ];
 
-function scoreVehicle(v: Vehicle, a: Answers): number {
+export function scoreVehicle(v: Vehicle, a: Answers): number {
   let score = 0;
 
   if (a.budget) {
-    const [min, max] = a.budget.split("-").map(Number);
+    const [min = 0, max = Infinity] = a.budget.split("-").map(Number);
     const price = v.price || 0;
-    if (!v.priceOnRequest && price >= (min ?? 0) && price <= (max ?? Infinity)) {
+    // «Mais de X €»: o último escalão não tem teto.
+    const openEnded = max >= 999999;
+    if (v.priceOnRequest) {
+      // Sob consulta costuma ser caro: só conta no escalão mais alto.
+      score += openEnded ? 15 : -40;
+    } else if (price >= min && price <= max) {
       score += 40;
-    } else if (!v.priceOnRequest && price <= (max ?? Infinity) + 5000) {
-      score += 15; // perto do topo do orçamento
+    } else if (price > max && price <= max + 5000) {
+      score += 15; // um pouco acima do orçamento
+    } else if (price > max) {
+      // Muito acima do orçamento: não pode passar à frente das que cabem.
+      score -= 40;
     }
+    // Abaixo do mínimo: cabe no orçamento, mas não é o que se pediu (0 pontos).
   }
 
   if (a.body && a.body !== "any" && v.body === a.body) score += 25;

@@ -245,11 +245,19 @@ await test("old carros/motas switch links land on the page (the stock filtered b
  const about=await GET(new NextRequest("https://example.test/api/vehicle-context?type=motorcycle&target=%2Fsobre"));
  assert.equal(about.headers.get("location"),null,"sem Location: o Netlify juntava-lhe a pesquisa do pedido");
  assert.match(await about.clone().text(),/location\.replace\("\/sobre"\)/);
+ // Um destino que não serve leva ao stock do tipo do link (não à página inicial).
  const unsafe=await GET(new NextRequest("https://example.test/api/vehicle-context?type=car&area=admin&target=https://evil.test"));
- assert.equal(await destinationOf(unsafe),"/");
+ assert.equal(await destinationOf(unsafe),"/inventario?tipo=carros");
  assert.equal(unsafe.cookies.get("coremotors_admin_type"),undefined);
+ // Um tipo desconhecido já não responde JSON a quem clicou: segue para o
+ // destino (sem filtro) ou para a página inicial, e apaga o cookie na mesma.
  const invalid=await GET(new NextRequest("https://example.test/api/vehicle-context?type=truck"));
- assert.equal(invalid.status,400);
+ assert.equal(await destinationOf(invalid),"/");
+ assert.equal(invalid.cookies.get("coremotors_public_type").value,"");
+ assert.equal(await destinationOf(await GET(new NextRequest("https://example.test/api/vehicle-context?type=moto&target=%2Fsobre"))),"/sobre");
+ assert.equal(await destinationOf(await GET(new NextRequest("https://example.test/api/vehicle-context"))),"/");
+ // Sem destino: o stock desse tipo.
+ assert.equal(await destinationOf(await GET(new NextRequest("https://example.test/api/vehicle-context?type=motorcycle"))),"/inventario?tipo=motas");
  // As páginas por marca e o stock com uma pesquisa voltam para onde estavam.
  const go=async(target)=>destinationOf(await GET(new NextRequest(`https://example.test/api/vehicle-context?type=motorcycle&area=public&target=${encodeURIComponent(target)}`)));
  assert.equal(await go("/motas/yamaha"),"/motas/yamaha");
@@ -258,7 +266,23 @@ await test("old carros/motas switch links land on the page (the stock filtered b
  assert.equal(withQuery.headers.get("location"),"/inventario?marca=Yamaha&preco_max=8000&tipo=motas");
  // Só caminhos deste site: nada de outros domínios, esquemas, "..", nem a
  // própria API ou o backoffice.
- for(const bad of ["//evil.test","/\\evil.test","/%2F%2Fevil.test","https://evil.test","javascript:alert(1)","/motas/../admin","/motas/%2e%2e/admin","/inventario?x=<script>","/api/vehicle-context?type=car","/admin","/a b","/x\nLocation: //evil.test"]) assert.equal(await go(bad),"/",bad);
+ for(const bad of ["//evil.test","/\\evil.test","/%2F%2Fevil.test","https://evil.test","javascript:alert(1)","/motas/../admin","/motas/%2e%2e/admin","/inventario?x=<script>","/api/vehicle-context?type=car","/admin","/a b","/x\nLocation: //evil.test"]) assert.equal(await go(bad),"/inventario?tipo=motas",bad);
+});
+
+await test("old backoffice switch links (area=admin) open the backoffice page, filtered by type",async()=>{
+ const {NextRequest}=require("next/server");
+ const {GET}=load("src/app/api/vehicle-context/route.ts");
+ const admin=async(target,type="motorcycle")=>destinationOf(await GET(new NextRequest(`https://example.test/api/vehicle-context?type=${type}&area=admin&target=${encodeURIComponent(target)}`)));
+ assert.equal(await admin("/admin/carros"),"/admin/carros?tipo=motas");
+ assert.equal(await admin("/admin/leads?q=ana&tipo=carros"),"/admin/leads?q=ana&tipo=motas");
+ assert.equal(await admin("/admin","car"),"/admin?tipo=carros");
+ // O backoffice só com area=admin; e só caminhos do backoffice deste site.
+ assert.equal(await destinationOf(await GET(new NextRequest("https://example.test/api/vehicle-context?type=car&target=%2Fadmin%2Fcarros"))),"/inventario?tipo=carros");
+ for(const bad of ["/admin//evil.test","/admin/../api/x","/admin/%2e%2e/api","/admin/api/olx","https://evil.test/admin","/admin\\evil"]) assert.equal(await admin(bad),"/inventario?tipo=motas",bad);
+ const {safeAdminTarget}=load("src/lib/vehicle-context-switch.ts");
+ assert.equal(safeAdminTarget("/admin?tipo=motas"),"/admin?tipo=motas");
+ assert.equal(safeAdminTarget("/admin/carros/123"),"/admin/carros/123");
+ assert.equal(safeAdminTarget("/administracao"),null);
 });
 
 await test("a stock alert keeps what the person is looking for, with the type of the page it came from",async()=>{
@@ -356,9 +380,9 @@ await test("old switch links keep the page the visitor arrived on",async()=>{
   assert.equal(await destinationOf(r),alvo==="/inventario"?"/inventario?tipo=carros":alvo,alvo);
  }
 
- // Sem destino continua a ir para a homepage, e um destino externo é ignorado.
+ // Sem destino vai para o stock desse tipo, e um destino externo é ignorado.
  const semAlvo=await GET(new NextRequest("https://example.test/api/vehicle-context?type=car&area=public"));
- assert.equal(await destinationOf(semAlvo),"/");
+ assert.equal(await destinationOf(semAlvo),"/inventario?tipo=carros");
  const externo=await entrar("https://evil.test/phish");
- assert.equal(await destinationOf(externo),"/");
+ assert.equal(await destinationOf(externo),"/inventario?tipo=carros");
 });

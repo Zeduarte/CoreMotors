@@ -33,6 +33,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPaths = [
     "",
     "/inventario",
+    // O questionário «Veículo ideal» está no menu principal.
+    "/quiz",
     "/servicos",
     ...showroom.services.filter((s) => s.enabled).map((s) => `/servicos/${s.id}`),
     "/vender",

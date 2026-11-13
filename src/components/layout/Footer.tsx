@@ -16,7 +16,7 @@ const LEGAL_LINKS: { label: string; href: string; external?: boolean }[] = [
   },
   { label: "Política de Privacidade", href: "/politica-de-privacidade" },
   { label: "Política de Cookies", href: "/politica-de-cookies" },
-  { label: "Termos de Condições", href: "/termos-condicoes" },
+  { label: "Termos e Condições", href: "/termos-condicoes" },
 ];
 
 export function Footer({

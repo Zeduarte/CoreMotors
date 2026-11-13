@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import { getPublicVehicleType, getSiteVehicleTypes } from "@/lib/vehicle-context";
 import type { HeroMedia } from "@/lib/hero-media";
 import { getShowroomContent } from "@/lib/showroom-queries";
@@ -28,9 +29,11 @@ import { OPTIONAL_MEDIA } from "@/lib/media";
 import { bodiesFor } from "@/lib/vehicle-categories";
 import { brandOptions, sameBrand } from "@/lib/brand-name";
 
-// O canónico da página inicial (sem query strings). O título e a descrição
-// vêm da layout raiz.
-export const metadata: Metadata = { alternates: { canonical: "/" } };
+// O canónico da página inicial (sem query strings) e o seu `og:url`. O título
+// e a descrição vêm da layout raiz.
+export function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, { path: "/" });
+}
 
 // ISR: revalida a cada 60s — novos destaques e edições de conteúdo aparecem
 // sem rebuild manual.
@@ -108,7 +111,8 @@ export default async function HomePage() {
         available={stockBrands}
       />
       <HomeStock vehicles={allVehicles} />
-      <SellCTA vehicleType={type} />
+      {/* Num site com carros e motas, «Tem uma viatura para trocar?». */}
+      <SellCTA vehicleType={type} mixed={siteTypes.length > 1} />
       <PinnedTrust
         content={content.trust}
         video={existingMedia(type, OPTIONAL_MEDIA.confianca)}

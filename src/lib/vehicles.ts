@@ -166,10 +166,15 @@ const FLAG_PARAMS = {
 
 type Params = Record<string, string | string[] | undefined>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.trim() || null;
+/**
+ * Um número do endereço: só algarismos (com espaços ou pontos de milhares e
+ * um «€» no fim). Outra coisa — «-5000», «20k» — é ignorada, em vez de virar
+ * 5000 ou 20 e filtrar o stock por um valor que ninguém pediu.
+ */
 const toNumber = (v: string | null) => {
-  if (!v) return null;
+  if (!v || !/^\d[\d\s.]*€?$/.test(v)) return null;
   const n = Number(v.replace(/[^\d]/g, ""));
-  return v.replace(/[^\d]/g, "") && Number.isFinite(n) ? n : null;
+  return Number.isFinite(n) ? n : null;
 };
 
 export function filtersFromQuery(sp: Params): Partial<VehicleFilters> {

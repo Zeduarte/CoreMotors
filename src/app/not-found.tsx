@@ -3,8 +3,10 @@ import { ErrorScreen } from "@/components/layout/ErrorScreen";
 import { getBranding } from "@/lib/queries";
 
 // Serve QUALQUER endereço que não existe (não só viaturas): título e texto
-// genéricos, e fora do índice do Google. As fichas de viatura têm a sua
-// mensagem própria em `viaturas/[slug]/not-found.tsx`.
+// genéricos, e fora do índice do Google. Fica fora do site (sem cabeçalho nem
+// rodapé). As páginas do site que dão 404 lá dentro têm o seu em
+// `(public)/not-found.tsx`, e as fichas de viatura a mensagem própria em
+// `(public)/viaturas/not-found.tsx`.
 export const metadata: Metadata = {
   title: "Página não encontrada",
   robots: { index: false, follow: true },

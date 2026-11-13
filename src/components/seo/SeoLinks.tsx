@@ -19,21 +19,26 @@ export function SeoLinks({
   type,
   vehicles,
   current,
+  showType = false,
   className = "",
 }: {
   type: VehicleType;
   vehicles: Vehicle[];
   /** A página onde se está (não aparece na lista). */
   current?: string;
+  /** Com uma caixa por tipo na mesma página: «Pesquisas populares — motas». */
+  showType?: boolean;
   className?: string;
 }) {
   const pages = seoPagesFor(type, vehicles).filter((p) => p.page.slug !== current);
   if (!pages.length) return null;
+  // Um id por tipo: o stock tem uma caixa de carros e outra de motas.
+  const id = `pesquisas-populares-${TYPE_PATH[type]}`;
   return (
-    <nav aria-labelledby="pesquisas-populares" className={`rounded-3xl border border-white/10 p-6 md:p-8 ${className}`}>
+    <nav aria-labelledby={id} className={`rounded-3xl border border-white/10 p-6 md:p-8 ${className}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 id="pesquisas-populares" className="text-lg font-semibold text-paper md:text-xl">
-          Pesquisas populares
+        <h2 id={id} className="text-lg font-semibold text-paper md:text-xl">
+          Pesquisas populares{showType && ` — ${TYPE_PATH[type]}`}
         </h2>
         <Link href={`/${TYPE_PATH[type]}`} className="text-sm text-accent hover:underline">
           {type === "motorcycle" ? "Todas as" : "Todos os"} {usedLabel(type).toLowerCase()} →

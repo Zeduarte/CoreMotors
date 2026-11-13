@@ -1,12 +1,17 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import { getVehicleList } from "@/lib/queries";
 import { FavoritesList } from "@/components/inventory/FavoritesList";
 
-export const metadata: Metadata = {
-  title: "Favoritos",
-  description: "As viaturas que guardou para ver mais tarde.",
-  robots: { index: false, follow: true },
-};
+export function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, {
+    path: "/favoritos",
+    canonical: false,
+    title: "Favoritos",
+    description: "As viaturas que guardou para ver mais tarde.",
+    robots: { index: false, follow: true },
+  });
+}
 
 export const revalidate = 60;
 

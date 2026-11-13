@@ -1,14 +1,17 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import { LegalPage } from "@/components/legal/LegalPage";
 import { getBranding } from "@/lib/queries";
 import { LEGAL_NAME, NIF } from "@/lib/legal";
 
-export const metadata: Metadata = {
-  title: "Política de Privacidade",
-  alternates: { canonical: "/politica-de-privacidade" },
-  description:
-    "Como recolhemos, usamos e protegemos os seus dados pessoais, e os direitos que lhe assistem ao abrigo do RGPD.",
-};
+export function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, {
+    path: "/politica-de-privacidade",
+    title: "Política de Privacidade",
+    description:
+      "Como recolhemos, usamos e protegemos os seus dados pessoais, e os direitos que lhe assistem ao abrigo do RGPD.",
+  });
+}
 
 export const revalidate = 3600;
 

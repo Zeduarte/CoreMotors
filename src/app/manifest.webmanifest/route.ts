@@ -1,9 +1,9 @@
 import type { MetadataRoute } from "next";
 import { site } from "@/lib/site";
-import { getSiteVehicleTypes } from "@/lib/queries";
+import { getBranding, getSiteVehicleTypes } from "@/lib/queries";
 import { siteDescription, vehiclesLabel } from "@/lib/site-types";
 
-// Muda pouco: o nome diz o que o stand vende (Definições → Tipo de site).
+// Muda pouco: o nome é o das Definições e diz o que o stand vende (Tipo de site).
 export const revalidate = 3600;
 
 /**
@@ -17,10 +17,12 @@ export const revalidate = 3600;
  * `metadata` do layout raiz, que o de `/admin` substitui.
  */
 export async function GET() {
-  const types = await getSiteVehicleTypes();
+  const [types, branding] = await Promise.all([getSiteVehicleTypes(), getBranding()]);
+  // O nome da empresa nas Definições, como no título das páginas.
+  const name = branding.companyName || site.name;
   const manifest: MetadataRoute.Manifest = {
-    name: `${site.name} — ${vehiclesLabel(types)}`,
-    short_name: site.name,
+    name: `${name} — ${vehiclesLabel(types)}`,
+    short_name: name,
     description: siteDescription(types),
     start_url: "/",
     display: "standalone",
@@ -40,6 +42,13 @@ export async function GET() {
         sizes: "any",
         type: "image/svg+xml",
         purpose: "maskable",
+      },
+      // PNG para quem não aceita SVG (o iOS e alguns Android).
+      {
+        src: "/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+        purpose: "any",
       },
     ],
   };

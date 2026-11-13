@@ -1,6 +1,6 @@
 import { registrationLabel } from "@/lib/vehicle-categories";
 import type { Vehicle } from "@/types/vehicle";
-import { formatKm, formatNumber } from "@/lib/format";
+import { bodyFieldLabel, formatKm, formatNumber } from "@/lib/format";
 import { Reveal } from "@/components/ui/Reveal";
 
 /** Ficha técnica completa em grelha. Server Component (sem interatividade). */
@@ -16,7 +16,8 @@ export function Specs({ vehicle }: { vehicle: Vehicle }) {
     { label: "Quilómetros", value: formatKm(vehicle.mileage) },
     { label: "Combustível", value: vehicle.fuel },
     { label: "Caixa", value: vehicle.transmission },
-    { label: "Carroçaria", value: vehicle.body },
+    // Nas motas é a categoria (Naked, Scooter…), não a carroçaria.
+    { label: bodyFieldLabel([vehicle.vehicleType]), value: vehicle.body },
     // Só o que o vendedor indicou: um zero aqui não é "zero cavalos", é um
     // campo em branco — mostrá-lo seria informação falsa no anúncio.
     ...(vehicle.power > 0

@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
+import { pageMetadata } from "@/components/seo/page-metadata";
 import Link from "next/link";
 import { AnimatedText } from "@/components/ui/AnimatedText";
 import { Reveal } from "@/components/ui/Reveal";
@@ -6,12 +7,14 @@ import { Parallax } from "@/components/ui/Parallax";
 import { getBranding } from "@/lib/queries";
 import { COMMON_MEDIA } from "@/lib/media";
 
-export const metadata: Metadata = {
-  title: "Sobre",
-  alternates: { canonical: "/sobre" },
-  description:
-    "Conheça o nosso stand — curadoria rigorosa, histórico transparente e uma experiência de compra sem fricção.",
-};
+export function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  return pageMetadata(parent, {
+    path: "/sobre",
+    title: "Sobre",
+    description:
+      "Conheça o nosso stand — curadoria rigorosa, histórico transparente e uma experiência de compra sem fricção.",
+  });
+}
 
 export const revalidate = 300;
 

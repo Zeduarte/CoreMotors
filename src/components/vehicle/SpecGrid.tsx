@@ -42,7 +42,12 @@ export function SpecGrid({ vehicle }: { vehicle: Vehicle }) {
     value: vehicle.national ? "Nacional" : "Importado",
     label: "Origem",
   });
-  items.push({ icon: <CarIcon />, value: vehicle.body, label: "Segmento" });
+  items.push({
+    // O desenho do tipo da viatura: uma mota não leva o ícone de um carro.
+    icon: vehicle.vehicleType === "motorcycle" ? <MotorcycleIcon /> : <CarIcon />,
+    value: vehicle.body,
+    label: "Segmento",
+  });
   // Lugares, portas e o resto ficam na ficha técnica, mais abaixo: aqui só o
   // essencial, para o cartão caber ao lado da foto.
 
@@ -179,6 +184,15 @@ function CarIcon() {
   return (
     <svg {...s}>
       <path d="M3 13l2-5a2 2 0 012-1.5h10A2 2 0 0119 8l2 5v5h-3M6 18H3v-5M6 18a1.5 1.5 0 003 0M15 18a1.5 1.5 0 003 0M6 18h9M3 13h18" />
+    </svg>
+  );
+}
+function MotorcycleIcon() {
+  return (
+    <svg {...s}>
+      <circle cx="5.5" cy="16.5" r="3" />
+      <circle cx="18.5" cy="16.5" r="3" />
+      <path d="M5.5 16.5l4-5.5h5.5l3.5 5.5M9.5 11L8 8.5H5.5M15 11l1.5-3.5H19" />
     </svg>
   );
 }

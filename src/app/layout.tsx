@@ -18,30 +18,41 @@ const inter = Inter({
   weight: ["300", "400", "500", "600", "700"],
 });
 
-// O título e a descrição dizem o que o stand vende (Definições → Tipo de site).
+// O título e a descrição dizem o que o stand vende (Definições → Tipo de site);
+// o nome é o das Definições (o de `site.ts` é só o recurso, sem BD). Os dois
+// vêm da cache pública, por isso não custam uma consulta por página.
+//
+// O `openGraph` daqui só tem o que é igual em todas as páginas (tipo, língua,
+// nome do site): o endereço, o título e a descrição são os de cada página
+// (ver `pageMetadata`). Com o `url` aqui, todas se partilhavam como a página
+// inicial.
 export async function generateMetadata(): Promise<Metadata> {
-  const types = await getSiteVehicleTypes();
+  const [types, branding] = await Promise.all([getSiteVehicleTypes(), getBranding()]);
+  const name = branding.companyName || site.name;
   const label = vehiclesLabel(types);
   const description = siteDescription(types);
   return {
   metadataBase: new URL(site.url),
   title: {
-    default: `${site.name} — ${label} em Portugal`,
-    template: `%s · ${site.name}`,
+    default: `${name} — ${label} em Portugal`,
+    template: `%s · ${name}`,
   },
   description,
   openGraph: {
     type: "website",
     locale: "pt_PT",
-    siteName: site.name,
-    title: `${site.name} — ${label}`,
-    description,
-    url: site.url,
+    siteName: name,
   },
   robots: { index: true, follow: true },
   // Ver src/app/manifest.webmanifest/route.ts (o backoffice tem o seu).
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon.svg", shortcut: "/icon.svg", apple: "/icon.svg" },
+  // O SVG para os browsers; o iOS só aceita PNG no ecrã principal. O
+  // /favicon.ico (public/) é para quem o pede diretamente (Google, leitores).
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+  },
   };
 }
 

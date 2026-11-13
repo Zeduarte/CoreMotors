@@ -13,7 +13,7 @@ import { ChatProvider } from "@/components/chat/ChatContext";
 import { CompareProvider } from "@/components/inventory/CompareContext";
 import { CompareBar } from "@/components/inventory/CompareBar";
 import { DealerJsonLd } from "@/components/seo/DealerJsonLd";
-import { getBadges, getBranding } from "@/lib/queries";
+import { getBadges, getBranding, getSoldVehicleList, getVehicleList } from "@/lib/queries";
 import { BadgesProvider } from "@/components/site/BadgesContext";
 import { existingMedia } from "@/lib/hero-media";
 import { OPTIONAL_MEDIA } from "@/lib/media";
@@ -29,12 +29,19 @@ export default async function PublicLayout({
   // Um só site: carros e motas juntos (os tipos de Definições → Tipo de site).
   // O tipo principal dá o aspeto (fotos e textos) — o dos carros, salvo num
   // site só de motas.
-  const [branding, type, siteTypes, badges] = await Promise.all([
+  const [branding, type, siteTypes, badges, stock, sold] = await Promise.all([
     getBranding(),
     getPublicVehicleType(),
     getSiteVehicleTypes(),
     getBadges(),
+    // Para os contadores do browser (favoritos e comparação) contarem só o
+    // que o site mostra. Leituras em cache (as mesmas das páginas).
+    getVehicleList(),
+    getSoldVehicleList(),
   ]);
+  // Sem stock nenhum (ou a leitura falhou), não se filtra nada: um erro
+  // passageiro não pode apagar a comparação de quem está a navegar.
+  const stockSlugs = stock.length ? stock.map((v) => v.slug) : undefined;
   // Hora do render, para a etiqueta «Novidade» igual no servidor e no browser.
   const renderedAt = Date.now();
 
@@ -43,7 +50,7 @@ export default async function PublicLayout({
       {/* O provider envolve o conteúdo: a barra fixa da ficha de viatura
           precisa de abrir o mesmo painel de conversa que o botão flutuante. */}
       <ChatProvider enabled={!!process.env.ANTHROPIC_API_KEY}>
-      <CompareProvider>
+      <CompareProvider available={stockSlugs && [...stockSlugs, ...sold.map((v) => v.slug)]}>
       {/* `.site`: estilos só do site público (ex.: botões); `contents` não
           cria caixa, por isso não altera o layout. */}
       <div className="site contents">
@@ -54,14 +61,14 @@ export default async function PublicLayout({
         >
           Saltar para o conteúdo
         </a>
-        <DealerJsonLd branding={branding} />
+        <DealerJsonLd branding={branding} siteTypes={siteTypes} />
         <ScrollProgress />
         {/* `useSearchParams` exige um Suspense para não desligar o render estático. */}
         <Suspense fallback={null}>
           <NavigationEvents />
           <NavigationProgress />
         </Suspense>
-        <Header branding={branding} />
+        <Header branding={branding} stockSlugs={stockSlugs} />
         <main id="conteudo" className="pt-16">{children}</main>
         <Footer branding={branding} background={existingMedia(type, OPTIONAL_MEDIA.rodape)} siteTypes={siteTypes} />
         {/* Assistente virtual + canais de contacto no mesmo botão flutuante.

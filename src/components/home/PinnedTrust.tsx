@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { LazyVideo } from "@/components/ui/LazyVideo";
+import { useBrandIdentity } from "@/components/layout/BrandIdentity";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import {
@@ -85,6 +86,8 @@ export function PinnedTrust({
   });
 
   const activePillar = PILLARS[active] ?? PILLARS[0]!;
+  // O nome das Definições (o layout raiz passa-o), não o fixo de `site.ts`.
+  const companyName = useBrandIdentity()?.companyName;
 
   return (
     <section
@@ -93,7 +96,7 @@ export function PinnedTrust({
       // a do conteúdo, senão o que não cabe é cortado.
       className="relative bg-ink-soft md:h-[var(--pin-height)]"
       style={{ "--pin-height": `${PILLARS.length * 90}vh` } as React.CSSProperties}
-      aria-label="Porquê comprar na Supermotas"
+      aria-label={companyName ? `Porquê comprar na ${companyName}` : "Porquê comprar connosco"}
     >
       <div
         data-pin
