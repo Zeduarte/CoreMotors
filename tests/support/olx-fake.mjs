@@ -105,9 +105,11 @@ const DEFAULTS = {
 export function makeDb(tables) {
   const t = { channel_listings: [], olx_adverts: [], car_media: [], cars: [], olx_category_cache: [], olx_category_details: [], ...tables };
   let seq = 1;
-  const storage = { uploads: [] };
+  const storage = { uploads: [], removed: [] };
   // Leituras que falham: tabela → erro do Supabase (ver `failRead`).
   const failSelect = new Map();
+  // Escritas que falham: 'update:tabela' / 'insert:tabela' → erro.
+  const failWrite = new Map();
   const from = (table) => {
     t[table] ??= [];
     const f = []; let op = 'select', patch = null, lim = Infinity, payload = null;
@@ -117,12 +119,14 @@ export function makeDb(tables) {
     const unique = (row) => table === 'olx_adverts' && row.car_id && t.olx_adverts.some((r) => r.car_id === row.car_id && r.id !== row.id);
     const run = () => {
       if (op === 'update') {
+        if (failWrite.has(`update:${table}`)) return { data: null, error: failWrite.get(`update:${table}`) };
         const rs = rows();
         if (rs.some((r) => unique({ ...r, ...patch }))) return { data: null, error: { message: 'duplicate key value violates unique constraint' } };
         rs.forEach((r) => Object.assign(r, patch)); return { data: rs.map(shape), error: null };
       }
       if (op === 'delete') { const keep = t[table].filter((r) => !f.every((fn) => fn(r))); const n = t[table].length - keep.length; t[table] = keep; return { data: n, error: null }; }
       if (op === 'insert') {
+        if (failWrite.has(`insert:${table}`)) return { data: null, error: failWrite.get(`insert:${table}`) };
         const list = (Array.isArray(payload) ? payload : [payload]).map(withDefaults);
         if (list.some(unique)) return { data: null, error: { message: 'duplicate key value violates unique constraint' } };
         t[table].push(...list); return { data: list.map(shape), error: null };
@@ -167,8 +171,9 @@ export function makeDb(tables) {
   };
   const bucket = () => ({
     async upload(path, bytes, opts) { storage.uploads.push({ path, size: bytes.byteLength ?? bytes.length, opts }); return { data: { path }, error: null }; },
+    async remove(paths) { storage.removed.push(...paths); return { data: null, error: null }; },
   });
-  return { from, storage: { from: bucket }, _t: t, _storage: storage, _failSelect: failSelect };
+  return { from, storage: { from: bucket }, _t: t, _storage: storage, _failSelect: failSelect, _failWrite: failWrite };
 }
 
 /** Uma ligação ao OLX válida para o token atual do simulado. */

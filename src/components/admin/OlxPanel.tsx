@@ -3,6 +3,8 @@ import { olxConfigured } from "@/lib/olx/client";
 import { REMOTE_STATUS_LABEL } from "@/lib/olx/lifecycle";
 import { site } from "@/lib/site";
 import { currentSuggestions } from "@/lib/olx/links";
+import { getCurrentProfile } from "@/lib/admin-queries";
+import { canUseVehicleType } from "@/lib/vehicle-access";
 import { olxCallbackUrl } from "@/app/api/olx/redirect";
 import { OlxActions } from "./OlxActions";
 import { OlxAdvertsTable, type AdvertRowView } from "./OlxAdvertsTable";
@@ -19,6 +21,10 @@ import { OlxDefaultCategories } from "./OlxDefaultCategories";
 export async function OlxPanel({ status, detalhe }: { status?: string; detalhe?: string }) {
   const configured = olxConfigured();
   const db = createAdminClient();
+  // O cliente de serviço não tem a RLS por tipo: as sugestões e a lista para
+  // associar só trazem viaturas dos tipos de quem vê (como as ações exigem).
+  const me = await getCurrentProfile();
+  const canUse = (type: string | null | undefined) => !!me && canUseVehicleType(me, type);
   const [conn, cats, erros, contas, viaturas, sugestoes] = db
     ? await Promise.all([
         db.from("olx_connection").select("olx_user_name,expires_at,city_id,updated_at").eq("id", 1).maybeSingle(),
@@ -32,8 +38,8 @@ export async function OlxPanel({ status, detalhe }: { status?: string; detalhe?:
         // Todos os anúncios da conta (0051): os do site, os feitos no OLX e os
         // do Standvirtual. Sem a migração, a lista fica vazia.
         db.from("olx_adverts").select("*"),
-        db.from("cars").select("id,make,model,variant,price,license_plate,channels"),
-        currentSuggestions(db),
+        db.from("cars").select("id,make,model,variant,price,license_plate,channels,vehicle_type"),
+        currentSuggestions(db, canUse),
       ])
     : [null, null, null, null, null, new Map()];
 
@@ -68,7 +74,7 @@ export async function OlxPanel({ status, detalhe }: { status?: string; detalhe?:
     };
   });
   const livres = [...carros.keys()]
-    .filter((id) => !associadas.has(id))
+    .filter((id) => !associadas.has(id) && canUse(carros.get(id)?.vehicle_type))
     .map((id) => ({ id, label: rotulo(id, true) }))
     .sort((a, b) => a.label.localeCompare(b.label, "pt"));
   const lidos = linhas.map((a) => a.seen_at).sort().at(-1) ?? null;

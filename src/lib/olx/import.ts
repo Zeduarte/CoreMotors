@@ -4,6 +4,7 @@ import { unwrap } from "@/lib/olx/categories";
 import { getConnection, olxFetch } from "@/lib/olx/client";
 import { advertOrigin, isLiveAdvert } from "@/lib/olx/adverts";
 import { parseStats } from "@/lib/olx/stats";
+import { missingTable, refreshStats } from "@/lib/olx/sync";
 import type { Database, OlxAdvertRow } from "@/lib/supabase/database.types";
 
 /**
@@ -30,6 +31,8 @@ export interface ImportResult {
   cleared: number;
   stats: number;
   error?: string;
+  /** A tabela `olx_adverts` não existe: falta aplicar a migração 0051. */
+  missingMigration?: boolean;
 }
 
 interface ListedAdvert {
@@ -49,10 +52,25 @@ const STATS_EVERY_MS = 20 * 60 * 60 * 1000;
 const STATS_PER_RUN = 50;
 
 /** As datas do OLX vêm como «2026-12-01 10:00:00» (hora de Portugal). */
-function olxDate(v: string | null | undefined): string | null {
+export function olxDate(v: string | null | undefined): string | null {
   if (!v) return null;
-  const d = new Date(v.includes("T") ? v : v.replace(" ", "T"));
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  // Com fuso indicado, é esse; sem ele, é a hora de Lisboa (não a do servidor).
+  if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(v.trim())) {
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  const m = v.trim().match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return null;
+  const [, y, mo, d, h, mi, se] = m.map(Number) as number[];
+  const asUtc = Date.UTC(y!, mo! - 1, d!, h!, mi!, se || 0);
+  // Diferença entre Lisboa e UTC nesse instante (0 no inverno, +1 h no verão).
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Lisbon", hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(new Date(asUtc));
+  const p = Object.fromEntries(parts.map((x) => [x.type, Number(x.value)]));
+  const lisbonAsUtc = Date.UTC(p.year!, p.month! - 1, p.day!, p.hour!, p.minute!, p.second!);
+  return new Date(asUtc - (lisbonAsUtc - asUtc)).toISOString();
 }
 
 function priceOf(a: ListedAdvert): number | null {
@@ -100,6 +118,17 @@ export async function importAdverts(
     const { data: existing, error: readError } = await db
       .from("olx_adverts")
       .select("id, car_id, origin, category_id, category_name, stats_at");
+    if (readError && missingTable(readError)) {
+      // Sem a 0051 as estatísticas dos anúncios criados pelo site continuam a
+      // atualizar-se como antes.
+      if (opts.stats) await refreshStats(db);
+      return {
+        ...result,
+        ok: false,
+        missingMigration: true,
+        error: "Falta aplicar a migração 0051 (olx_adverts) no Supabase: SQL Editor → colar o ficheiro → Run.",
+      };
+    }
     if (readError || !existing) return { ...result, ok: false, error: readError?.message ?? "Não foi possível ler os anúncios guardados." };
     const known = new Map(existing.map((r) => [r.id, r]));
     const categoryNames = new Map<number, string | null>();
@@ -156,8 +185,18 @@ export async function importAdverts(
       linkedCars.add(r.external_id!);
     }
 
-    // 3) O que já não está na conta sai do espelho.
-    const gone = existing.map((r) => r.id).filter((id) => !seen.has(id));
+    // 3) O que já não está na conta sai do espelho. Um associado a uma viatura
+    //    só sai com a confirmação do OLX (404/403): se um anúncio desaparecer a
+    //    meio da leitura, a paginação salta outro, e a associação perdia-se.
+    const gone: number[] = [];
+    for (const r of existing) {
+      if (seen.has(r.id)) continue;
+      if (r.car_id) {
+        const g = await olxFetch<unknown>(db, `/adverts/${r.id}`);
+        if (g.status !== 404 && g.status !== 403) continue;
+      }
+      gone.push(r.id);
+    }
     if (gone.length) {
       await db.from("olx_adverts").delete().in("id", gone);
       result.removed = gone.length;

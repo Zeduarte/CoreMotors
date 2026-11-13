@@ -82,9 +82,23 @@ function sameMake(advert: MatchAdvert, car: MatchCar): boolean {
   return ` ${fold(advert.title)} `.includes(` ${make} `);
 }
 
+/**
+ * O modelo tem de ser feito de palavras inteiras e seguidas do título — juntas
+ * sem espaços, para «116d» bater com «116 d». Assim «3» não bate com «CX-30»
+ * nem «500» com «500X».
+ */
 function sameModel(advert: MatchAdvert, car: MatchCar): boolean {
   const model = compact(car.model);
-  return !!model && compact(advert.title).includes(model);
+  if (!model) return false;
+  const words = fold(advert.title).split(" ").filter(Boolean);
+  for (let i = 0; i < words.length; i++) {
+    let joined = "";
+    for (let j = i; j < words.length && joined.length < model.length; j++) {
+      joined += words[j];
+      if (joined === model) return true;
+    }
+  }
+  return false;
 }
 
 /**

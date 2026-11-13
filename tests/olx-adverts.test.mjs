@@ -657,3 +657,137 @@ test('«Criar viatura» usa a origem do anúncio: nacional ou importada', () => 
   assert.equal(IC.advertToCarInput(com('imported'), defs, { make: 'Renault', vehicleType: 'car' }).input.national, false);
   assert.equal(IC.advertToCarInput(com(null), defs, { make: 'Renault', vehicleType: 'car' }).input.national, undefined, 'sem origem, fica a regra da ficha (nacional)');
 });
+
+// ---- Pontos menores da revisão -------------------------------------------------
+test('M-10: o modelo bate por palavras inteiras («3» não está em «CX-30», «500» não está em «500X»)', () => {
+  const cars = [{ id: 'm3', make: 'Mazda', model: '3', price: 15000 }, { id: 'f500', make: 'Fiat', model: '500', price: 9000 }];
+  assert.equal(A.suggestCar({ id: 1, title: 'Mazda CX-30 2.0 Skyactiv', price: 15000, categoryName: 'Mazda' }, cars), null);
+  assert.equal(A.suggestCar({ id: 2, title: 'Fiat 500X Cross', price: 9000, categoryName: 'Fiat' }, cars), null);
+  assert.deepEqual(A.suggestCar({ id: 3, title: 'Mazda 3 2.0 Evolve', price: 15000, categoryName: 'Mazda' }, cars), { carId: 'm3', strong: true });
+  assert.deepEqual(A.suggestCar({ id: 4, title: 'BMW 116 d Pack M', price: 12900, categoryName: 'BMW' }, CARS), { carId: 'bmw116', strong: true }, '«116d» continua a bater com «116 d»');
+});
+
+test('M-3: não se associa a uma viatura cujo anúncio ainda não está no espelho, nem por cima de uma associação feita entretanto', async () => {
+  reset();
+  const d = db({ olx_adverts: [{ id: 42, origin: 'olx', status: 'active', title: 'a', car_id: null }] });
+  d._t.channel_listings.push({ id: 'lx', car_id: CAR, channel: 'olx', external_id: '999', status: 'published', sync_state: 'idle' });
+  assert.equal((await LK.linkAdvert(d, 42, CAR)).ok, false, 'a viatura já tem um anúncio (999), mesmo fora do espelho');
+
+  const CAR3 = '33333333-3333-4333-8333-333333333333';
+  const d2 = db({ olx_adverts: [{ id: 42, origin: 'olx', status: 'active', title: 'a', car_id: null }] });
+  d2._t.cars.push({ id: CAR3, make: 'BMW', model: 'X1', price: 1, status: 'draft', channels: [], vehicle_type: 'car' });
+  // Alguém associa o anúncio a outra viatura entre a leitura e a gravação.
+  const from = d2.from; let reads = 0;
+  d2.from = (t) => { const q = from(t); if (t === 'olx_adverts') { const sel = q.select; q.select = (...a) => { if (++reads === 2) d2._t.olx_adverts[0].car_id = CAR3; return sel(...a); }; } return q; };
+  const r = await LK.linkAdvert(d2, 42, CAR);
+  assert.equal(r.ok, false);
+  assert.equal(d2._t.olx_adverts[0].car_id, CAR3, 'não passa por cima');
+
+  const d3 = db({ olx_adverts: [{ id: 42, origin: 'olx', status: 'active', title: 'a', car_id: null }] });
+  d3._failWrite.set('update:olx_adverts', { message: 'canceling statement due to statement timeout', code: '57014' });
+  assert.match((await LK.linkAdvert(d3, 42, CAR)).error, /timeout/, 'um erro qualquer não aparece como «já tem anúncio»');
+});
+
+test('M-2: um anúncio associado que falte na lista só sai se o OLX confirmar que já não existe', async () => {
+  reset(); ad(1); ad(50, { _hidden: true });
+  const d = db({ olx_adverts: [
+    { id: 1, origin: 'olx', status: 'active', title: 'a', car_id: null },
+    { id: 50, origin: 'olx', status: 'active', title: 'saltado', car_id: CAR },
+    { id: 51, origin: 'olx', status: 'active', title: 'apagado', car_id: '33333333-3333-4333-8333-333333333333' },
+  ] });
+  const r = await I.importAdverts(d, { stats: false });
+  assert.deepEqual(d._t.olx_adverts.map((x) => x.id).sort(), [1, 50]);
+  assert.equal(row(d, 50).car_id, CAR);
+  assert.equal(r.removed, 1);
+});
+
+test('M-9: sem a migração 0051, a leitura diz o que falta e as estatísticas dos anúncios do site continuam', async () => {
+  reset(); ad(7, { external_id: CAR, _views: 77 });
+  const d = db({ channel_listings: [{ id: 'l1', car_id: CAR, channel: 'olx', external_id: '7', status: 'published', sync_state: 'idle', views: null }] });
+  d._failSelect.set('olx_adverts', MISSING_TABLE);
+  const r = await I.importAdverts(d, { stats: 'due' });
+  assert.equal(r.ok, false);
+  assert.equal(r.missingMigration, true);
+  assert.match(r.error, /0051/);
+  assert.equal(d._t.channel_listings[0].views, 77);
+});
+
+test('M-8: as datas do OLX são horas de Lisboa (verão e inverno)', () => {
+  assert.equal(I.olxDate('2026-07-01 10:00:00'), '2026-07-01T09:00:00.000Z');
+  assert.equal(I.olxDate('2026-12-01 10:00:00'), '2026-12-01T10:00:00.000Z');
+  assert.equal(I.olxDate('2026-07-01T10:00:00+00:00'), '2026-07-01T10:00:00.000Z');
+  assert.equal(I.olxDate(null), null);
+});
+
+test('M-8: «Lidos» mostra a hora de Lisboa, igual no servidor e no browser', () => {
+  // O servidor do Netlify corre em UTC: a hora tem de sair na de Lisboa na mesma.
+  const tz = process.env.TZ; process.env.TZ = 'UTC';
+  try {
+    const out = renderToStaticMarkup(React.createElement(OlxAdvertsTable, { adverts: [view({})], cars: [], readAt: '2026-07-01T09:05:00.000Z' }));
+    assert.match(out, /01\/07\/2026,? 10:05/);
+  } finally { if (tz === undefined) delete process.env.TZ; else process.env.TZ = tz; }
+});
+
+test('M-6: confirmar sugestões em lote avisa que os anúncios passam a ter os dados da ficha', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const src = await readFile('src/components/admin/OlxAdvertsTable.tsx', 'utf8');
+  const bulk = src.slice(src.indexOf('run(confirmOlxSuggestions)') - 400, src.indexOf('run(confirmOlxSuggestions)'));
+  assert.match(bulk, /o texto, as fotos e o preço da ficha/);
+});
+
+test('M-1: foto grande recusada pelo tamanho anunciado; se o registo falhar, o ficheiro é apagado', async () => {
+  olx.images.set('ok.jpg', { type: 'image/jpeg', bytes: Buffer.alloc(1000) });
+  olx.images.set('big2.jpg', { type: 'image/jpeg', bytes: Buffer.alloc(6 * 1024 * 1024) });
+  const d = db();
+  const r = await IC.copyAdvertPhotos(d, CAR, [`${fake.url}/img/big2.jpg`, `${fake.url}/img/ok.jpg`], { allow: () => true });
+  assert.deepEqual(r, { copied: 1, failed: 1 });
+  assert.deepEqual(d._storage.uploads.map((u) => u.path), [`${CAR}/olx-1.jpg`]);
+  const d2 = db();
+  d2._failWrite.set('insert:car_media', { message: 'falhou' });
+  const r2 = await IC.copyAdvertPhotos(d2, CAR, [`${fake.url}/img/ok.jpg`], { allow: () => true });
+  assert.deepEqual(r2, { copied: 0, failed: 1 });
+  assert.deepEqual(d2._storage.removed, [`${CAR}/olx-1.jpg`], 'sem ficheiros órfãos no Storage');
+});
+
+test('M-4 e M-5: o painel e ativar/desativar respeitam os tipos de viatura de quem vê', async () => {
+  reset();
+  olx.categories.set(378, { id: 378, name: 'Carros', parent_id: 362 });
+  ad(60, { category_id: 741 });
+  const BIKE = '55555555-5555-4555-8555-555555555555';
+  const d = db({ olx_adverts: [
+    { id: 1, origin: 'standvirtual', status: 'active', title: 'BMW 116 d Pack M', price: 12900, category_name: 'BMW', category_id: 741, car_id: null, seen_at: '2026-11-13T10:00:00Z' },
+    { id: 60, origin: 'olx', status: 'active', title: 'BMW qualquer', price: 1, category_name: 'BMW', category_id: 741, car_id: null, seen_at: '2026-11-13T10:00:00Z' },
+  ] });
+  d._t.cars.push({ id: BIKE, make: 'Yamaha', model: 'MT-07', price: 6000, status: 'published', channels: [], vehicle_type: 'motorcycle' });
+  const so = { role: 'vendedor', allowed_vehicle_types: ['motorcycle'], allowed_sections: ['anuncios'] };
+  const access = { VEHICLE_TYPE_DENIED: 'Sem acesso a este tipo de viatura.', canUseVehicleType: (_me, t) => !t || t === 'motorcycle', carTypesError: async () => 'Sem acesso a este tipo de viatura.' };
+  const loadPanel = createLoader({
+    '@/lib/queries': { getBranding: async () => ({}), getSiteVehicleTypes: async () => ['car', 'motorcycle'] },
+    'next/navigation': { useRouter: () => ({ refresh() {} }) },
+    sonner: { toast: { success() {}, error() {} } },
+    '@/lib/actions/olx-adverts': { readOlxAdverts: noop, linkOlxAdvert: noop, unlinkOlxAdvert: noop, confirmOlxSuggestions: noop, setOlxAdvertActive: noop, createCarFromOlxAdvert: noop },
+    '@/lib/actions/olx': { chooseOlxCategory: noop, disconnectOlx: noop, loadOlxCategories: noop, syncOlxNow: noop, setDefaultOlxCategory: noop, browseOlxCategories: noop },
+    '@/lib/supabase/admin': { createAdminClient: () => d },
+    '@/lib/admin-queries': { getCurrentProfile: async () => so },
+    '@/lib/vehicle-access': access,
+  });
+  const { OlxPanel } = loadPanel('src/components/admin/OlxPanel.tsx');
+  const html = renderToStaticMarkup(await OlxPanel({}));
+  assert.doesNotMatch(html, /Sugestão:/, 'sem sugestões de carros para quem só vê motas');
+  assert.doesNotMatch(html, /BMW 116d · 12 900/, 'nem carros na lista para associar');
+  assert.match(html, /Yamaha MT-07/);
+
+  const loadActions = createLoader({
+    '@/lib/queries': { getBranding: async () => ({}), getSiteVehicleTypes: async () => ['car', 'motorcycle'] },
+    '@/lib/guard': { requireSection: async () => so },
+    '@/lib/vehicle-access': access,
+    '@/lib/supabase/server': { createClient: async () => ({}) },
+    '@/lib/supabase/admin': { createAdminClient: () => d },
+    'next/cache': { revalidatePath() {} },
+    '@/lib/actions/cars': { createCar: async () => ({ ok: false }) },
+  });
+  const act = loadActions('src/lib/actions/olx-adverts.ts');
+  olx.calls.length = 0;
+  assert.deepEqual(await act.setOlxAdvertActive(60, false), { ok: false, error: 'Sem acesso a este tipo de viatura.' });
+  assert.deepEqual(writes(olx), []);
+});

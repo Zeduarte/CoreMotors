@@ -70,7 +70,9 @@ export function OlxAdvertsTable({
         <h3 className="text-sm font-semibold uppercase tracking-wider text-paper/50">Anúncios no OLX</h3>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-paper/40">
-            {readAt ? `Lidos ${new Date(readAt).toLocaleString("pt-PT")} · todos os dias automaticamente` : "Ainda não lidos."}
+            {readAt
+              ? `Lidos ${new Date(readAt).toLocaleString("pt-PT", { timeZone: "Europe/Lisbon", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })} · todos os dias automaticamente`
+              : "Ainda não lidos."}
           </span>
           {strong > 0 && (
             <button
@@ -78,7 +80,11 @@ export function OlxAdvertsTable({
               className="btn-ghost"
               disabled={pending}
               onClick={() => {
-                if (confirm(`Associar ${strong} anúncio(s) às viaturas sugeridas (marca, modelo e preço iguais)?`))
+                if (
+                  confirm(
+                    `Associar ${strong} anúncio(s) às viaturas sugeridas (marca, modelo e preço iguais)? Nas viaturas à venda com OLX marcado, o anúncio passa a ter o texto, as fotos e o preço da ficha.`,
+                  )
+                )
                   run(confirmOlxSuggestions);
               }}
             >

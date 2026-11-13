@@ -25,15 +25,18 @@ export interface LinkResult {
 
 const NOT_FOUND = "Anúncio não encontrado. Carregue em «Ler anúncios do OLX» e tente outra vez.";
 
-/** Viaturas que já têm um anúncio: associado no espelho ou criado pelo site. */
+/**
+ * Viaturas que já têm um anúncio: associado no espelho, ou com um anúncio na
+ * sincronização (mesmo que ainda não tenha aparecido na leitura do OLX — um
+ * acabado de criar). Os de outra conta já foram limpos pela leitura.
+ */
 async function linkedCarIds(db: Db): Promise<Set<string>> {
   const [{ data: adverts }, { data: listings }] = await Promise.all([
     db.from("olx_adverts").select("id, car_id"),
     db.from("channel_listings").select("car_id, external_id").eq("channel", "olx").not("external_id", "is", null),
   ]);
-  const advertIds = new Set((adverts ?? []).map((a) => String(a.id)));
   const ids = new Set((adverts ?? []).map((a) => a.car_id).filter((c): c is string => !!c));
-  for (const l of listings ?? []) if (l.external_id && advertIds.has(l.external_id)) ids.add(l.car_id);
+  for (const l of listings ?? []) if (l.external_id) ids.add(l.car_id);
   return ids;
 }
 
@@ -45,8 +48,19 @@ export async function linkAdvert(db: Db, advertId: number, carId: string): Promi
   if (!car) return { ok: false, error: "Viatura não encontrada." };
   if ((await linkedCarIds(db)).has(carId)) return { ok: false, error: "Esta viatura já tem um anúncio do OLX associado." };
 
-  const { error } = await db.from("olx_adverts").update({ car_id: carId }).eq("id", advertId);
-  if (error) return { ok: false, error: "Esta viatura já tem um anúncio do OLX associado." };
+  // Só onde ainda não há associação: duas pessoas a associar o mesmo anúncio
+  // ao mesmo tempo não passam uma por cima da outra.
+  const { data: updated, error } = await db
+    .from("olx_adverts")
+    .update({ car_id: carId })
+    .eq("id", advertId)
+    .is("car_id", null)
+    .select("id");
+  if (error) {
+    const duplicate = error.code === "23505" || /duplicate|unique/i.test(error.message);
+    return { ok: false, error: duplicate ? "Esta viatura já tem um anúncio do OLX associado." : error.message };
+  }
+  if (!updated?.length) return { ok: false, error: "Este anúncio já está associado a uma viatura." };
 
   // Com a viatura à venda e OLX marcado, o backoffice passa já a mandar no
   // anúncio (texto, fotos e preço da ficha). Num rascunho, ou nos do

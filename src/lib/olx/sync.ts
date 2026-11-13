@@ -338,7 +338,7 @@ export async function syncListing(db: Db, carId: string): Promise<SyncOutcome> {
 }
 
 /** A tabela `olx_adverts` ainda não existe (migração 0051 por aplicar). */
-function missingTable(error: { message?: string; code?: string }): boolean {
+export function missingTable(error: { message?: string; code?: string }): boolean {
   return error.code === "42P01" || /does not exist|schema cache/i.test(error.message ?? "");
 }
 

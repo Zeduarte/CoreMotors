@@ -162,32 +162,67 @@ export async function copyAdvertPhotos(
   opts: { allow?: (url: string) => boolean } = {},
 ): Promise<{ copied: number; failed: number }> {
   const allow = opts.allow ?? isOlxImageUrl;
+  const list = urls.slice(0, MAX_PHOTOS);
+
+  // Descarregar é o que demora: 4 de cada vez, para 30 fotos caberem no tempo
+  // de uma ação. A gravação a seguir é por ordem (a primeira é a capa).
+  const downloads: ({ bytes: Uint8Array; type: string } | null)[] = [];
+  for (let i = 0; i < list.length; i += DOWNLOADS_AT_ONCE) {
+    downloads.push(...(await Promise.all(list.slice(i, i + DOWNLOADS_AT_ONCE).map((url) => download(url, allow)))));
+  }
+
   let copied = 0;
   let failed = 0;
-  for (const url of urls.slice(0, MAX_PHOTOS)) {
-    try {
-      if (!allow(url)) throw new Error("origem não permitida");
-      const r = await fetch(url, { signal: AbortSignal.timeout(15000), redirect: "error" });
-      const type = r.headers.get("content-type") ?? "";
-      if (!r.ok || !type.startsWith("image/")) throw new Error("não é uma imagem");
-      const bytes = new Uint8Array(await r.arrayBuffer());
-      if (bytes.byteLength > MAX_BYTES) throw new Error("demasiado grande");
-      const path = `${carId}/olx-${copied + 1}.jpg`;
-      const up = await db.storage.from(MEDIA_BUCKET).upload(path, bytes, {
-        contentType: type,
-        cacheControl: MEDIA_CACHE_CONTROL,
-        upsert: true,
-      });
-      if (up.error) throw new Error(up.error.message);
-      const { error } = await db
-        .from("car_media")
-        .insert({ car_id: carId, storage_path: path, kind: "image", position: copied, is_cover: copied === 0 });
-      if (error) throw new Error(error.message);
-      copied += 1;
-    } catch (e) {
-      console.error("olx copyAdvertPhotos:", e instanceof Error ? e.message : e);
+  for (const photo of downloads) {
+    if (!photo) {
       failed += 1;
+      continue;
     }
+    const path = `${carId}/olx-${copied + 1}.jpg`;
+    const up = await db.storage.from(MEDIA_BUCKET).upload(path, photo.bytes, {
+      contentType: photo.type,
+      cacheControl: MEDIA_CACHE_CONTROL,
+      upsert: true,
+    });
+    if (up.error) {
+      console.error("olx copyAdvertPhotos:", up.error.message);
+      failed += 1;
+      continue;
+    }
+    const { error } = await db
+      .from("car_media")
+      .insert({ car_id: carId, storage_path: path, kind: "image", position: copied, is_cover: copied === 0 });
+    if (error) {
+      // Sem registo, o ficheiro ficava órfão no Storage.
+      console.error("olx copyAdvertPhotos:", error.message);
+      await db.storage.from(MEDIA_BUCKET).remove([path]);
+      failed += 1;
+      continue;
+    }
+    copied += 1;
   }
   return { copied, failed };
+}
+
+const DOWNLOADS_AT_ONCE = 4;
+
+/** Uma foto, ou null: origem não permitida, não é imagem, ou passa dos 5 MB. */
+async function download(url: string, allow: (url: string) => boolean): Promise<{ bytes: Uint8Array; type: string } | null> {
+  try {
+    if (!allow(url)) throw new Error("origem não permitida");
+    const r = await fetch(url, { signal: AbortSignal.timeout(15000), redirect: "error" });
+    const type = r.headers.get("content-type") ?? "";
+    if (!r.ok || !type.startsWith("image/")) throw new Error("não é uma imagem");
+    // Pelo tamanho anunciado, antes de ler a foto toda.
+    if (Number(r.headers.get("content-length") ?? 0) > MAX_BYTES) {
+      await r.body?.cancel();
+      throw new Error("demasiado grande");
+    }
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    if (bytes.byteLength > MAX_BYTES) throw new Error("demasiado grande");
+    return { bytes, type };
+  } catch (e) {
+    console.error("olx copyAdvertPhotos:", e instanceof Error ? e.message : e);
+    return null;
+  }
 }

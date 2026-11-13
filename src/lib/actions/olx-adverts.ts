@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { importAdverts } from "@/lib/olx/import";
 import { confirmSuggestions, linkAdvert, setAdvertActive, unlinkAdvert } from "@/lib/olx/links";
-import { canUseVehicleType, carTypesError } from "@/lib/vehicle-access";
+import { canUseVehicleType, carTypesError, VEHICLE_TYPE_DENIED } from "@/lib/vehicle-access";
 import { olxFetch } from "@/lib/olx/client";
 import { unwrap } from "@/lib/olx/categories";
 import type { OlxAttributeDef } from "@/lib/olx/attributes";
@@ -142,6 +142,13 @@ export async function setOlxAdvertActive(advertId: number, active: boolean): Pro
   if (carId) {
     const denied = await carTypesError(await createClient(), me, [carId]);
     if (denied) return { ok: false, error: denied };
+  } else {
+    // Sem viatura, o tipo vem da categoria do anúncio (carros ou motas).
+    const db = admin();
+    const { data } = await db.from("olx_adverts").select("category_id").eq("id", advertId).maybeSingle();
+    if (data?.category_id && !canUseVehicleType(me, await vehicleTypeOfCategory(db, data.category_id))) {
+      return { ok: false, error: VEHICLE_TYPE_DENIED };
+    }
   }
   return done(await setAdvertActive(admin(), advertId, !!active));
 }
