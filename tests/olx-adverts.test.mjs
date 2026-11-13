@@ -256,3 +256,113 @@ test('PUT recusado por ser do Standvirtual: passa a standvirtual, sem erro', asy
   assert.equal(row(d, 45).origin, 'standvirtual');
   assert.deepEqual([lst(d).sync_state, lst(d).notes, lst(d).last_error], ['idle', 'Gerido no Standvirtual', null]);
 });
+
+// ---- Associar, desassociar, sugestões, ativar e desativar -----------------
+const LK = load('src/lib/olx/links.ts');
+const carRow = (d, id) => d._t.cars.find((c) => c.id === id);
+
+test('associar liga o anúncio à viatura sem marcar OLX', async () => {
+  reset(); ad(42);
+  const d = db({ olx_adverts: [{ id: 42, origin: 'olx', status: 'active', title: 'BMW 116d', car_id: null }] });
+  carRow(d, CAR).channels = [];
+  const r = await LK.linkAdvert(d, 42, CAR);
+  assert.equal(r.ok, true, r.error);
+  assert.equal(row(d, 42).car_id, CAR);
+  assert.deepEqual(carRow(d, CAR).channels, []);
+  assert.deepEqual(writes(olx), []);
+});
+
+test('associar com OLX marcado sincroniza já (o anúncio passa a ter os dados da ficha)', async () => {
+  reset(); ad(42);
+  const d = sdb({ olx_adverts: [{ id: 42, origin: 'olx', status: 'active', title: 'BMW 320d', car_id: null }] });
+  const r = await LK.linkAdvert(d, 42, CAR2);
+  assert.equal(r.ok, true, r.error);
+  assert.ok(olx.calls.includes('PUT /api/partner/adverts/42'));
+  assert.deepEqual(creates(), []);
+});
+
+test('associar recusa viatura ou anúncio já associados', async () => {
+  reset();
+  const base = () => db({ olx_adverts: [
+    { id: 42, origin: 'olx', status: 'active', title: 'a', car_id: null },
+    { id: 43, origin: 'olx', status: 'active', title: 'b', car_id: CAR },
+    { id: 50, origin: 'olx', status: 'active', title: 'c', car_id: null },
+  ] });
+  assert.equal((await LK.linkAdvert(base(), 43, '33333333-3333-4333-8333-333333333333')).ok, false, 'anúncio já associado');
+  assert.equal((await LK.linkAdvert(base(), 42, CAR)).ok, false, 'viatura já associada');
+  const d = base(); d._t.olx_adverts[1].car_id = null;
+  d._t.channel_listings.push({ id: 'lx', car_id: CAR, channel: 'olx', external_id: '50', status: 'published', sync_state: 'idle' });
+  assert.equal((await LK.linkAdvert(d, 42, CAR)).ok, false, 'viatura com anúncio do site');
+  assert.equal(row(d, 42).car_id, null);
+});
+
+test('desassociar um anúncio olx desmarca OLX; gravar a viatura depois não cria nem desativa', async () => {
+  reset(); ad(42);
+  const d = sdb({ olx_adverts: [{ id: 42, origin: 'olx', status: 'active', title: 'BMW 320d', car_id: CAR2 }] });
+  Object.assign(lst(d), { external_id: '42', remote_status: 'active', status: 'published', sync_state: 'idle' });
+  const r = await LK.unlinkAdvert(d, 42);
+  assert.equal(r.ok, true, r.error);
+  assert.deepEqual(carRow(d, CAR2).channels, []);
+  assert.equal(lst(d).external_id, null);
+  assert.equal(row(d, 42).car_id, null);
+  await S.markPending(d, CAR2);
+  await S.syncListing(d, CAR2);
+  assert.deepEqual(writes(olx), []);
+});
+
+test('não se desassocia um anúncio criado pelo site', async () => {
+  reset();
+  const d = db({ olx_adverts: [{ id: 42, origin: 'site', status: 'active', title: 'x', car_id: CAR, external_id: CAR }] });
+  assert.equal((await LK.unlinkAdvert(d, 42)).ok, false);
+  assert.equal(row(d, 42).car_id, CAR);
+});
+
+test('confirmar sugestões associa só as fortes', async () => {
+  reset();
+  const CAPTUR = '44444444-4444-4444-8444-444444444444';
+  const d = db({ olx_adverts: [
+    { id: 1, origin: 'standvirtual', status: 'active', title: 'BMW 116 d Pack M', price: 12900, category_name: 'BMW', car_id: null },
+    { id: 2, origin: 'standvirtual', status: 'active', title: 'Renault Captur 0.9 TCE', price: 11000, category_name: 'Renault', car_id: null },
+  ] });
+  d._t.cars.push({ id: CAPTUR, make: 'Renault', model: 'Captur', price: 11500, status: 'published', channels: [], vehicle_type: 'car' });
+  const r = await LK.confirmSuggestions(d);
+  assert.equal(r.ok, true, r.error);
+  assert.deepEqual([row(d, 1).car_id, row(d, 2).car_id], [CAR, null]);
+  assert.match(r.message, /1 anúncio/);
+});
+
+test('ativar/desativar: comando certo; recusado no Standvirtual e nos geridos pela ficha', async () => {
+  reset(); ad(60); ad(61, { _standvirtual: true }); ad(62);
+  const d = db({ olx_adverts: [
+    { id: 60, origin: 'olx', status: 'active', title: 'a', car_id: null },
+    { id: 61, origin: 'standvirtual', status: 'active', title: 'b', car_id: null },
+    { id: 62, origin: 'olx', status: 'active', title: 'c', car_id: CAR },
+  ] });
+  const r = await LK.setAdvertActive(d, 60, false);
+  assert.equal(r.ok, true, r.error);
+  assert.ok(olx.calls.includes('POST /api/partner/adverts/60/commands'));
+  assert.equal(olx.adverts.get(60)._sold, false);
+  assert.equal(row(d, 60).status, 'removed_by_user');
+  olx.calls.length = 0;
+  assert.equal((await LK.setAdvertActive(d, 61, false)).ok, false, 'Standvirtual');
+  assert.equal((await LK.setAdvertActive(d, 62, false)).ok, false, 'gerido pela ficha (OLX marcado)');
+  assert.deepEqual(writes(olx), []);
+});
+
+test('as ações exigem o separador e o tipo da viatura', async () => {
+  reset();
+  const d = db({ olx_adverts: [{ id: 42, origin: 'olx', status: 'active', title: 'a', car_id: null }] });
+  const sections = [];
+  const loadActions = createLoader({
+    '@/lib/queries': { getBranding: async () => ({}), getSiteVehicleTypes: async () => ['car'] },
+    '@/lib/guard': { requireSection: async (s) => { sections.push(s); return { role: 'vendedor', allowed_vehicle_types: ['motorcycle'] }; } },
+    '@/lib/vehicle-access': { carTypesError: async () => 'Sem acesso a este tipo de viatura.', canUseVehicleType: () => false },
+    '@/lib/supabase/server': { createClient: async () => ({}) },
+    '@/lib/supabase/admin': { createAdminClient: () => d },
+    'next/cache': { revalidatePath() {} },
+  });
+  const act = loadActions('src/lib/actions/olx-adverts.ts');
+  assert.deepEqual(await act.linkOlxAdvert(42, CAR), { ok: false, error: 'Sem acesso a este tipo de viatura.' });
+  assert.deepEqual(sections, ['anuncios']);
+  assert.equal(row(d, 42).car_id, null);
+});
