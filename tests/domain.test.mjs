@@ -330,3 +330,8 @@ await test('workshop hours reject zero duration and never guess a night shift',(
  assert.equal(worklogHours('09:00','17:30',false).hours,8.5);
  assert.equal(worklogHours('09:00','',false).hours,0,'sem fim fica em aberto');
 });
+
+await test('viatura sem origem indicada é nacional (só se marca quando é importada)',()=>{
+ assert.equal(carFormSchema.safeParse(carroBase).data.national,true);
+ assert.equal(carFormSchema.safeParse({...carroBase,national:false}).data.national,false);
+});

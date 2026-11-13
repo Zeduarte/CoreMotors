@@ -118,7 +118,8 @@ export const carFormSchema = z
 
     // Transparência / badges
     previous_price: optionalInt(0, 99999999),
-    national: z.boolean().default(false),
+    // Só se marca quando é importada: sem indicação, a viatura é nacional.
+    national: z.boolean().default(true),
     // Zero também é "não sei": aceita-se para não travar anúncios antigos
     // gravados com o campo em branco, mas fica nulo.
     owners: z

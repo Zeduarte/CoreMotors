@@ -81,6 +81,16 @@ export function advertToCarInput(
   ].filter((m): m is string => !!m);
   if (missing.length) return { ok: false, missing };
 
+  // Origem (nacional / importada), quando o anúncio a indica.
+  const originAttr = (advert.attributes ?? []).find((a) => {
+    const def = defs.find((d) => d.code === a.code);
+    return /^(origin|origem)$/i.test(a.code) || /^origem$/i.test(fold(def?.label ?? ""));
+  });
+  const originText = originAttr?.value
+    ? fold(`${originAttr.value} ${defs.find((d) => d.code === originAttr.code)?.values?.find((v) => v.code === originAttr.value)?.label ?? ""}`)
+    : "";
+  const national = /import/.test(originText) ? false : /nacional|national/.test(originText) ? true : undefined;
+
   const titleModel = advert.title.trim().slice(fold(advert.title).startsWith(fold(ctx.make)) ? ctx.make.length : 0).trim();
   const month = numberOf(facts.registrationMonth);
   const moto = ctx.vehicleType === "motorcycle";
@@ -104,6 +114,7 @@ export function advertToCarInput(
       doors: moto ? 0 : numberOf(facts.doors) ?? 5,
       // Sem preço no anúncio fica «sob consulta» (a ficha exige um dos dois).
       ...(Number.isFinite(price) && price > 0 ? { price } : { price_on_request: true }),
+      ...(national === undefined ? {} : { national }),
       status: "draft",
       channels: [],
       description: (advert.description ?? "").trim().slice(0, 5000),

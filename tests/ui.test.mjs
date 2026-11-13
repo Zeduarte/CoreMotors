@@ -95,6 +95,20 @@ await test('editing a motorcycle restores its type and hides car-specific doors'
  assert.ok(!html.includes('<option value="Berlina"'));
 });
 
+await test('nova viatura: o visto é «Importada»; sem ele, é nacional',()=>{
+ const Form=load('src/components/admin/CarForm.tsx').CarForm;
+ const imported=(html)=>html.match(/<input[^>]*name="imported"[^>]*>/)?.[0]??'';
+ const nova=renderToStaticMarkup(React.createElement(Form,{defaults:{vehicle_type:'car'}}));
+ assert.ok(nova.includes('Viatura importada'));
+ assert.ok(!nova.includes('Viatura nacional (badge'));
+ assert.ok(imported(nova),'existe o visto «Importada»');
+ assert.ok(!/checked/.test(imported(nova)),'por omissão, sem visto (nacional)');
+ const importada=renderToStaticMarkup(React.createElement(Form,{carId:car,defaults:{vehicle_type:'car',make:'BMW',model:'320',national:false}}));
+ assert.ok(/checked/.test(imported(importada)),'uma viatura importada mostra o visto');
+ const nacional=renderToStaticMarkup(React.createElement(Form,{carId:car,defaults:{vehicle_type:'car',make:'BMW',model:'320',national:true}}));
+ assert.ok(!/checked/.test(imported(nacional)),'uma nacional não');
+});
+
 await test('one backoffice: a simple Todos · Carros · Motas filter instead of two worlds',()=>{
  const {TypeFilter,TypeTag,typeChoice,withTipo}=load('src/components/admin/TypeFilter.tsx');
  const both=renderToStaticMarkup(React.createElement(TypeFilter,{value:'todos',allowed:['car','motorcycle'],counts:{todos:5,carros:3,motas:2},hrefFor:c=>withTipo('/admin/leads',{q:'ana',page:'3'},c)}));

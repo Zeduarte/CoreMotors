@@ -125,7 +125,8 @@ export function CarForm({
       extras: [],
       location: "",
       previous_price: undefined,
-      national: false,
+      // Sem indicação, é nacional: só as importadas levam visto.
+      national: true,
       owners: undefined,
       first_owner: false,
       service_book: false,
@@ -145,6 +146,7 @@ export function CarForm({
       ? [...MOTORCYCLE_FUELS, ...(currentFuel && !(MOTORCYCLE_FUELS as readonly string[]).includes(currentFuel) ? [currentFuel] : [])]
       : FUEL_TYPES;
   const onRequest = watch("price_on_request");
+  const national = watch("national");
   const make = watch("make") ?? "";
   const modelOptions =
     vehicleType === "motorcycle" ? [] : (CAR_MODELS[make] ?? []);
@@ -684,12 +686,15 @@ export function CarForm({
           </Field>
           <div className="flex items-end pb-2.5">
             <label className="flex cursor-pointer items-center gap-2 text-sm text-paper/80">
+              {/* Marca-se só a importada: sem visto, a viatura é nacional (badge «Nacional»). */}
               <input
                 type="checkbox"
+                name="imported"
                 className="accent-[color:var(--accent)]"
-                {...register("national")}
+                checked={!national}
+                onChange={(e) => setValue("national", !e.target.checked, { shouldDirty: true })}
               />
-              Viatura nacional (badge «Nacional»)
+              Viatura importada
             </label>
           </div>
           <div className="flex items-end pb-2.5">

@@ -412,7 +412,7 @@ test('o Grand Scenic vira um rascunho com os campos certos', () => {
   assert.deepEqual(rest, {
     vehicle_type: 'car', make: 'Renault', model: 'Grand Scenic', year: 2008, registration_month: 4, mileage: 242000,
     fuel: 'Diesel', transmission: 'Manual', body: 'Monovolume', power: 106, displacement: 1500, seats: 7, doors: 5,
-    price: 6000, status: 'draft', channels: [],
+    price: 6000, national: true, status: 'draft', channels: [],
   });
   assert.equal(description, GRAND_SCENIC.description);
   assert.deepEqual(olx_attributes, Object.fromEntries(GRAND_SCENIC.attributes.map((a) => [a.code, a.value])));
@@ -648,4 +648,12 @@ test('estatísticas na manutenção: só as dos anúncios à vista e com mais de
   assert.equal(r.stats, 2);
   assert.equal(fetched.length, 2);
   assert.ok(fetched.every((id) => [2, 4, 5].includes(id)), String(fetched));
+});
+
+test('«Criar viatura» usa a origem do anúncio: nacional ou importada', () => {
+  const defs = [...GS_DEFS.filter((d) => d.code !== 'origin'), { code: 'origin', label: 'Origem', values: [{ code: 'national', label: 'Nacional' }, { code: 'imported', label: 'Importado' }] }];
+  const com = (value) => ({ ...GRAND_SCENIC, attributes: [...GRAND_SCENIC.attributes.filter((a) => a.code !== 'origin'), ...(value ? [{ code: 'origin', value }] : [])] });
+  assert.equal(IC.advertToCarInput(com('national'), defs, { make: 'Renault', vehicleType: 'car' }).input.national, true);
+  assert.equal(IC.advertToCarInput(com('imported'), defs, { make: 'Renault', vehicleType: 'car' }).input.national, false);
+  assert.equal(IC.advertToCarInput(com(null), defs, { make: 'Renault', vehicleType: 'car' }).input.national, undefined, 'sem origem, fica a regra da ficha (nacional)');
 });
