@@ -60,6 +60,11 @@ export interface HomeContent {
   motoHero: MotoHeroContent;
   /** Mostra «Que segmento procura?» (as categorias com stock). Por defeito não. */
   showSegments: boolean;
+  /**
+   * O topo da página inicial: a imagem e os textos dos carros ou das motas.
+   * «auto»: os dos carros, salvo num site só de motas.
+   */
+  heroType: "auto" | "car" | "motorcycle";
   brands: string[];
   trust: TrustContent;
   cta: CtaSectionContent;
@@ -81,6 +86,7 @@ export const DEFAULT_HOME_CONTENT: HomeContent = {
     primaryCta: { label: "Ver motas", href: "/inventario" },
   },
   showSegments: false,
+  heroType: "auto",
   brands: [
     "BMW",
     "Audi",
@@ -142,6 +148,8 @@ export function mergeHomeContent(partial?: Partial<HomeContent> | null): HomeCon
       primaryCta: { ...d.motoHero.primaryCta, ...partial.motoHero?.primaryCta },
     },
     showSegments: typeof partial.showSegments === "boolean" ? partial.showSegments : d.showSegments,
+    heroType:
+      partial.heroType === "car" || partial.heroType === "motorcycle" ? partial.heroType : d.heroType,
     brands:
       partial.brands && partial.brands.length ? partial.brands : d.brands,
     trust: {

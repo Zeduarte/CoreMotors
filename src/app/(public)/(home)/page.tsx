@@ -84,10 +84,15 @@ export default async function HomePage() {
           ...stockBrands.filter((b) => !content.brands.some((c) => sameBrand(c, b))),
         ];
 
+  // O topo (imagem e textos) é o dos carros ou o das motas: escolhe-se no
+  // backoffice (Página inicial → Destaque); «Automático» segue o tipo
+  // principal. Só um tipo que o site venda.
+  const heroType =
+    content.heroType !== "auto" && siteTypes.includes(content.heroType) ? content.heroType : type;
   // A definição do backoffice (vídeo/imagem) é a dos carros; as motas detetam pelo ficheiro.
-  const heroMedia: HeroMedia = getHeroMedia(type === "motorcycle" ? "auto" : content.hero.media, type);
+  const heroMedia: HeroMedia = getHeroMedia(heroType === "motorcycle" ? "auto" : content.hero.media, heroType);
   // As motas têm o seu próprio topo, editável no backoffice (Página inicial).
-  const heroContent = type === "motorcycle" ? { ...content.hero, ...content.motoHero } : content.hero;
+  const heroContent = heroType === "motorcycle" ? { ...content.hero, ...content.motoHero } : content.hero;
 
   return (
     <>
@@ -96,7 +101,7 @@ export default async function HomePage() {
         media={heroMedia}
         // Na foto dos carros o carro está no terço de baixo: no telemóvel
         // sobe para o espaço entre o título e a pesquisa.
-        raiseMediaOnMobile={type === "car"}
+        raiseMediaOnMobile={heroType === "car"}
         search={
           allVehicles.length > 0 ? <QuickSearch vehicles={searchItems} /> : null
         }

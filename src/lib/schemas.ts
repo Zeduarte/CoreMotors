@@ -262,6 +262,7 @@ export const homeContentSchema = z.object({
     primaryCta: cta,
   }),
   showSegments: z.boolean().default(false),
+  heroType: z.enum(["auto", "car", "motorcycle"]).default("auto"),
   brands: z.array(z.string().trim().min(1)).max(30),
   trust: z.object({
     eyebrow: z.string().trim().max(80),

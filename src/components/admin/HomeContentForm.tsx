@@ -64,6 +64,17 @@ export function HomeContentForm({ initial }: { initial: HomeContentValues }) {
       {/* HERO */}
       <Section title="Destaque (topo)">
         <div className="space-y-4">
+          <Field label="Imagem e textos do topo">
+            <select className="field" {...register("heroType")}>
+              <option value="auto">Automático (carros; num site só de motas, motas)</option>
+              <option value="car">Carro (public/media/carros/ e os textos abaixo)</option>
+              <option value="motorcycle">Mota (public/media/motas/ e os textos das motas)</option>
+            </select>
+            <p className="mt-1.5 text-xs text-paper/50">
+              O que aparece no topo da página inicial. Só vale um tipo que o site
+              venda (Definições → Tipo de site); senão fica o automático.
+            </p>
+          </Field>
           <Field label="Etiqueta (eyebrow)" error={errors.hero?.eyebrow?.message}>
             <input className="field" {...register("hero.eyebrow")} />
           </Field>
@@ -112,11 +123,11 @@ export function HomeContentForm({ initial }: { initial: HomeContentValues }) {
       </Section>
 
       {/* HERO DAS MOTAS */}
-      <Section title="Destaque (topo) — site só de motas">
+      <Section title="Destaque (topo) — motas">
         <div className="space-y-4">
           <p className="text-xs text-paper/50">
-            O que aparece no topo da página inicial num site só de motas (Definições → Tipo de site). Com
-            carros no site, aparece o destaque acima.
+            Os textos do topo quando ele é o das motas: escolhido acima («Mota»), ou
+            num site só de motas com «Automático».
           </p>
           <Field label="Etiqueta (eyebrow)" error={errors.motoHero?.eyebrow?.message}>
             <input className="field" {...register("motoHero.eyebrow")} />
