@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   try {
     await refreshIfNeeded(db);
     await syncPending(db);
-    await importAdverts(db, { stats: true });
+    await importAdverts(db, { stats: "due" });
   } catch (e) {
     console.error("maintenance olx:", e);
   }

@@ -106,6 +106,8 @@ export function makeDb(tables) {
   const t = { channel_listings: [], olx_adverts: [], car_media: [], cars: [], olx_category_cache: [], olx_category_details: [], ...tables };
   let seq = 1;
   const storage = { uploads: [] };
+  // Leituras que falham: tabela → erro do Supabase (ver `failRead`).
+  const failSelect = new Map();
   const from = (table) => {
     t[table] ??= [];
     const f = []; let op = 'select', patch = null, lim = Infinity, payload = null;
@@ -127,13 +129,20 @@ export function makeDb(tables) {
       }
       if (op === 'upsert') {
         const key = KEYS[table];
-        for (const row of Array.isArray(payload) ? payload : [payload]) {
+        // Como o PostgREST: um lote leva a união das colunas de todas as linhas,
+        // e a coluna que falta numa linha é gravada a NULL (também por cima do
+        // valor que já lá estava).
+        const list = Array.isArray(payload) ? payload : [payload];
+        const cols = [...new Set(list.flatMap((r) => Object.keys(r)))];
+        const full = list.map((r) => Object.fromEntries(cols.map((c) => [c, r[c] === undefined ? null : r[c]])));
+        for (const row of full) {
           if (unique(row)) return { data: null, error: { message: 'duplicate key value violates unique constraint' } };
           const i = t[table].findIndex((r) => r[key] === row[key]);
           if (i >= 0) t[table][i] = { ...t[table][i], ...row }; else t[table].push(withDefaults(row));
         }
         return { data: null, error: null };
       }
+      if (failSelect.has(table)) return { data: null, error: failSelect.get(table) };
       return { data: rows().slice(0, lim).map(shape), error: null };
     };
     const api = {
@@ -159,7 +168,7 @@ export function makeDb(tables) {
   const bucket = () => ({
     async upload(path, bytes, opts) { storage.uploads.push({ path, size: bytes.byteLength ?? bytes.length, opts }); return { data: { path }, error: null }; },
   });
-  return { from, storage: { from: bucket }, _t: t, _storage: storage };
+  return { from, storage: { from: bucket }, _t: t, _storage: storage, _failSelect: failSelect };
 }
 
 /** Uma ligação ao OLX válida para o token atual do simulado. */
@@ -167,3 +176,7 @@ export const connectionRow = (olx) => ({
   id: 1, access_token: olx.token, refresh_token: olx.refresh, expires_at: new Date(Date.now() + 86400e3).toISOString(),
   city_id: 17, olx_user_id: String(olx.userId), updated_at: new Date().toISOString(),
 });
+
+/** Um erro qualquer do Supabase, e o de uma tabela que ainda não existe (migração por aplicar). */
+export const READ_ERROR = { message: 'canceling statement due to statement timeout', code: '57014' };
+export const MISSING_TABLE = { message: 'relation "public.olx_adverts" does not exist', code: '42P01' };

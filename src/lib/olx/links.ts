@@ -41,16 +41,18 @@ export async function linkAdvert(db: Db, advertId: number, carId: string): Promi
   const { data: advert } = await db.from("olx_adverts").select("id, origin, car_id").eq("id", advertId).maybeSingle();
   if (!advert) return { ok: false, error: NOT_FOUND };
   if (advert.car_id) return { ok: false, error: "Este anúncio já está associado a uma viatura." };
-  const { data: car } = await db.from("cars").select("id, channels").eq("id", carId).maybeSingle();
+  const { data: car } = await db.from("cars").select("id, channels, status").eq("id", carId).maybeSingle();
   if (!car) return { ok: false, error: "Viatura não encontrada." };
   if ((await linkedCarIds(db)).has(carId)) return { ok: false, error: "Esta viatura já tem um anúncio do OLX associado." };
 
   const { error } = await db.from("olx_adverts").update({ car_id: carId }).eq("id", advertId);
   if (error) return { ok: false, error: "Esta viatura já tem um anúncio do OLX associado." };
 
-  // Com OLX marcado, o backoffice passa já a mandar no anúncio (texto, fotos
-  // e preço da ficha). Os do Standvirtual ficam só associados.
-  if ((car.channels ?? []).includes("olx") && advert.origin !== "standvirtual") {
+  // Com a viatura à venda e OLX marcado, o backoffice passa já a mandar no
+  // anúncio (texto, fotos e preço da ficha). Num rascunho, ou nos do
+  // Standvirtual, fica só associado: nada muda no OLX.
+  const takesOver = (car.channels ?? []).includes("olx") && ["published", "reserved"].includes(car.status);
+  if (takesOver && advert.origin !== "standvirtual") {
     await markPending(db, carId);
     const r = await syncListing(db, carId);
     return r.ok

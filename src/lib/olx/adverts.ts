@@ -9,18 +9,29 @@ import type { OlxAdvertOrigin } from "@/lib/supabase/database.types";
 
 export type AdvertOrigin = OlxAdvertOrigin;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * De onde vem um anúncio, pelo `external_id` que o OLX devolve:
- *  - o id de uma viatura do site → foi o backoffice que o criou;
+ *  - um id de viatura (UUID) → foi o backoffice que o criou (mesmo que a
+ *    viatura já tenha sido apagada);
  *  - vazio → feito à mão no OLX (gere-se pela API);
  *  - outro → exportado por outro programa. Na conta do stand são todos do
- *    Standvirtual, e o OLX recusa alterá-los ("Anúncio exportado do
- *    Standvirtual"), por isso tratam-se como tal.
+ *    Standvirtual, e o OLX recusa alterá-los, por isso tratam-se como tal.
+ *
+ * O que já se sabia mantém-se (`previous`): um anúncio do OLX adotado por uma
+ * viatura passa a levar o id dela e continua a ser «OLX», e um que o OLX
+ * recusou alterar por ser do Standvirtual fica «Standvirtual» de vez.
  */
-export function advertOrigin(externalId: string | null | undefined, siteCarIds: ReadonlySet<string>): AdvertOrigin {
+export function advertOrigin(externalId: string | null | undefined, previous?: AdvertOrigin | null): AdvertOrigin {
+  if (previous === "standvirtual" || previous === "olx") return previous;
   if (!externalId) return "olx";
-  return siteCarIds.has(externalId) ? "site" : "standvirtual";
+  return UUID.test(externalId) ? "site" : "standvirtual";
 }
+
+/** Estados do OLX em que o anúncio está (ou pode voltar a estar) à vista sem ser reativado. */
+const LIVE = new Set(["new", "active", "limited", "unconfirmed", "unpaid"]);
+export const isLiveAdvert = (status: string | null | undefined) => !!status && LIVE.has(status);
 
 /** O que o backoffice diz de um anúncio que só se altera no Standvirtual. */
 export const STANDVIRTUAL_NOTE = "Gerido no Standvirtual";

@@ -4,7 +4,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createLoader } from './support/load-ts.mjs';
-import { startFakeOlx, makeDb, connectionRow, writes } from './support/olx-fake.mjs';
+import { startFakeOlx, makeDb, connectionRow, writes, READ_ERROR, MISSING_TABLE } from './support/olx-fake.mjs';
 
 const fake = await startFakeOlx();
 after(() => fake.close());
@@ -68,11 +68,15 @@ test('a marca tem de bater: o mesmo modelo de outra marca não serve', () => {
 });
 
 test('a origem vem do external_id', () => {
-  const ids = new Set(['11111111-1111-4111-8111-111111111111']);
-  assert.equal(A.advertOrigin(null, ids), 'olx');
-  assert.equal(A.advertOrigin('', ids), 'olx');
-  assert.equal(A.advertOrigin('11111111-1111-4111-8111-111111111111', ids), 'site');
-  assert.equal(A.advertOrigin('8097748498', ids), 'standvirtual');
+  assert.equal(A.advertOrigin(null), 'olx');
+  assert.equal(A.advertOrigin(''), 'olx');
+  assert.equal(A.advertOrigin('11111111-1111-4111-8111-111111111111'), 'site');
+  assert.equal(A.advertOrigin('8097748498'), 'standvirtual');
+  // A origem que já se sabia mantém-se: um anúncio do OLX adotado passa a levar
+  // o id da viatura, e um recusado pelo OLX como do Standvirtual fica assim.
+  assert.equal(A.advertOrigin('11111111-1111-4111-8111-111111111111', 'olx'), 'olx');
+  assert.equal(A.advertOrigin(null, 'standvirtual'), 'standvirtual');
+  assert.equal(A.advertOrigin('8097748498', 'site'), 'standvirtual');
   assert.equal(A.isStandvirtualExport('user: Anúncio exportado do  Standvirtual. Para alterá-lo, necessita de aceder à sua conta.'), true);
   assert.equal(A.isStandvirtualExport('Advert not found'), false);
   assert.equal(A.isStandvirtualExport(null), false);
@@ -174,7 +178,7 @@ test('com stats, guarda as estatísticas de todos e copia-as para a viatura asso
     olx_adverts: [{ id: 1, origin: 'olx', status: 'active', title: 'x', car_id: CAR }],
     channel_listings: [{ id: 'l1', car_id: CAR, channel: 'olx', external_id: '1', status: 'published', sync_state: 'idle', views: null }],
   });
-  const r = await I.importAdverts(d, { stats: true });
+  const r = await I.importAdverts(d, { stats: 'all' });
   assert.equal(r.stats, 2);
   assert.deepEqual([row(d, 1).views, row(d, 2).views, row(d, 2).observers], [50, 30, 2]);
   assert.equal(d._t.channel_listings[0].views, 50);
@@ -531,4 +535,117 @@ test('a ficha mostra o anúncio do Standvirtual mesmo sem OLX marcado', () => {
   const own = renderToStaticMarkup(React.createElement(ChannelListings, { carId: CAR, channels: [], listings: [],
     olxAdvert: { title: 'Renault Grand Scenic', url: null, origin: 'olx', status: 'limited', views: 0, phone_views: 0, observers: 0 } }));
   assert.match(own, /Marque OLX para o backoffice passar a gerir este anúncio\./);
+});
+
+// ---- Revisão final -------------------------------------------------------------
+test('uma leitura com um anúncio novo do site não apaga as associações feitas', async () => {
+  reset();
+  ad(43, { external_id: '8097748498' });
+  ad(44, { external_id: CAR2 });
+  const d = db({ olx_adverts: [{ id: 43, origin: 'standvirtual', status: 'active', title: 'a', car_id: CAR }] });
+  d._t.cars.push({ id: CAR2, make: 'BMW', model: '320d', price: 18500, status: 'published', channels: ['olx'], vehicle_type: 'car' });
+  const r = await I.importAdverts(d, { stats: false });
+  assert.equal(r.ok, true, r.error);
+  assert.deepEqual([row(d, 43).car_id, row(d, 44).car_id], [CAR, CAR2]);
+});
+
+test('a origem fica: Standvirtual por recusa, OLX depois de adotado, site sem viatura', async () => {
+  reset();
+  ad(45);
+  ad(46, { external_id: CAR });
+  ad(47, { external_id: '99999999-9999-4999-8999-999999999999' });
+  const d = db({ olx_adverts: [
+    { id: 45, origin: 'standvirtual', status: 'active', title: 'a', car_id: null },
+    { id: 46, origin: 'olx', status: 'active', title: 'b', car_id: CAR },
+  ] });
+  await I.importAdverts(d, { stats: false });
+  assert.deepEqual([row(d, 45).origin, row(d, 46).origin, row(d, 47).origin, row(d, 47).car_id], ['standvirtual', 'olx', 'site', null]);
+  assert.equal((await LK.unlinkAdvert(d, 46)).ok, true, 'um anúncio adotado desassocia-se');
+});
+
+test('uma leitura falhada da base de dados não grava nada', async () => {
+  reset(); ad(1); ad(2, { external_id: CAR });
+  for (const table of ['olx_adverts', 'cars']) {
+    const d = db({ olx_adverts: [{ id: 9, origin: 'olx', status: 'active', title: 'x', car_id: null }] });
+    d._failSelect.set(table, READ_ERROR);
+    const r = await I.importAdverts(d, { stats: false });
+    assert.equal(r.ok, false, table);
+    assert.deepEqual(d._t.olx_adverts.map((x) => x.id), [9], table);
+  }
+});
+
+test('a sincronização não cria se não conseguir ler os anúncios; sem a migração, cria como antes', async () => {
+  reset();
+  const d = sdb({ olx_adverts: [{ id: 44, origin: 'standvirtual', status: 'active', title: 'BMW 320d', price: 18500, category_name: 'BMW', car_id: CAR2 }] });
+  d._failSelect.set('olx_adverts', READ_ERROR);
+  const r = await S.syncListing(d, CAR2);
+  assert.equal(r.ok, false);
+  assert.deepEqual(writes(olx), []);
+  const old = sdb();
+  old._failSelect.set('olx_adverts', MISSING_TABLE);
+  assert.equal((await S.syncListing(old, CAR2)).ok, true);
+  assert.equal(creates().length, 1);
+});
+
+test('associar a uma viatura em rascunho (mesmo com OLX marcado) não mexe no anúncio', async () => {
+  reset(); ad(42);
+  const d = sdb({ olx_adverts: [{ id: 42, origin: 'olx', status: 'active', title: 'BMW 320d', car_id: null }] });
+  carRow(d, CAR2).status = 'draft';
+  const r = await LK.linkAdvert(d, 42, CAR2);
+  assert.equal(r.ok, true, r.error);
+  assert.deepEqual(writes(olx), []);
+  assert.equal(olx.adverts.get(42).status, 'active');
+  assert.equal(r.message, 'Anúncio associado à viatura.');
+  // E uma viatura publicada sem OLX marcado também não adota o anúncio.
+  const d2 = sdb({ olx_adverts: [{ id: 42, origin: 'olx', status: 'active', title: 'BMW 320d', car_id: CAR2 }] });
+  carRow(d2, CAR2).channels = [];
+  await S.syncListing(d2, CAR2);
+  assert.deepEqual(writes(olx), []);
+  assert.equal(lst(d2).external_id, null);
+});
+
+test('um anúncio desativado ou expirado não impede publicar a viatura', async () => {
+  reset();
+  for (const status of ['removed_by_user', 'outdated']) {
+    reset();
+    const d = sdb({ olx_adverts: [{ id: 44, origin: 'olx', status, title: 'BMW 320d Pack M', price: 18500, category_name: 'BMW', car_id: null }] });
+    const r = await S.syncListing(d, CAR2);
+    assert.equal(r.ok, true, `${status}: ${r.error}`);
+    assert.equal(creates().length, 1, status);
+  }
+});
+
+test('o que «Criar viatura» monta passa na validação da ficha, carros e motas', () => {
+  const { carFormSchema } = load('src/lib/schemas.ts');
+  const car = IC.advertToCarInput(GRAND_SCENIC, GS_DEFS, { make: 'Renault', vehicleType: 'car' });
+  assert.equal(carFormSchema.safeParse(car.input).success, true, JSON.stringify(carFormSchema.safeParse(car.input).error?.issues));
+  const moto = {
+    id: 1, title: 'Yamaha MT-07', category_id: 999, price: null, description: 'Mota muito estimada.',
+    attributes: [{ code: 'year', value: '2016' }, { code: 'quilometros', value: '21000' }, { code: 'combustivel', value: 'gasolina' },
+      { code: 'gearbox', value: 'manual' }, { code: 'tipo', value: 'naked' }, { code: 'engine_capacity', value: '689' }],
+  };
+  const motoDefs = [...GS_DEFS.filter((x) => x.code !== 'body_type'), { code: 'tipo', label: 'Segmento', values: [{ code: 'naked', label: 'Naked' }] }];
+  const m = IC.advertToCarInput(moto, motoDefs, { make: 'Yamaha', vehicleType: 'motorcycle' });
+  assert.equal(m.ok, true, JSON.stringify(m.missing));
+  assert.deepEqual([m.input.seats, m.input.doors, m.input.price_on_request], [2, 0, true]);
+  const parsed = carFormSchema.safeParse(m.input);
+  assert.equal(parsed.success, true, JSON.stringify(parsed.error?.issues));
+});
+
+test('estatísticas na manutenção: só as dos anúncios à vista e com mais de 20 h, no máximo um lote', async () => {
+  reset();
+  const old = new Date(Date.now() - 21 * 3600e3).toISOString();
+  ad(1); ad(2); ad(3, { status: 'removed_by_user' }); ad(4); ad(5);
+  const d = db({ olx_adverts: [
+    { id: 1, origin: 'olx', status: 'active', title: 'a', stats_at: new Date().toISOString() },
+    { id: 2, origin: 'olx', status: 'active', title: 'b', stats_at: old },
+    { id: 3, origin: 'olx', status: 'removed_by_user', title: 'c', stats_at: old },
+    { id: 4, origin: 'olx', status: 'active', title: 'd', stats_at: null },
+    { id: 5, origin: 'olx', status: 'active', title: 'e', stats_at: old },
+  ] });
+  const r = await I.importAdverts(d, { stats: 'due', maxStats: 2 });
+  const fetched = olx.calls.filter((c) => c.endsWith('/statistics')).map((c) => Number(c.match(/adverts\/(\d+)/)[1])).sort();
+  assert.equal(r.stats, 2);
+  assert.equal(fetched.length, 2);
+  assert.ok(fetched.every((id) => [2, 4, 5].includes(id)), String(fetched));
 });

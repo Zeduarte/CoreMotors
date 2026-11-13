@@ -4,7 +4,7 @@ import { getBranding, getSiteVehicleTypes } from "@/lib/queries";
 import { site } from "@/lib/site";
 import { publicMediaUrl } from "@/lib/storage";
 import { buildAdvert, type AdvertCar } from "@/lib/olx/advert";
-import { isStandvirtualExport, STANDVIRTUAL_NOTE, suggestCar } from "@/lib/olx/adverts";
+import { isLiveAdvert, isStandvirtualExport, STANDVIRTUAL_NOTE, suggestCar } from "@/lib/olx/adverts";
 import type { OlxAttributeDef } from "@/lib/olx/attributes";
 import { categoryCandidates, isVehicleCategory, unwrap, type OlxCategory } from "@/lib/olx/categories";
 import { getConnection, olxFetch } from "@/lib/olx/client";
@@ -108,19 +108,23 @@ export async function syncListing(db: Db, carId: string): Promise<SyncOutcome> {
 
     // Anúncios da conta (0051). Um anúncio do Standvirtual nunca recebe nada
     // (o OLX recusa alterá-lo); um anúncio associado à viatura é adotado em vez
-    // de se criar outro.
-    const { data: linked } = await db
-      .from("olx_adverts")
-      .select("id, origin, url, status")
-      .eq("car_id", carId)
-      .maybeSingle();
-    const { data: current } = listing.external_id
+    // de se criar outro — mas só quando a viatura está à venda com OLX marcado
+    // (associar a um rascunho não pode desativar o anúncio). Sem conseguir ler
+    // isto não se avança: podia criar um duplicado. Sem a migração 0051, segue
+    // como antes.
+    const linkedQ = await db.from("olx_adverts").select("id, origin, url, status").eq("car_id", carId).maybeSingle();
+    if (linkedQ.error && !missingTable(linkedQ.error)) return fail("error", `Não foi possível ler os anúncios do OLX guardados: ${linkedQ.error.message}`);
+    const linked = linkedQ.data;
+    const currentQ = listing.external_id
       ? await db.from("olx_adverts").select("id, origin").eq("id", Number(listing.external_id)).maybeSingle()
-      : { data: null };
+      : { data: null, error: null };
+    if (currentQ.error && !missingTable(currentQ.error)) return fail("error", `Não foi possível ler os anúncios do OLX guardados: ${currentQ.error.message}`);
+    const current = currentQ.data;
     if (current?.origin === "standvirtual" || (!listing.external_id && linked?.origin === "standvirtual")) {
       return managedByStandvirtual(db, listing.id);
     }
-    if (!listing.external_id && linked) {
+    const takesOver = (car.channels ?? []).includes(CHANNEL) && ["published", "reserved"].includes(car.status);
+    if (!listing.external_id && linked && takesOver) {
       listing.external_id = String(linked.id);
       listing.external_url = linked.url ?? listing.external_url;
       listing.remote_status = linked.status;
@@ -248,12 +252,16 @@ export async function syncListing(db: Db, carId: string): Promise<SyncOutcome> {
     if (action === "create") {
       // Um anúncio por associar que é, sem dúvida, desta viatura (marca, modelo
       // e preço iguais): criar outro duplicava-o no OLX.
-      const { data: loose } = await db
+      const looseQ = await db
         .from("olx_adverts")
-        .select("id, title, price, category_name")
+        .select("id, title, price, category_name, status")
         .is("car_id", null);
-      const clash = (loose ?? []).find(
+      if (looseQ.error && !missingTable(looseQ.error)) return fail(action, `Não foi possível ler os anúncios do OLX guardados: ${looseQ.error.message}`);
+      // Só os que estão (ou podem estar) à vista: um desativado ou expirado não
+      // duplica nada, e desativá-lo é uma das saídas que o erro sugere.
+      const clash = (looseQ.data ?? []).find(
         (a) =>
+          isLiveAdvert(a.status) &&
           suggestCar(
             { id: a.id, title: a.title, price: a.price, categoryName: a.category_name },
             [{ id: car.id, make: car.make, model: car.model, price: car.price }],
@@ -327,6 +335,11 @@ export async function syncListing(db: Db, carId: string): Promise<SyncOutcome> {
     console.error("olx syncListing:", error);
     return fail("error", error instanceof Error ? error.message : "Falha inesperada.");
   }
+}
+
+/** A tabela `olx_adverts` ainda não existe (migração 0051 por aplicar). */
+function missingTable(error: { message?: string; code?: string }): boolean {
+  return error.code === "42P01" || /does not exist|schema cache/i.test(error.message ?? "");
 }
 
 /**

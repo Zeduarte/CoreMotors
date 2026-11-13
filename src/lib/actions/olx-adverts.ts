@@ -49,7 +49,7 @@ async function carOfAdvert(advertId: number): Promise<string | null> {
 
 export async function readOlxAdverts(): Promise<OlxActionResult> {
   await requireSection("anuncios");
-  const r = await importAdverts(admin(), { stats: true });
+  const r = await importAdverts(admin(), { stats: "all" });
   revalidatePath("/admin/anuncios");
   if (!r.ok) return { ok: false, error: r.error ?? "Não foi possível ler os anúncios do OLX." };
   const extra = r.cleared ? ` ${r.cleared} anúncio(s) de outra conta deixaram de estar associados.` : "";

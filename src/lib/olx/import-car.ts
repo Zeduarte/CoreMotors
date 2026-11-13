@@ -83,6 +83,7 @@ export function advertToCarInput(
 
   const titleModel = advert.title.trim().slice(fold(advert.title).startsWith(fold(ctx.make)) ? ctx.make.length : 0).trim();
   const month = numberOf(facts.registrationMonth);
+  const moto = ctx.vehicleType === "motorcycle";
   const price = Number(advert.price?.value);
   return {
     ok: true,
@@ -98,9 +99,11 @@ export function advertToCarInput(
       body,
       power: numberOf(facts.power) ?? 0,
       displacement: numberOf(facts.displacement) ?? 0,
-      seats: numberOf(facts.seats) ?? 5,
-      doors: numberOf(facts.doors) ?? (ctx.vehicleType === "motorcycle" ? 0 : 5),
-      ...(Number.isFinite(price) && price > 0 ? { price } : {}),
+      // Como a ficha: uma mota leva no máximo 2 lugares e não tem portas.
+      seats: moto ? Math.min(numberOf(facts.seats) ?? 2, 2) : numberOf(facts.seats) ?? 5,
+      doors: moto ? 0 : numberOf(facts.doors) ?? 5,
+      // Sem preço no anúncio fica «sob consulta» (a ficha exige um dos dois).
+      ...(Number.isFinite(price) && price > 0 ? { price } : { price_on_request: true }),
       status: "draft",
       channels: [],
       description: (advert.description ?? "").trim().slice(0, 5000),
