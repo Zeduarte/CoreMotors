@@ -1,7 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { olxConfigured } from "@/lib/olx/client";
 import { REMOTE_STATUS_LABEL } from "@/lib/olx/lifecycle";
+import { site } from "@/lib/site";
+import { olxCallbackUrl } from "@/app/api/olx/redirect";
 import { OlxActions } from "./OlxActions";
+import { OlxCallbackUrl } from "./OlxCallbackUrl";
 import { OlxDefaultCategories } from "./OlxDefaultCategories";
 
 /**
@@ -106,6 +109,8 @@ export async function OlxPanel({ status, detalhe }: { status?: string; detalhe?:
           </p>
         )}
       </div>
+
+      <OlxCallbackUrl url={olxCallbackUrl(site.url)} />
 
       {ligado && (
         <OlxDefaultCategories

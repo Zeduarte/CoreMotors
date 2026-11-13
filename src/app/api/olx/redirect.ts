@@ -14,4 +14,14 @@ export function olxRedirectUri(): string | null {
   return process.env.OLX_REDIRECT_URI?.trim() || null;
 }
 
+/**
+ * O Callback URL que tem de estar registado na aplicação do OLX Partner, para
+ * o painel o mostrar. Sem `redirect_uri` no pedido, o OLX devolve quem
+ * autoriza ao que lá estiver registado — com `http://localhost`, a pessoa ia
+ * parar a localhost e a conta nunca ficava ligada.
+ */
+export function olxCallbackUrl(siteUrl: string): string {
+  return olxRedirectUri() ?? `${siteUrl.replace(/\/+$/, "")}/api/olx/callback`;
+}
+
 export const STATE_COOKIE = "olx_oauth_state";
