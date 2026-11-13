@@ -58,6 +58,17 @@ function priceOf(a: ListedAdvert): number | null {
   return a.price?.value == null || !Number.isFinite(n) ? null : n;
 }
 
+/**
+ * Ligou-se outra conta do OLX: os anúncios (e as associações) da anterior não
+ * são desta, por isso o espelho fica vazio até à próxima leitura. A primeira
+ * ligação, ou voltar a ligar a mesma conta, não mexe em nada.
+ */
+export async function resetForAccount(db: Db, previousUserId: string | null, newUserId: string | null): Promise<boolean> {
+  if (!previousUserId || !newUserId || previousUserId === newUserId) return false;
+  await db.from("olx_adverts").delete().not("id", "is", null);
+  return true;
+}
+
 export async function importAdverts(db: Db, opts: { stats: boolean }): Promise<ImportResult> {
   const result: ImportResult = { ok: true, read: 0, removed: 0, cleared: 0, stats: 0 };
   try {

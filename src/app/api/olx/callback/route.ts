@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exchangeCode, olxConfigured, olxFetch } from "@/lib/olx/client";
 import { verifyState } from "@/lib/olx/oauth";
 import { unwrap } from "@/lib/olx/categories";
+import { importAdverts, resetForAccount } from "@/lib/olx/import";
 import { cleanLocalRedirect, localRedirect } from "@/lib/local-redirect";
 import { STATE_COOKIE, olxRedirectUri } from "../redirect";
 
@@ -54,6 +55,8 @@ export async function GET(request: Request) {
   if (!db) return done("erro", "SUPABASE_SERVICE_ROLE_KEY em falta");
 
   try {
+    // A conta ligada até aqui, para saber se agora é outra.
+    const { data: previous } = await db.from("olx_connection").select("olx_user_id").eq("id", 1).maybeSingle();
     const tokens = await exchangeCode(code, olxRedirectUri());
     const { error } = await db.from("olx_connection").upsert({
       id: 1,
@@ -68,12 +71,22 @@ export async function GET(request: Request) {
 
     // Quem é a conta ligada, para o painel mostrar o nome certo.
     const user = await olxFetch<unknown>(db, "/users/me");
+    let userId: string | null = null;
     if (user.ok) {
       const u = unwrap<{ id?: number; name?: string; email?: string }>(user.data) ?? {};
+      userId = u.id ? String(u.id) : null;
       await db
         .from("olx_connection")
-        .update({ olx_user_id: u.id ? String(u.id) : null, olx_user_name: u.name || u.email || null })
+        .update({ olx_user_id: userId, olx_user_name: u.name || u.email || null })
         .eq("id", 1);
+    }
+    // Os anúncios da conta aparecem logo no painel (sem as estatísticas, para
+    // o regresso do OLX ser rápido). Uma falha aqui não desfaz a ligação.
+    try {
+      await resetForAccount(db, previous?.olx_user_id ?? null, userId);
+      await importAdverts(db, { stats: false });
+    } catch (e) {
+      console.error("olx callback (anúncios):", e);
     }
     return done("ligado");
   } catch (e) {

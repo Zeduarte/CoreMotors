@@ -457,3 +457,16 @@ test('mota se a categoria descende de 379 (Motociclos); carro nos outros casos, 
   assert.equal(await IC.vehicleTypeOfCategory(d, 1479), 'car');
   assert.equal(await IC.vehicleTypeOfCategory(d, 603), 'car');
 });
+
+// ---- Ligar a conta ----------------------------------------------------------
+test('ligar outra conta esvazia o espelho; a mesma conta (ou a primeira) não', async () => {
+  const seeded = () => db({ olx_adverts: [{ id: 1, origin: 'olx', status: 'active', title: 'a', car_id: CAR }] });
+  const d = seeded();
+  assert.equal(await I.resetForAccount(d, '111', '222'), true);
+  assert.deepEqual(d._t.olx_adverts, []);
+  for (const [prev, next] of [['222', '222'], [null, '222'], ['222', null]]) {
+    const same = seeded();
+    assert.equal(await I.resetForAccount(same, prev, next), false, `${prev} → ${next}`);
+    assert.equal(same._t.olx_adverts.length, 1);
+  }
+});

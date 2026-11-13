@@ -76,6 +76,7 @@ const STUBS = {
   },
   '@/lib/olx/client': { olxConfigured: () => true, refreshIfNeeded: async () => {} },
   '@/lib/olx/sync': { markPending: async (_db, id) => { olx.marked.push(id); }, syncPending: async () => 0, refreshStats: async () => ({}) },
+  '@/lib/olx/import': { importAdverts: async () => ({ ok: true, read: 0, removed: 0, cleared: 0, stats: 0 }) },
   '@/lib/notifications': { processNotificationJobs: async () => ({ ok: true }) },
   '@/lib/whatsapp/photos': { pruneWaMedia: async () => {} },
   '@/lib/stock-alert-run': { runStockAlerts: async () => {} },

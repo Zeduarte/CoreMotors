@@ -6,7 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { processNotificationJobs } from "@/lib/notifications";
 import { olxConfigured, refreshIfNeeded } from "@/lib/olx/client";
 import { carsWithExpiredReservations } from "@/lib/olx/queue";
-import { markPending, refreshStats, syncPending } from "@/lib/olx/sync";
+import { markPending, syncPending } from "@/lib/olx/sync";
+import { importAdverts } from "@/lib/olx/import";
 import { pruneWaMedia } from "@/lib/whatsapp/photos";
 import { runStockAlerts } from "@/lib/stock-alert-run";
 import { runVisitReminders } from "@/lib/visit-run";
@@ -50,13 +51,13 @@ export async function POST(request: Request) {
   // Fotografias do WhatsApp por juntar há mais de dois dias, com os ficheiros
   // (0039). Nunca lança.
   await pruneWaMedia(db);
-  // OLX: mantém o token vivo, repete as sincronizações que falharam e
-  // atualiza as estatísticas dos anúncios. Uma falha do OLX não pode fazer
-  // falhar a manutenção do resto.
+  // OLX: mantém o token vivo, repete as sincronizações que falharam e lê os
+  // anúncios da conta com as estatísticas (também os que não foram criados
+  // pelo site). Uma falha do OLX não pode fazer falhar a manutenção do resto.
   try {
     await refreshIfNeeded(db);
     await syncPending(db);
-    await refreshStats(db);
+    await importAdverts(db, { stats: true });
   } catch (e) {
     console.error("maintenance olx:", e);
   }
