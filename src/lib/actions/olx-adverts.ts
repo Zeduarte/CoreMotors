@@ -8,6 +8,17 @@ import { createClient } from "@/lib/supabase/server";
 import { importAdverts } from "@/lib/olx/import";
 import { confirmSuggestions, linkAdvert, setAdvertActive, unlinkAdvert } from "@/lib/olx/links";
 import { canUseVehicleType, carTypesError } from "@/lib/vehicle-access";
+import { olxFetch } from "@/lib/olx/client";
+import { unwrap } from "@/lib/olx/categories";
+import type { OlxAttributeDef } from "@/lib/olx/attributes";
+import {
+  advertToCarInput,
+  copyAdvertPhotos,
+  makeFromAdvert,
+  vehicleTypeOfCategory,
+  type OlxAdvertFull,
+} from "@/lib/olx/import-car";
+import { createCar } from "@/lib/actions/cars";
 import type { OlxActionResult } from "@/lib/actions/olx";
 
 /**
@@ -72,6 +83,56 @@ export async function unlinkOlxAdvert(advertId: number): Promise<OlxActionResult
 export async function confirmOlxSuggestions(): Promise<OlxActionResult> {
   const me = await requireSection("anuncios");
   return done(await confirmSuggestions(admin(), (type) => canUseVehicleType(me, type)));
+}
+
+/**
+ * «Criar viatura» a partir de um anúncio sem viatura: rascunho, sem OLX
+ * marcado, já associado e com as fotos do anúncio. A `createCar` verifica o
+ * separador «Viaturas», o tipo de quem pede e o tipo de site.
+ */
+export async function createCarFromOlxAdvert(advertId: number): Promise<OlxActionResult & { carId?: string }> {
+  await requireSection("anuncios");
+  if (!advertIdSchema.safeParse(advertId).success) return { ok: false, error: "Pedido inválido." };
+  const db = admin();
+  const { data: row } = await db.from("olx_adverts").select("car_id, category_name").eq("id", advertId).maybeSingle();
+  if (!row) return { ok: false, error: "Anúncio não encontrado. Carregue em «Ler anúncios do OLX» e tente outra vez." };
+  if (row.car_id) return { ok: false, error: "Este anúncio já está associado a uma viatura." };
+
+  const g = await olxFetch<unknown>(db, `/adverts/${advertId}`);
+  const advert = g.ok ? unwrap<OlxAdvertFull>(g.data) : null;
+  if (!advert) return { ok: false, error: g.error ?? "O OLX não devolveu o anúncio." };
+  const attrs = await olxFetch<unknown>(db, `/categories/${advert.category_id}/attributes`);
+  const defs = attrs.ok ? unwrap<OlxAttributeDef[]>(attrs.data) ?? [] : [];
+
+  const built = advertToCarInput(advert, defs, {
+    make: makeFromAdvert(advert.title, row.category_name),
+    vehicleType: await vehicleTypeOfCategory(db, advert.category_id),
+  });
+  if (!built.ok) {
+    return {
+      ok: false,
+      error: `Não dá para criar a viatura sozinho: o anúncio não diz ${built.missing.join(", ")}. Crie-a à mão e associe-a.`,
+    };
+  }
+  const created = await createCar(built.input);
+  if (!created.ok || !created.id) {
+    const campos = created.fieldErrors ? ` (${Object.values(created.fieldErrors).flat().join("; ")})` : "";
+    return { ok: false, error: `${created.error ?? "Não foi possível criar a viatura."}${campos}` };
+  }
+
+  const link = await linkAdvert(db, advertId, created.id);
+  const photos = await copyAdvertPhotos(db, created.id, (advert.images ?? []).map((i) => i.url));
+  revalidatePath("/admin/anuncios");
+  revalidatePath("/admin/carros");
+  const avisos = [
+    photos.failed ? `${photos.failed} foto(s) não foram copiadas` : "",
+    link.ok ? "" : `não ficou associada (${link.error})`,
+  ].filter(Boolean);
+  return {
+    ok: true,
+    carId: created.id,
+    message: `Viatura criada em rascunho com ${photos.copied} foto(s)${avisos.length ? ` — ${avisos.join("; ")}` : ""}. Reveja-a antes de a publicar.`,
+  };
 }
 
 export async function setOlxAdvertActive(advertId: number, active: boolean): Promise<OlxActionResult> {

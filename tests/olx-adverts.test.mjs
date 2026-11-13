@@ -360,9 +360,100 @@ test('as ações exigem o separador e o tipo da viatura', async () => {
     '@/lib/supabase/server': { createClient: async () => ({}) },
     '@/lib/supabase/admin': { createAdminClient: () => d },
     'next/cache': { revalidatePath() {} },
+    // A criação de viaturas tem os seus próprios testes; aqui não é chamada.
+    '@/lib/actions/cars': { createCar: async () => ({ ok: false, error: 'não usado' }) },
   });
   const act = loadActions('src/lib/actions/olx-adverts.ts');
   assert.deepEqual(await act.linkOlxAdvert(42, CAR), { ok: false, error: 'Sem acesso a este tipo de viatura.' });
   assert.deepEqual(sections, ['anuncios']);
   assert.equal(row(d, 42).car_id, null);
+});
+
+// ---- Criar a viatura a partir de um anúncio --------------------------------
+const IC = load('src/lib/olx/import-car.ts');
+const GRAND_SCENIC = {
+  id: 667023834, title: 'Renault Grand Scenic', category_id: 603, price: { value: '6000' },
+  description: 'Se procuras, uma carrinha com espaço e conforto, esta é o ideal para ti.',
+  images: [{ url: 'https://ireland.apollo.olxcdn.com:443/v1/files/a-PT/image;s=1000x700' }],
+  attributes: [
+    { code: 'body_type', value: 'combi', values: null }, { code: 'year', value: '2008', values: null },
+    { code: 'modelo', value: 'grand-scenic', values: null }, { code: 'first_registration_month', value: '04', values: null },
+    { code: 'engine_capacity', value: '1500', values: null }, { code: 'combustivel', value: 'diesel', values: null },
+    { code: 'engine_power', value: '106', values: null }, { code: 'quilometros', value: '242000', values: null },
+    { code: 'gearbox', value: 'manual', values: null }, { code: 'condicao', value: 'usado', values: null },
+    { code: 'portas', value: '4-5', values: null }, { code: 'nr_seats', value: '7', values: null },
+    { code: 'origin', value: 'national', values: null },
+  ],
+};
+const GS_DEFS = [
+  { code: 'modelo', label: 'Modelo', values: [{ code: 'grand-scenic', label: 'Grand Scenic' }, { code: 'megane', label: 'Mégane' }] },
+  { code: 'year', label: 'Ano', validation: { numeric: true } },
+  { code: 'first_registration_month', label: 'Mês de registo', values: [{ code: '04', label: 'Abril' }] },
+  { code: 'quilometros', label: 'Quilómetros', unit: 'km', validation: { numeric: true } },
+  { code: 'combustivel', label: 'Combustível', values: [{ code: 'diesel', label: 'Diesel' }, { code: 'gasolina', label: 'Gasolina' }] },
+  { code: 'gearbox', label: 'Caixa de velocidades', values: [{ code: 'manual', label: 'Manual' }, { code: 'automatico', label: 'Automática' }] },
+  { code: 'body_type', label: 'Segmento', values: [{ code: 'combi', label: 'Monovolume' }] },
+  { code: 'engine_power', label: 'Potência', unit: 'cv', validation: { numeric: true } },
+  { code: 'engine_capacity', label: 'Cilindrada', unit: 'cm3', validation: { numeric: true } },
+  { code: 'nr_seats', label: 'Lotação', values: [{ code: '7', label: '7' }] },
+  { code: 'portas', label: 'Nº de portas', values: [{ code: '4-5', label: '4/5' }] },
+  { code: 'condicao', label: 'Condição', values: [{ code: 'usado', label: 'Usado' }] },
+  { code: 'origin', label: 'Origem', values: [{ code: 'national', label: 'Nacional' }] },
+];
+
+test('o Grand Scenic vira um rascunho com os campos certos', () => {
+  const r = IC.advertToCarInput(GRAND_SCENIC, GS_DEFS, { make: 'Renault', vehicleType: 'car' });
+  assert.equal(r.ok, true, JSON.stringify(r.missing));
+  const { olx_attributes, description, ...rest } = r.input;
+  assert.deepEqual(rest, {
+    vehicle_type: 'car', make: 'Renault', model: 'Grand Scenic', year: 2008, registration_month: 4, mileage: 242000,
+    fuel: 'Diesel', transmission: 'Manual', body: 'Monovolume', power: 106, displacement: 1500, seats: 7, doors: 5,
+    price: 6000, status: 'draft', channels: [],
+  });
+  assert.equal(description, GRAND_SCENIC.description);
+  assert.deepEqual(olx_attributes, Object.fromEntries(GRAND_SCENIC.attributes.map((a) => [a.code, a.value])));
+});
+
+test('sem combustível que se reconheça, diz o que falta', () => {
+  const advert = { ...GRAND_SCENIC, attributes: GRAND_SCENIC.attributes.filter((a) => a.code !== 'combustivel') };
+  assert.deepEqual(IC.advertToCarInput(advert, GS_DEFS, { make: 'Renault', vehicleType: 'car' }), { ok: false, missing: ['combustível'] });
+});
+
+test('a marca vem da categoria quando o título começa por ela; senão da primeira palavra', () => {
+  assert.equal(IC.makeFromAdvert('Renault Grand Scenic', 'Renault'), 'Renault');
+  assert.equal(IC.makeFromAdvert('Mercedes-Benz CLA 180', 'Mercedes-Benz'), 'Mercedes-Benz');
+  assert.equal(IC.makeFromAdvert('Yamaha MT-07 de 2016', 'Motociclos - Scooters'), 'Yamaha');
+});
+
+test('só copia fotos do CDN do OLX', () => {
+  assert.equal(IC.isOlxImageUrl('https://ireland.apollo.olxcdn.com:443/v1/files/x/image'), true);
+  for (const bad of ['http://ireland.apollo.olxcdn.com/x', 'https://evil.com/olxcdn.com/x', 'https://olxcdn.com.evil.com/x', 'nada'])
+    assert.equal(IC.isOlxImageUrl(bad), false, bad);
+});
+
+test('copia as fotos para o Storage e regista-as, a primeira como capa', async () => {
+  olx.images.set('a.jpg', { type: 'image/jpeg', bytes: Buffer.alloc(1000) });
+  olx.images.set('b.jpg', { type: 'image/jpeg', bytes: Buffer.alloc(2000) });
+  olx.images.set('c.html', { type: 'text/html', bytes: Buffer.from('<html>') });
+  olx.images.set('big.jpg', { type: 'image/jpeg', bytes: Buffer.alloc(5 * 1024 * 1024 + 1) });
+  const d = db();
+  const urls = ['a.jpg', 'c.html', 'big.jpg', 'b.jpg'].map((f) => `${fake.url}/img/${f}`);
+  const r = await IC.copyAdvertPhotos(d, CAR, urls, { allow: () => true });
+  assert.deepEqual(r, { copied: 2, failed: 2 });
+  assert.deepEqual(d._storage.uploads.map((u) => u.path), [`${CAR}/olx-1.jpg`, `${CAR}/olx-2.jpg`]);
+  assert.deepEqual(d._t.car_media.map((m) => [m.storage_path, m.kind, m.position, m.is_cover]),
+    [[`${CAR}/olx-1.jpg`, 'image', 0, true], [`${CAR}/olx-2.jpg`, 'image', 1, false]]);
+});
+
+test('mota se a categoria descende de 379 (Motociclos); carro nos outros casos, comerciais incluídos', async () => {
+  reset();
+  olx.categories.set(379, { id: 379, name: 'Motociclos - Scooters', parent_id: 362 });
+  olx.categories.set(999, { id: 999, name: 'Yamaha', parent_id: 379 });
+  olx.categories.set(1479, { id: 1479, name: 'Opel', parent_id: 416 });
+  olx.categories.set(416, { id: 416, name: 'Comerciais - Camiões', parent_id: 362 });
+  const d = db();
+  assert.equal(await IC.vehicleTypeOfCategory(d, 999), 'motorcycle');
+  assert.equal(await IC.vehicleTypeOfCategory(d, 379), 'motorcycle');
+  assert.equal(await IC.vehicleTypeOfCategory(d, 1479), 'car');
+  assert.equal(await IC.vehicleTypeOfCategory(d, 603), 'car');
 });
