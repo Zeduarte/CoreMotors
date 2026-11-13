@@ -1,4 +1,4 @@
--- Que migrações já estão aplicadas nesta base de dados? (0001 → 0050)
+-- Que migrações já estão aplicadas nesta base de dados? (0001 → 0051)
 --
 -- Cole isto no Supabase → SQL Editor e carregue em Run. Cada linha diz se a
 -- migração está aplicada, pela presença de algo que só ela cria; a última
@@ -151,7 +151,9 @@ with m(migracao, aplicada) as (values
     and exists (select 1 from pg_policies
             where schemaname = 'storage' and tablename = 'objects' and policyname = 'car-media: vehicle type read')
     and pg_get_functiondef('public.validate_showroom_location()'::regprocedure) like '%coalesce(new, old)%'
-    and pg_get_functiondef('public.close_vehicle_sale(uuid,numeric,date)'::regprocedure) like '%has_vehicle_type_for%')
+    and pg_get_functiondef('public.close_vehicle_sale(uuid,numeric,date)'::regprocedure) like '%has_vehicle_type_for%'),
+  ('0051_olx_adverts',
+    to_regclass('public.olx_adverts') is not null)
 )
 select migracao, estado from (
   select migracao, case when aplicada then 'aplicada' else 'FALTA' end as estado

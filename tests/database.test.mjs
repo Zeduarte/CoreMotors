@@ -466,6 +466,23 @@ await test('OLX tokens and cache are unreachable from any logged-in session',asy
  await assert.rejects(db.query(`update channel_listings set sync_state='qualquer' where car_id=$1`,[car]),/check/i);
 });
 
+await test('olx_adverts: só o servidor, e uma viatura tem no máximo um anúncio',async()=>{
+ // O espelho dos anúncios da conta do OLX (0051): como os tokens, nenhuma
+ // sessão o lê; o painel usa o cliente de serviço.
+ await asUser(admin,async()=>assert.rejects(db.query('select * from public.olx_adverts'),/permission denied/));
+ const own=(await db.query(`insert into cars(slug,make,model,year,fuel,transmission,body,status,price) values('olx-adverts-car','Renault','Captur',2016,'Gasolina','Manual','SUV','published',11500) returning id`)).rows[0].id;
+ await asServer(async()=>{
+  await db.query(`insert into olx_adverts(id,origin,status,title,car_id) values(1,'olx','active','A',$1)`,[own]);
+  await assert.rejects(db.query(`insert into olx_adverts(id,origin,status,title,car_id) values(2,'olx','active','B',$1)`,[own]),/unique|duplicate/i);
+  await assert.rejects(db.query(`insert into olx_adverts(id,origin,status,title) values(3,'outro','active','C')`),/check/i);
+  await assert.rejects(db.query(`insert into olx_adverts(id,origin,status,title,views) values(4,'olx','active','D',-1)`),/check/i);
+ });
+ // Apagar a viatura não apaga o anúncio do espelho: só o desassocia.
+ await db.query('delete from cars where id=$1',[own]);
+ assert.equal((await db.query('select car_id from olx_adverts where id=1')).rows[0].car_id,null);
+ await db.query('delete from olx_adverts');
+});
+
 // ---------------------------------------------------------------------------
 // 0038 — mais ordens pelo WhatsApp (viaturas, leads, testemunhos). Como na
 // 0024: a chave de serviço ignora a RLS, por isso estas funções são a barreira.

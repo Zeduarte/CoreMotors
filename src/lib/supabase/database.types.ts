@@ -644,6 +644,31 @@ export type OlxConnectionRow = {
   updated_at: string;
 };
 
+/** De onde vem um anúncio do OLX (0051). */
+export type OlxAdvertOrigin = "site" | "olx" | "standvirtual";
+
+/** Um anúncio da conta do OLX ligada (0051). Só o servidor lê esta tabela. */
+export type OlxAdvertRow = {
+  id: number;
+  car_id: string | null;
+  origin: OlxAdvertOrigin;
+  status: string;
+  title: string;
+  url: string | null;
+  external_id: string | null;
+  price: number | null;
+  category_id: number | null;
+  category_name: string | null;
+  valid_to: string | null;
+  olx_created_at: string | null;
+  views: number | null;
+  phone_views: number | null;
+  observers: number | null;
+  stats_at: string | null;
+  seen_at: string;
+  updated_at: string;
+};
+
 /** Número de WhatsApp da empresa ligado no backoffice. Só o servidor lê (tem o token). */
 /** Contacto externo do número da marca (0043): identifica-se pela empresa e pelo cargo. */
 export type WaContactRow = {
@@ -750,6 +775,12 @@ export type Database = {
         Row: OlxConnectionRow;
         Insert: Partial<OlxConnectionRow> & { access_token: string; refresh_token: string; expires_at: string };
         Update: Partial<OlxConnectionRow>;
+        Relationships: [];
+      };
+      olx_adverts: {
+        Row: OlxAdvertRow;
+        Insert: Partial<OlxAdvertRow> & { id: number; origin: OlxAdvertOrigin; status: string };
+        Update: Partial<OlxAdvertRow>;
         Relationships: [];
       };
       olx_category_cache: {
