@@ -58,6 +58,8 @@ export interface MotoHeroContent {
 export interface HomeContent {
   hero: HeroContent;
   motoHero: MotoHeroContent;
+  /** Mostra «Que segmento procura?» (as categorias com stock). Por defeito não. */
+  showSegments: boolean;
   brands: string[];
   trust: TrustContent;
   cta: CtaSectionContent;
@@ -78,6 +80,7 @@ export const DEFAULT_HOME_CONTENT: HomeContent = {
     subtitle: "Explore as nossas motas e encontre a sua próxima companheira de estrada.",
     primaryCta: { label: "Ver motas", href: "/inventario" },
   },
+  showSegments: false,
   brands: [
     "BMW",
     "Audi",
@@ -138,6 +141,7 @@ export function mergeHomeContent(partial?: Partial<HomeContent> | null): HomeCon
       ...partial.motoHero,
       primaryCta: { ...d.motoHero.primaryCta, ...partial.motoHero?.primaryCta },
     },
+    showSegments: typeof partial.showSegments === "boolean" ? partial.showSegments : d.showSegments,
     brands:
       partial.brands && partial.brands.length ? partial.brands : d.brands,
     trust: {

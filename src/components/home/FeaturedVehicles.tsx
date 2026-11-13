@@ -17,7 +17,7 @@ import { AnimatedText } from "@/components/ui/AnimatedText";
 export function FeaturedVehicles({
   vehicles,
   total,
-  eyebrow = "A nossa seleção",
+  eyebrow = "",
   title = "Viaturas em destaque",
 }: {
   vehicles: Vehicle[];
@@ -67,7 +67,7 @@ export function FeaturedVehicles({
   return (
     <section className="container-px py-16 md:py-24">
       <div className="mb-8 md:mb-10">
-        <p className="eyebrow mb-3">{eyebrow}</p>
+        {eyebrow && <p className="eyebrow mb-3">{eyebrow}</p>}
         <AnimatedText as="h2" className="text-3xl font-semibold text-paper md:text-4xl">
           {title}
         </AnimatedText>

@@ -261,6 +261,7 @@ export const homeContentSchema = z.object({
     subtitle: z.string().trim().max(300),
     primaryCta: cta,
   }),
+  showSegments: z.boolean().default(false),
   brands: z.array(z.string().trim().min(1)).max(30),
   trust: z.object({
     eyebrow: z.string().trim().max(80),

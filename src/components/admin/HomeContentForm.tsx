@@ -139,6 +139,19 @@ export function HomeContentForm({ initial }: { initial: HomeContentValues }) {
       </Section>
 
       {/* MARCAS */}
+      <Section title="Secções">
+        <label className="flex items-start gap-3 text-sm text-paper/80">
+          <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[color:var(--accent)]" {...register("showSegments")} />
+          <span>
+            Mostrar «Que segmento procura?»
+            <span className="block text-xs text-paper/50">
+              Os atalhos por categoria (SUV, Berlina, Naked…) logo a seguir ao
+              topo, só com as categorias que têm viaturas em stock.
+            </span>
+          </span>
+        </label>
+      </Section>
+
       <Section title="Faixa de marcas">
         <span className="field-label">Marcas (deslizam no topo)</span>
         <div className="flex gap-2">

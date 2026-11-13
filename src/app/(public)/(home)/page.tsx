@@ -102,7 +102,8 @@ export default async function HomePage() {
         }
       />
 
-      <Segments segments={segments} />
+      {/* Opcional: Página inicial → Secções (por defeito escondida). */}
+      {content.showSegments && <Segments segments={segments} />}
       {/* A lista vem com as marcadas como destaque primeiro, depois as mais
           recentes. */}
       <FeaturedVehicles vehicles={allVehicles} total={allVehicles.length} />
