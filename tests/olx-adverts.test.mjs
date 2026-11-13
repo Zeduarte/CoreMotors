@@ -470,3 +470,65 @@ test('ligar outra conta esvazia o espelho; a mesma conta (ou a primeira) não', 
     assert.equal(same._t.olx_adverts.length, 1);
   }
 });
+
+// ---- Painel «Anúncios no OLX» e ficha da viatura ----------------------------
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+const noop = async () => ({ ok: true });
+const loadUi = createLoader({
+  'next/navigation': { useRouter: () => ({ refresh() {} }), usePathname: () => '/admin/anuncios' },
+  'next/link': { __esModule: true, default: ({ href, children, ...p }) => React.createElement('a', { href, ...p }, children) },
+  sonner: { toast: { success() {}, error() {} } },
+  '@/lib/actions/olx-adverts': { readOlxAdverts: noop, linkOlxAdvert: noop, unlinkOlxAdvert: noop, confirmOlxSuggestions: noop, setOlxAdvertActive: noop, createCarFromOlxAdvert: noop },
+  '@/lib/actions/olx': { refreshOlxStats: noop, retryOlxListing: noop, setCarOlxCategory: noop, browseOlxCategories: noop },
+  '@/lib/actions/channels': { saveListing: noop },
+});
+const { OlxAdvertsTable } = loadUi('src/components/admin/OlxAdvertsTable.tsx');
+const view = (over) => ({ id: 1, title: 'Anúncio', url: 'https://www.olx.pt/d/anuncio/1', origin: 'olx', status: 'active',
+  views: 10, phone_views: 1, observers: 2, car: null, suggestion: null, ...over });
+const html = (adverts) => renderToStaticMarkup(React.createElement(OlxAdvertsTable, { adverts, cars: [{ id: CAR, label: 'BMW 116d · 12 900 €' }], readAt: null }));
+
+test('a lista mostra origem, estado e as ações certas por linha', () => {
+  const sv = html([view({ origin: 'standvirtual', title: 'Mercedes-Benz A 180 d', suggestion: { carId: CAR, label: 'Mercedes-Benz A 180 d · 21 900 €', strong: true } })]);
+  assert.match(sv, /Gerido no Standvirtual/);
+  assert.match(sv, /Sugestão/);
+  assert.match(sv, />Associar</);
+  assert.doesNotMatch(sv, />Ativar<|>Desativar</);
+
+  const linked = html([view({ origin: 'standvirtual', car: { id: CAR, label: 'BMW 116d', managed: false } })]);
+  assert.match(linked, />Desassociar</);
+  assert.match(linked, new RegExp(`/admin/carros/${CAR}`));
+
+  const loose = html([view({ origin: 'olx', status: 'limited', title: 'Renault Grand Scenic' })]);
+  assert.match(loose, /Criar viatura/);
+  assert.match(loose, />Ativar</);
+  assert.match(loose, /precisa de pacote pago/);
+
+  const managed = html([view({ origin: 'olx', car: { id: CAR, label: 'BMW 116d', managed: true } })]);
+  assert.match(managed, /Gere-se na ficha/);
+  assert.doesNotMatch(managed, />Desativar<|>Ativar</);
+
+  const free = html([view({ origin: 'olx', status: 'active', car: { id: CAR, label: 'BMW 116d', managed: false } })]);
+  assert.match(free, />Desativar</);
+});
+
+test('«Confirmar N sugestões» conta só as fortes', () => {
+  const out = html([
+    view({ id: 1, suggestion: { carId: CAR, label: 'a', strong: true } }),
+    view({ id: 2, suggestion: { carId: 'x', label: 'b', strong: false } }),
+    view({ id: 3, suggestion: { carId: 'y', label: 'c', strong: true } }),
+  ]);
+  assert.match(out, /Confirmar 2 sugestões/);
+  assert.doesNotMatch(html([view({ id: 2, suggestion: { carId: 'x', label: 'b', strong: false } })]), /Confirmar/);
+});
+
+test('a ficha mostra o anúncio do Standvirtual mesmo sem OLX marcado', () => {
+  const { ChannelListings } = loadUi('src/components/admin/ChannelListings.tsx');
+  const sv = renderToStaticMarkup(React.createElement(ChannelListings, { carId: CAR, channels: [], listings: [],
+    olxAdvert: { title: 'BMW 116 d Pack M', url: 'https://www.olx.pt/d/anuncio/1', origin: 'standvirtual', status: 'active', views: 171, phone_views: 0, observers: 1 } }));
+  assert.match(sv, /Este anúncio vem do Standvirtual: altera-se lá/);
+  assert.match(sv, /171/);
+  const own = renderToStaticMarkup(React.createElement(ChannelListings, { carId: CAR, channels: [], listings: [],
+    olxAdvert: { title: 'Renault Grand Scenic', url: null, origin: 'olx', status: 'limited', views: 0, phone_views: 0, observers: 0 } }));
+  assert.match(own, /Marque OLX para o backoffice passar a gerir este anúncio\./);
+});

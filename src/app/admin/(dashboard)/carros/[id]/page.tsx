@@ -46,6 +46,19 @@ export default async function EditCarPage({ params }: { params: Params }) {
     };
   })();
 
+  // Anúncio da conta do OLX associado a esta viatura (0051): mostra-se mesmo
+  // quando não é o backoffice a geri-lo (Standvirtual, ou OLX por marcar).
+  const olxAdvert = await (async () => {
+    const db = createAdminClient();
+    if (!db) return null;
+    const { data } = await db
+      .from("olx_adverts")
+      .select("title,url,origin,status,views,phone_views,observers")
+      .eq("car_id", car.id)
+      .maybeSingle();
+    return data ?? null;
+  })();
+
   const showroom = await getShowroomContent();
   // Mudar de tipo só para um que o site vende (o tipo atual mantém-se sempre).
   const [allowedTypes, siteTypes] = await Promise.all([getActiveVehicleTypes(), getSiteVehicleTypes()]);
@@ -159,6 +172,7 @@ export default async function EditCarPage({ params }: { params: Params }) {
           channels={car.channels ?? []}
           listings={listings}
           olxCategory={olxCategory}
+          olxAdvert={olxAdvert}
         />
         {canAccess(profile.role, profile.allowed_sections, "financeiro") && (
           <Link className="btn-ghost" href={`/admin/financeiro/${car.id}`}>

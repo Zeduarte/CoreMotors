@@ -8,6 +8,7 @@ import { saveListing } from "@/lib/actions/channels";
 import { refreshOlxStats, retryOlxListing, setCarOlxCategory } from "@/lib/actions/olx";
 import { OlxCategoryPicker } from "./OlxCategoryPicker";
 import { REMOTE_STATUS_LABEL } from "@/lib/olx/lifecycle";
+import type { AdvertOrigin } from "@/lib/olx/adverts";
 import type {
   ChannelListingRow,
   ChannelListingStatus,
@@ -44,17 +45,25 @@ export function ChannelListings({
   channels,
   listings,
   olxCategory,
+  olxAdvert,
 }: {
   carId: string;
   channels: string[];
   listings: ChannelListingRow[];
   /** Categoria do OLX desta viatura e a padrão do tipo (nomes legíveis). */
   olxCategory?: { own: string | null; fallback: string | null };
+  /** Anúncio da conta do OLX associado a esta viatura (Plataformas de anúncios). */
+  olxAdvert?: OlxAdvertSummary | null;
 }) {
   const byChannel = new Map(listings.map((l) => [l.channel, l]));
+  // Um anúncio do Standvirtual, ou um do OLX sem OLX marcado: mostra-se o que
+  // existe no OLX em vez do estado da sincronização (que não lhe toca).
+  const olxInfo = olxAdvert && (olxAdvert.origin === "standvirtual" || !channels.includes("olx")) ? olxAdvert : null;
   // Tipo largo: o ramo dos portais com formulário próprio volta a servir
   // quando outro portal ficar disponível.
-  const selected: { id: string; label: string; available: boolean }[] = CHANNELS.filter((c) => channels.includes(c.id));
+  const selected: { id: string; label: string; available: boolean }[] = CHANNELS.filter(
+    (c) => channels.includes(c.id) && !(olxInfo && c.id === "olx"),
+  );
 
   return (
     <section className="card p-5">
@@ -68,7 +77,9 @@ export function ChannelListings({
         </p>
       </div>
 
-      {selected.length === 0 ? (
+      {olxInfo && <OlxAdvertInfo advert={olxInfo} />}
+
+      {olxInfo && selected.length === 0 ? null : selected.length === 0 ? (
         <p className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-paper/60">
           Nenhum portal selecionado. Escolhe os portais em{" "}
           <strong className="text-paper/80">
@@ -102,6 +113,47 @@ export function ChannelListings({
         </div>
       )}
     </section>
+  );
+}
+
+export interface OlxAdvertSummary {
+  title: string;
+  url: string | null;
+  origin: AdvertOrigin;
+  status: string;
+  views: number | null;
+  phone_views: number | null;
+  observers: number | null;
+}
+
+/** O anúncio do OLX desta viatura quando não é o backoffice a geri-lo. */
+function OlxAdvertInfo({ advert }: { advert: OlxAdvertSummary }) {
+  const n = (v: number | null) => (v == null ? "—" : v.toLocaleString("pt-PT"));
+  return (
+    <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-paper">OLX</span>
+          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-paper/70">
+            {REMOTE_STATUS_LABEL[advert.status] ?? advert.status}
+          </span>
+        </div>
+        {advert.url && (
+          <a href={advert.url} target="_blank" rel="noopener noreferrer" className="text-xs text-paper/50 hover:text-paper">
+            ↗ Ver no OLX
+          </a>
+        )}
+      </div>
+      <p className="mt-2 text-paper/80">{advert.title}</p>
+      <p className="mt-1 text-xs text-paper/50">
+        {n(advert.views)} visualizações · {n(advert.phone_views)} viram o telefone · {n(advert.observers)} a seguir
+      </p>
+      <p className="mt-2 text-xs text-amber-300">
+        {advert.origin === "standvirtual"
+          ? "Este anúncio vem do Standvirtual: altera-se lá."
+          : "Marque OLX para o backoffice passar a gerir este anúncio."}
+      </p>
+    </div>
   );
 }
 

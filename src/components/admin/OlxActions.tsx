@@ -7,10 +7,10 @@ import {
   chooseOlxCategory,
   disconnectOlx,
   loadOlxCategories,
-  refreshOlxStats,
   syncOlxNow,
   type OlxActionResult,
 } from "@/lib/actions/olx";
+import { readOlxAdverts } from "@/lib/actions/olx-adverts";
 import type { OlxCategory } from "@/lib/olx/categories";
 
 export function OlxActions({ configured, connected }: { configured: boolean; connected: boolean }) {
@@ -44,8 +44,8 @@ export function OlxActions({ configured, connected }: { configured: boolean; con
             <button type="button" className="btn-ghost" disabled={pending} onClick={() => run(syncOlxNow)}>
               Sincronizar agora
             </button>
-            <button type="button" className="btn-ghost" disabled={pending} onClick={() => run(() => refreshOlxStats())}>
-              Atualizar estatísticas
+            <button type="button" className="btn-ghost" disabled={pending} onClick={() => run(readOlxAdverts)}>
+              Ler anúncios do OLX
             </button>
             <button
               type="button"
