@@ -33,6 +33,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/financeiro", label: "Custos e margens", short: "Custos", icon: "euro", exact: false, section: "financeiro" },
   { href: "/admin/oficina", label: "Oficina", short: "Oficina", icon: "tool", exact: false, section: "oficina" },
   { href: "/admin/horas", label: "Horas", short: "Horas", icon: "clock", exact: false, section: "horas" },
+  { href: "/admin/partilhas", label: "Partilhas no Facebook", short: "Partilhas", icon: "share", exact: false, section: "partilhas" },
   // Dados pessoais e férias (/admin/perfil/…): de cada um, sem permissão própria.
   { href: "/admin/perfil", label: "Os meus dados e férias", short: "Perfil", icon: "user", exact: false, section: null },
 ];
@@ -79,6 +80,8 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     icon: "layout",
     hrefs: ["/admin/pagina-inicial", "/admin/testemunhos", "/admin/anuncios"],
   },
+  // As partilhas dos anúncios nos grupos do Facebook (cada um com as suas contas).
+  { key: "partilhas", short: "Partilhas", label: "Partilhas", icon: "share", hrefs: ["/admin/partilhas"] },
   { key: "equipa", short: "Equipa", label: "Equipa", icon: "users", hrefs: ["/admin/utilizadores"] },
   {
     key: "definicoes",

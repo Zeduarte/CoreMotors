@@ -458,6 +458,94 @@ type TimeEntriesInsert = {
 };
 type TimeEntriesUpdate = Partial<TimeEntriesInsert>;
 
+// ---- Partilhas no Facebook (0052): tudo por utilizador ---------------------
+export type FbAccountRow = {
+  id: string;
+  profile_id: string;
+  name: string;
+  fb_user_id: string | null;
+  groups_read_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+type FbAccountInsert = {
+  id?: string;
+  profile_id?: string;
+  name: string;
+  fb_user_id?: string | null;
+  groups_read_at?: string | null;
+};
+type FbAccountUpdate = Partial<FbAccountInsert>;
+
+export type FbGroupRow = {
+  id: string;
+  account_id: string;
+  profile_id: string;
+  group_key: string;
+  name: string;
+  url: string | null;
+  position: number | null;
+  include: boolean | null;
+  created_at: string;
+  updated_at: string;
+};
+type FbGroupInsert = {
+  id?: string;
+  account_id: string;
+  profile_id?: string;
+  group_key: string;
+  name: string;
+  url?: string | null;
+  position?: number | null;
+  include?: boolean | null;
+};
+type FbGroupUpdate = Partial<FbGroupInsert>;
+
+export type FbShareAdRow = {
+  id: string;
+  profile_id: string;
+  car_id: string | null;
+  title: string;
+  url: string;
+  price: number | null;
+  vehicle_type: "car" | "motorcycle";
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+};
+type FbShareAdInsert = {
+  id?: string;
+  profile_id?: string;
+  car_id?: string | null;
+  title: string;
+  url: string;
+  price?: number | null;
+  vehicle_type?: "car" | "motorcycle";
+  archived?: boolean;
+};
+type FbShareAdUpdate = Partial<FbShareAdInsert>;
+
+export type FbShareStatus = "confirmed" | "pending" | "uncertain" | "rate_limited" | "failed" | "reset";
+export type FbShareAttemptRow = {
+  id: string;
+  profile_id: string;
+  account_id: string;
+  group_id: string;
+  ad_id: string;
+  status: FbShareStatus;
+  reason: string | null;
+  created_at: string;
+};
+type FbShareAttemptInsert = {
+  id?: string;
+  profile_id?: string;
+  account_id: string;
+  group_id: string;
+  ad_id: string;
+  status: FbShareStatus;
+  reason?: string | null;
+};
+
 // ---- channel_listings (estado de publicação por portal) --------------------
 export type ChannelListingStatus =
   | "pending"
@@ -970,6 +1058,30 @@ export type Database = {
         Row: TimeEntriesRow;
         Insert: TimeEntriesInsert;
         Update: TimeEntriesUpdate;
+        Relationships: [];
+      };
+      fb_accounts: {
+        Row: FbAccountRow;
+        Insert: FbAccountInsert;
+        Update: FbAccountUpdate;
+        Relationships: [];
+      };
+      fb_groups: {
+        Row: FbGroupRow;
+        Insert: FbGroupInsert;
+        Update: FbGroupUpdate;
+        Relationships: [];
+      };
+      fb_share_ads: {
+        Row: FbShareAdRow;
+        Insert: FbShareAdInsert;
+        Update: FbShareAdUpdate;
+        Relationships: [];
+      };
+      fb_share_attempts: {
+        Row: FbShareAttemptRow;
+        Insert: FbShareAttemptInsert;
+        Update: Partial<FbShareAttemptInsert>; // sem grant de update: o histórico não se reescreve
         Relationships: [];
       };
       channel_listings: {

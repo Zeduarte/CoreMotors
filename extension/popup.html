@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<title>CoreMotors Partilhas</title>
+<style>
+  :root { color-scheme: light dark; --bg:#fff; --fg:#111; --muted:#666; --line:#ddd; --accent:#0a7cff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16181c; --fg:#f2f2f2; --muted:#9aa0a6; --line:#2c3036; --accent:#4da3ff; } }
+  body { margin:0; width:320px; font:13px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  main { padding:14px 16px; }
+  h1 { font-size:15px; margin:0 0 10px; }
+  p { margin:6px 0; }
+  .muted { color:var(--muted); }
+  .box { border:1px solid var(--line); border-radius:10px; padding:10px; margin:10px 0; }
+  button { font:inherit; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--fg); padding:6px 12px; cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  ul { list-style:none; padding:0; margin:6px 0 0; }
+  li { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:4px 0; border-top:1px solid var(--line); }
+  li span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  code { font-size:12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>CoreMotors Partilhas</h1>
+  <div class="box" id="site"></div>
+  <div class="box"><strong>Facebook neste Chrome</strong><p id="fb" class="muted">…</p></div>
+  <div class="box"><strong>Sites autorizados</strong><ul id="list"></ul></div>
+  <p class="muted">Só os sites autorizados podem pedir à extensão para ler os seus grupos e partilhar anúncios.</p>
+</main>
+<script src="popup.js"></script>
+</body>
+</html>

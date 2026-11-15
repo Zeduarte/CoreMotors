@@ -51,6 +51,15 @@ const PATHS: Record<string, ReactNode> = {
       <path d="M21 13v2a4 4 0 0 1-4 4H3" />
     </>
   ),
+  share: (
+    <>
+      <circle cx="18" cy="5" r="2.6" />
+      <circle cx="6" cy="12" r="2.6" />
+      <circle cx="18" cy="19" r="2.6" />
+      <path d="m8.3 13.3 7.4 4.4" />
+      <path d="m15.7 6.3-7.4 4.4" />
+    </>
+  ),
   layers: (
     <>
       <path d="m12 2 10 5-10 5L2 7z" />

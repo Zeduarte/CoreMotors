@@ -7,10 +7,10 @@
   },
   "description": "Stand de automóveis premium — Next.js 15, GSAP, Lenis, Framer Motion",
   "scripts": {
-    "predev": "node scripts/media-manifest.mjs",
+    "predev": "node scripts/media-manifest.mjs && node scripts/build-extension.mjs",
     "dev": "next dev",
     "dev:clean": "rm -rf .next && next dev",
-    "prebuild": "node scripts/media-manifest.mjs",
+    "prebuild": "node scripts/media-manifest.mjs && node scripts/build-extension.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

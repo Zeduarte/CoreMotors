@@ -27,7 +27,8 @@ export type Section =
   | "definicoes"
   | "oficina"
   | "horas"
-  | "financeiro";
+  | "financeiro"
+  | "partilhas";
 
 export const ROLE_RANK: Record<Role, number> = {
   admin: 3,
@@ -63,6 +64,7 @@ export const SECTIONS: {
   { key: "financeiro", label: "Custos e margens", href: "/admin/financeiro", exact: false },
   { key: "oficina", label: "Oficina", href: "/admin/oficina", exact: false },
   { key: "horas", label: "Horas", href: "/admin/horas", exact: false },
+  { key: "partilhas", label: "Partilhas no Facebook", href: "/admin/partilhas", exact: false },
 ];
 
 export const ALL_SECTIONS: Section[] = SECTIONS.map((s) => s.key);
@@ -70,8 +72,9 @@ export const ALL_SECTIONS: Section[] = SECTIONS.map((s) => s.key);
 /** Acessos por defeito de cada papel (quando `allowed_sections` está vazio). */
 export const DEFAULT_SECTIONS: Record<Role, Section[]> = {
   admin: ALL_SECTIONS,
-  chefe: ["dashboard", "carros", "pagina-inicial", "leads", "testemunhos", "financeiro"],
-  vendedor: ["dashboard", "carros", "leads"],
+  // «partilhas» também na BD (has_section_for, 0052): as listas têm de bater certo.
+  chefe: ["dashboard", "carros", "pagina-inicial", "leads", "testemunhos", "financeiro", "partilhas"],
+  vendedor: ["dashboard", "carros", "leads", "partilhas"],
   // O mecânico só tem a Oficina — nada de dashboard/leads/etc.
   mecanico: ["oficina"],
 };

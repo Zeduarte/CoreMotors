@@ -30,3 +30,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 
+
+# ZIP da extensão Partilhas (gerado por scripts/build-extension.mjs)
+/public/extensao/

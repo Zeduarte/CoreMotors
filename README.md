@@ -234,3 +234,23 @@ Configuração da app da Meta, uma vez para todos os clientes:
 Para ligar números de **outras empresas** (e não só os da empresa dona da app), a Meta exige ainda: a verificação da empresa no Business Manager, o registo como *Tech Provider* e o acesso avançado às permissões `whatsapp_business_management` e `whatsapp_business_messaging` (revisão da app). Até lá, o botão só funciona com números da própria empresa dona da app — chega para testar.
 
 `WHATSAPP_PHONE_NUMBER_ID` e `WHATSAPP_ACCESS_TOKEN` passam a ser opcionais: só são usados quando não há nenhum número ligado no backoffice, por isso um site que já funcionava com eles não pára no deploy.
+
+## Partilhas no Facebook — migração 0052
+
+Separador **Partilhas** (`/admin/partilhas`): cada utilizador partilha os seus
+anúncios do Facebook Marketplace nos grupos, grupo a grupo, a partir do próprio
+Chrome. Cada utilizador tem as suas contas do Facebook (um separador por conta,
+com o nome que escolher), cada conta tem a sua lista de grupos, e o histórico
+impede partilhar o mesmo anúncio duas vezes no mesmo grupo. Só o próprio vê as
+suas contas e o seu histórico (RLS, nem o administrador).
+
+1. Corra `supabase/migrations/0052_facebook_shares.sql` no SQL Editor.
+2. A permissão `partilhas` fica nos acessos por defeito de chefes e vendedores;
+   quem tem acessos personalizados recebe-a em **Utilizadores**.
+3. Cada utilizador instala a extensão do Chrome a partir do próprio separador
+   (o ZIP é gerado de `extension/` no `predev`/`prebuild`) e autoriza o site no
+   ícone dela. Ver [extension/README.md](extension/README.md).
+
+Os cliques no Facebook são feitos pela extensão no browser de cada um: o
+servidor nunca recebe palavras-passe nem sessões. A página tem de ficar aberta
+enquanto publica.

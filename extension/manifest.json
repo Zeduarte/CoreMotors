@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "CoreMotors Partilhas",
+  "version": "1.0.0",
+  "description": "Partilha anúncios do Facebook nos seus grupos, comandada pelo separador Partilhas do backoffice CoreMotors.",
+  "minimum_chrome_version": "116",
+  "permissions": ["activeTab", "scripting", "cookies", "storage"],
+  "host_permissions": ["https://www.facebook.com/*", "https://web.facebook.com/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "CoreMotors Partilhas" },
+  "content_scripts": [
+    {
+      "matches": ["https://*/admin*", "http://localhost/admin*", "http://127.0.0.1/admin*"],
+      "js": ["bridge.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
