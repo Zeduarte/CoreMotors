@@ -38,9 +38,27 @@
     return r.width * r.height;
   };
 
+  /**
+   * As janelas abertas, a mais recente primeiro. O Facebook deixa às vezes
+   * restos visíveis por cima da janela verdadeira (ex.: um cabeçalho vazio
+   * «Criar publicação»), por isso as janelas sem nada clicável além de
+   * fechar/retroceder ficam para o fim.
+   */
+  function dialogs() {
+    const all = [...document.querySelectorAll('[role="dialog"]')].filter(isVisible).reverse();
+    const useful = (d) => clickables(d).length > 3;
+    return [...all.filter(useful), ...all.filter((d) => !useful(d))];
+  }
   function topDialog() {
-    const all = [...document.querySelectorAll('[role="dialog"]')].filter(isVisible);
-    return all[all.length - 1] || null;
+    return dialogs()[0] || null;
+  }
+  /** O primeiro resultado de `fn` nas janelas abertas (nunca na página por trás). */
+  function inDialogs(fn) {
+    for (const d of dialogs()) {
+      const v = fn(d);
+      if (v) return v;
+    }
+    return null;
   }
 
   async function waitFor(fn, ms = 20000, step = 250) {
@@ -174,67 +192,133 @@
   const SHARE = /^(share|partilhar|compartilhar)$/i;
   const GROUP_OPTION =
     /^(share to a group|share in a group|share to group|partilhar num grupo|partilhar no grupo|partilhar em grupo|partilhar num grupo de que fazes parte|group|groups|grupo|grupos)$/i;
-  const POST = /^(post|publicar|partilhar|share|publicar agora|share now|partilhar agora)$/i;
+  // Só o «Publicar» da janela Criar publicação. «Partilhar agora» fica de fora:
+  // na janela Partilhar, publica no próprio feed, não no grupo.
+  const POST = /^(post|publicar|publicar agora|post now)$/i;
+
+  // No Marketplace o botão chama-se «Partilhar <título do anúncio>».
+  const SHARE_LABEL = /^(share|partilhar|compartilhar)\b/i;
 
   function findShareButton() {
     const scope = document.querySelector('[role="main"]') || document;
-    let c = clickables(scope).filter((el) => SHARE.test(label(el)));
-    if (!c.length) c = clickables(document).filter((el) => SHARE.test(label(el)));
-    if (!c.length) c = clickables(scope).filter((el) => /\b(share|partilhar)\b/i.test(el.getAttribute("aria-label") || ""));
+    const own = clickables(scope).filter((el) => !el.closest('[role="dialog"]'));
+    let c = own.filter((el) => SHARE.test(label(el)));
+    if (!c.length) c = own.filter((el) => SHARE_LABEL.test(el.getAttribute("aria-label") || ""));
+    if (!c.length) c = clickables(document).filter((el) => !el.closest('[role="dialog"]') && SHARE.test(label(el)));
     return c[0] || null;
   }
 
+  /** «Grupo» / «Partilhar num grupo» dentro da janela Partilhar (nunca o atalho «Grupos» do topo do Facebook). */
   function findGroupOption() {
-    const els = clickables(document).filter((el) => GROUP_OPTION.test(label(el)) || GROUP_OPTION.test(firstLine(el)));
-    if (els.length) return els.sort((a, b) => area(a) - area(b))[0];
-    const leaves = [...document.querySelectorAll("span,div")].filter(
-      (el) => el.childElementCount === 0 && isVisible(el) && GROUP_OPTION.test(text(el)),
-    );
-    for (const leaf of leaves) {
-      const c = leaf.closest(CLICKABLE);
-      if (c && isVisible(c)) return c;
-    }
-    return null;
+    return inDialogs((d) => {
+      const els = clickables(d).filter(
+        (el) => !el.matches("a[href]") && (GROUP_OPTION.test(label(el)) || GROUP_OPTION.test(firstLine(el))),
+      );
+      // O mais interior: clicar na moldura (role="listitem") não aciona o botão de dentro.
+      const inner = els.filter((el) => !els.some((o) => o !== el && el.contains(o)));
+      if (inner.length) return inner.sort((a, b) => area(a) - area(b))[0];
+      const leaves = [...d.querySelectorAll("span,div")].filter(
+        (el) => el.childElementCount === 0 && isVisible(el) && GROUP_OPTION.test(text(el)),
+      );
+      for (const leaf of leaves) {
+        const c = leaf.closest(CLICKABLE);
+        if (c && isVisible(c) && d.contains(c) && !c.matches("a[href]")) return c;
+      }
+      return null;
+    });
   }
 
-  function findSearch(scope) {
+  /** O campo «Pesquisa grupos» da janela (nunca a pesquisa do Facebook ou do Marketplace). */
+  function findSearch() {
     const sel =
-      'input[type="search"],input[placeholder],input[aria-label],[role="combobox"],[role="searchbox"],[contenteditable="true"][role="textbox"]';
-    const all = [...scope.querySelectorAll(sel)].filter(isVisible);
-    const re = /pesquis|procur|search|find|grupo|group/i;
-    return (
-      all.find((el) => re.test(`${el.getAttribute("placeholder") || ""} ${el.getAttribute("aria-label") || ""}`)) ||
-      all.find((el) => el.matches('input[type="search"],[role="searchbox"]')) ||
-      null
-    );
+      'input[type="search"],input[type="text"],input:not([type]),[role="combobox"],[role="searchbox"],[contenteditable="true"][role="textbox"]';
+    return inDialogs((d) => {
+      const all = [...d.querySelectorAll(sel)].filter(isVisible);
+      const re = /pesquis|procur|search|find|grupo|group/i;
+      return (
+        all.find((el) => re.test(`${el.getAttribute("placeholder") || ""} ${el.getAttribute("aria-label") || ""}`)) ||
+        all.find((el) => el.matches('input[type="search"],[role="searchbox"]')) ||
+        null
+      );
+    });
   }
 
-  /** O resultado da pesquisa com o nome do grupo: igual, ou a começar igual. */
-  function findGroupResult(scope, wanted) {
-    const k = key(wanted);
-    let best = null;
-    let bestScore = 0;
-    for (const el of clickables(scope)) {
-      if (el.matches('input,[role="combobox"],[role="searchbox"],[role="textbox"]')) continue;
-      const lines = text(el).split("\n").map((s) => s.trim()).filter(Boolean).slice(0, 2);
-      for (const option of [el.getAttribute("aria-label") || "", ...lines]) {
-        const ok = key(option);
-        if (!ok) continue;
-        const score = ok === k ? 3 : ok.length >= 8 && (ok.startsWith(k) || k.startsWith(ok)) ? 2 : 0;
-        if (score > bestScore || (score === bestScore && score > 0 && best && area(el) < area(best))) {
-          best = el;
-          bestScore = score;
+  /** Id do grupo no endereço (/groups/<id>/), para escolher o grupo certo entre nomes repetidos. */
+  function groupKeyOf(url) {
+    try {
+      const parts = new URL(url, location.href).pathname.split("/").filter(Boolean);
+      return parts[0] === "groups" && parts[1] ? parts[1].toLowerCase() : "";
+    } catch {
+      return "";
+    }
+  }
+
+  /** O botão clicável de uma linha da lista (não a foto, que leva à página do grupo). */
+  function rowButton(row) {
+    const btn = clickables(row).find((el) => !el.matches("a[href]") && el !== row);
+    return btn || (row.matches("a[href]") ? null : row);
+  }
+
+  /**
+   * O grupo nos resultados da pesquisa. Primeiro pelo id do grupo (a foto de
+   * cada resultado aponta para /groups/<id>/); senão pelo nome, igual ou a
+   * começar igual. Com dois grupos do mesmo nome e sem id, prefere o que
+   * coincide até nas maiúsculas; se nem assim se distinguem, não escolhe.
+   */
+  function findGroupResult(wanted, wantedKey) {
+    return inDialogs((d) => {
+      const rows = [...d.querySelectorAll('[role="listitem"],[role="option"],[role="row"]')].filter(isVisible);
+      if (wantedKey) {
+        for (const row of rows) {
+          const keys = [...row.querySelectorAll("a[href]")].map((a) => groupKeyOf(a.href));
+          if (keys.includes(wantedKey.toLowerCase())) {
+            const btn = rowButton(row);
+            if (btn) return { el: btn };
+          }
         }
       }
-    }
-    return bestScore >= 2 ? best : null;
+
+      const k = key(wanted);
+      const found = [];
+      for (const el of clickables(d)) {
+        if (el.matches('a[href],input,[role="combobox"],[role="searchbox"],[role="textbox"]')) continue;
+        const lines = text(el).split("\n").map((s) => s.trim()).filter(Boolean).slice(0, 2);
+        let score = 0;
+        let caseExact = false;
+        for (const option of [el.getAttribute("aria-label") || "", ...lines]) {
+          const ok = key(option);
+          if (!ok) continue;
+          const s = ok === k ? 3 : ok.length >= 8 && (ok.startsWith(k) || k.startsWith(ok)) ? 2 : 0;
+          if (s > score) score = s;
+          if (s === 3 && option.replace(/\s+/g, " ").trim() === wanted.replace(/\s+/g, " ").trim()) caseExact = true;
+        }
+        if (score >= 2) found.push({ el, score, caseExact, row: el.closest('[role="listitem"],[role="option"],[role="row"]') || el });
+      }
+      if (!found.length) return null;
+      const top = Math.max(...found.map((f) => f.score));
+      let best = found.filter((f) => f.score === top);
+      // Uma linha conta uma vez (o botão e a linha têm o mesmo nome).
+      const byRow = new Map();
+      for (const f of best) {
+        const prev = byRow.get(f.row);
+        if (!prev || area(f.el) < area(prev.el)) byRow.set(f.row, { ...f, caseExact: f.caseExact || (prev && prev.caseExact) });
+      }
+      best = [...byRow.values()];
+      if (best.length > 1) {
+        const strict = best.filter((f) => f.caseExact);
+        if (strict.length === 1) best = strict;
+        else return { ambiguous: true };
+      }
+      return { el: best[0].el };
+    });
   }
 
+  /** «Publicar» na janela Criar publicação (seja qual for a ordem das janelas abertas). */
   function findPostButton() {
-    const dialog = topDialog();
-    if (!dialog) return null;
-    const c = clickables(dialog).filter((el) => POST.test(label(el)) && isEnabled(el));
-    return c[c.length - 1] || null;
+    return inDialogs((d) => {
+      const c = clickables(d).filter((el) => POST.test(label(el)) && isEnabled(el));
+      return c[c.length - 1] || null;
+    });
   }
 
   const CONFIRMED = /partilhad[oa] n[oa] grupo|publicad[oa] n[oa] grupo|shared to (the )?group|shared successfully|your post is now (in the group|live)|a tua publica[cç][aã]o (foi partilhada|est[aá] no grupo)|publica[cç][aã]o foi partilhada/i;
@@ -249,7 +333,8 @@
       .map((el) => text(el))
       .join(" | ");
 
-  async function shareToGroup(groupName) {
+  async function shareToGroup(groupName, groupUrl) {
+    const wantedKey = groupUrl ? groupKeyOf(groupUrl) : "";
     if (loggedOut()) return { status: "attention", reason: "A sessão do Facebook não está iniciada neste Chrome.", stop: true };
     if (postingLimit()) return { status: "rate_limited", reason: `${LIMIT_REASON} Este grupo ainda não foi submetido.`, stop: true };
     if (needsCheck()) return { status: "attention", reason: "O Facebook pediu uma verificação. Conclua-a na janela do Facebook.", stop: true };
@@ -268,14 +353,14 @@
 
     // 3. Pesquisar e escolher o grupo.
     await waitFor(topDialog, 15000);
-    let search = await waitFor(() => findSearch(topDialog() || document), 15000);
+    let search = await waitFor(findSearch, 15000);
     if (!search) {
-      const chooser = clickables(topDialog() || document).find((el) =>
-        /selecionar grupo|escolher grupo|select group|choose group/i.test(label(el)),
+      const chooser = inDialogs((d) =>
+        clickables(d).find((el) => /selecionar grupo|escolher grupo|select group|choose group/i.test(label(el))),
       );
       if (chooser) {
         click(chooser);
-        search = await waitFor(() => findSearch(topDialog() || document), 15000);
+        search = await waitFor(findSearch, 15000);
       }
     }
     if (!search) return { status: "failed", reason: "Abri a escolha do grupo, mas não encontrei o campo de pesquisa.", stop: true };
@@ -286,16 +371,23 @@
     let result = null;
     for (const q of queries) {
       typeInto(search, q);
-      result = await waitFor(() => findGroupResult(topDialog() || document, groupName), 12000, 400);
-      if (result) break;
+      await sleep(1200); // deixa a lista trocar para os resultados desta pesquisa
+      result = await waitFor(() => findGroupResult(groupName, wantedKey), 12000, 400);
+      if (result && result.el) break;
     }
+    if (result && result.ambiguous)
+      return {
+        status: "failed",
+        reason: `Há mais de um grupo chamado «${groupName}» e não consegui distinguir qual é. Não foi submetido; volte a ler os grupos desta conta.`,
+        stop: false,
+      };
     if (!result)
       return {
         status: "failed",
         reason: `Não encontrei o grupo «${groupName}» na escolha do Facebook. Não foi submetido; a fila segue para o próximo.`,
         stop: false,
       };
-    click(result);
+    click(result.el);
 
     // 4. «Publicar».
     const post = await waitFor(findPostButton, 20000, 300);
@@ -305,11 +397,35 @@
 
     const baseline = bodyText();
     const before = { ok: count(CONFIRMED, baseline), pending: count(PENDING, baseline), toast: toastText() };
+    const composer = post.closest('[role="dialog"]');
     click(post);
 
-    // 5. O que o Facebook respondeu (até 45 s).
+    // 5. O que o Facebook respondeu (até 45 s). Sinais, por ordem: limite ou
+    // verificação; aviso de pendente/partilhado; erro numa janela; e, por fim,
+    // a janela Criar publicação fechar sem erro (o Facebook só a fecha quando
+    // aceita a publicação) — aí espera-se ainda uns segundos por um aviso de
+    // «pendente» antes de dar como publicado.
+    const ERROR = /n[aã]o foi poss[ií]vel (publicar|partilhar)|n[aã]o (conseguimos|consegui) (publicar|partilhar)|couldn.?t (post|share)|unable to (post|share)|something went wrong|algo correu mal|ocorreu um erro/i;
+    let closedAt = 0;
     const end = Date.now() + 45000;
     while (Date.now() < end) {
+      const failure = dialogs().find((d) => d !== composer && ERROR.test(text(d)));
+      if (failure)
+        return {
+          status: "failed",
+          reason: `O Facebook mostrou um erro depois de Publicar: «${text(failure).replace(/\s+/g, " ").slice(0, 160)}». Verifique este grupo.`,
+          stop: true,
+        };
+      // Fechada a sério: nem o mesmo elemento nem outra janela «Criar publicação» com conteúdo.
+      const composerOpen = (composer && isVisible(composer)) || dialogs().some((d) => /^(criar publica|create post)/i.test(firstLine(d)) && clickables(d).length > 3);
+      if (composer && !closedAt && !composerOpen) closedAt = Date.now();
+      if (closedAt && composerOpen) closedAt = 0;
+      if (closedAt && Date.now() - closedAt > 6000)
+        return {
+          status: "confirmed",
+          reason: "O Facebook aceitou a publicação (a janela fechou sem erro). Se o grupo exigir aprovação, fica pendente lá.",
+          stop: false,
+        };
       await sleep(1500);
       if (postingLimit())
         return {

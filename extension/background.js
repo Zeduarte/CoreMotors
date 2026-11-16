@@ -174,7 +174,7 @@ async function readGroups() {
 
 const STATUSES = new Set(["confirmed", "pending", "uncertain", "rate_limited", "failed", "attention"]);
 
-async function share({ adUrl, groupName }) {
+async function share({ adUrl, groupName, groupUrl }) {
   if (!isFacebookUrl(adUrl)) return { status: "failed", reason: "O link do anúncio não é do Facebook.", stop: true };
   if (typeof groupName !== "string" || !groupName.trim())
     return { status: "failed", reason: "Grupo sem nome.", stop: false };
@@ -185,7 +185,7 @@ async function share({ adUrl, groupName }) {
     const tabId = await openWork(adUrl);
     await sleep(2500);
     await inject(tabId);
-    const r = await call(tabId, "shareToGroup", [groupName.trim()]);
+    const r = await call(tabId, "shareToGroup", [groupName.trim(), isFacebookUrl(groupUrl || "") ? groupUrl : null]);
     if (r.retry && attempt === 0) continue;
     if (r.error) return { status: "failed", reason: `Não submetido: ${r.error}`, stop: true };
     return {
