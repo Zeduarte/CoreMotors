@@ -342,8 +342,8 @@
     });
   }
 
-  const CONFIRMED = /partilhad[oa] n[oa] grupo|publicad[oa] n[oa] grupo|shared to (the )?group|shared successfully|your post is now (in the group|live)|a tua publica[cç][aã]o (foi partilhada|est[aá] no grupo)|publica[cç][aã]o foi partilhada/i;
-  const PENDING = /pendente.{0,40}aprova|aguarda.{0,40}aprova|pending.{0,40}approval|awaiting approval|submitted for (admin )?approval|enviad[ao] para aprova/i;
+  const CONFIRMED = /partilhad[oa] n[oa] grupo|publicad[oa] n[oa] grupo|shared to (the )?group|shared successfully|your post is now (in the group|live)|a tua publica[cç][aã]o (foi partilhada|est[aá] no grupo)|publica[cç][aã]o foi partilhada|your post (was|has been) shared|shared (it )?(to|in) (the )?group|posted (to|in) (the )?group/i;
+  const PENDING = /pendente.{0,40}aprova|aguarda.{0,40}aprova|pending.{0,40}approval|awaiting approval|submitted for (admin )?approval|enviad[ao] para aprova|waiting for (admin )?approval|pending admin approval|your post is pending/i;
   const count = (re, s) => (s.match(new RegExp(re.source, "gi")) || []).length;
   // Os avisos curtos do Facebook (o «toast» depois de publicar): aqui pode
   // procurar-se por palavras largas sem apanhar o resto da página.
@@ -395,7 +395,7 @@
         (r) => isVisible(r) && r.querySelector('a[href*="/groups/"]'),
       );
     };
-    const noMatch = () => /nenhum grupo corresponde|no groups match|no results|sem resultados/i.test(text(pickerDialog() || document.body));
+    const noMatch = () => /nenhum grupo corresponde|no groups match|no groups found|no results|nothing found|sem resultados/i.test(text(pickerDialog() || document.body));
     const snapshot = () => groupRows().map((r) => firstLine(r)).join("|");
 
     // Espera a lista carregar antes de escrever (escrever cedo demais não filtra nada).
