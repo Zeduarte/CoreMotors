@@ -343,7 +343,7 @@
   }
 
   const CONFIRMED = /partilhad[oa] n[oa] grupo|publicad[oa] n[oa] grupo|shared to (the )?group|shared successfully|your post is now (in the group|live)|a tua publica[cç][aã]o (foi partilhada|est[aá] no grupo)|publica[cç][aã]o foi partilhada|your post (was|has been) shared|shared (it )?(to|in) (the )?group|posted (to|in) (the )?group/i;
-  const PENDING = /pendente.{0,40}aprova|aguarda.{0,40}aprova|pending.{0,40}approval|awaiting approval|submitted for (admin )?approval|enviad[ao] para aprova|waiting for (admin )?approval|pending admin approval|your post is pending/i;
+  const PENDING = /pendente.{0,40}aprova|aguarda.{0,40}aprova|pending.{0,40}approval|awaiting approval|submitted for (admin )?approval|enviad[ao] para aprova|waiting for (admin )?approval|pending admin approval|your post is pending|submitted to (the )?(group )?admins|enviad[ao] aos administradores|aguarda a aprova[cç][aã]o/i;
   const count = (re, s) => (s.match(new RegExp(re.source, "gi")) || []).length;
   // Os avisos curtos do Facebook (o «toast» depois de publicar): aqui pode
   // procurar-se por palavras largas sem apanhar o resto da página.
@@ -351,7 +351,8 @@
   const toastText = () =>
     [...document.querySelectorAll('[role="alert"],[role="status"],[aria-live="polite"],[aria-live="assertive"]')]
       .filter(isVisible)
-      .map((el) => text(el))
+      .map((el) => text(el).replace(/\.[\w-]+\{[^}]*\}/g, "").trim()) // sem o CSS que o Facebook põe dentro dos avisos
+      .filter(Boolean)
       .join(" | ");
 
   async function shareToGroup(groupName, groupUrl) {
@@ -498,7 +499,7 @@
           reason: "O Facebook aceitou a publicação (a janela fechou sem erro). Se o grupo exigir aprovação, fica pendente lá.",
           stop: false,
         };
-      await sleep(1500);
+      await sleep(700); // o aviso do Facebook («enviado para aprovação») só fica uns 4 s
       if (postingLimit())
         return {
           status: "rate_limited",
