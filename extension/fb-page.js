@@ -104,6 +104,26 @@
     }
   }
 
+  function clearField(el) {
+    el.focus();
+    if (typeof el.select === "function") el.select();
+    document.execCommand("delete", false);
+    if (el.value) {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+      setter.call(el, "");
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }
+
+  /** O elemento com scroll que contém `el` (a lista de grupos da janela). */
+  function scrollParent(el) {
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      const oy = getComputedStyle(p).overflowY;
+      if ((oy === "auto" || oy === "scroll") && p.scrollHeight > p.clientHeight + 20) return p;
+    }
+    return null;
+  }
+
   // ---- Situações em que se pára -------------------------------------------
 
   const LIMIT =
@@ -176,13 +196,13 @@
       })();
       const top = scroller.scrollTop;
       scroller.scrollTop = Math.min(top + Math.max(400, scroller.clientHeight * 0.85), scroller.scrollHeight);
-      await sleep(800);
+      await sleep(stable ? 1500 : 800); // sem novidades: dá mais tempo ao Facebook para carregar
       const height = scroller.scrollHeight;
       const moved = scroller.scrollTop > top || height > lastHeight;
       lastHeight = height;
       if (found.size === before && !moved) stable++;
       else stable = 0;
-      if (stable >= 4) break;
+      if (stable >= 6) break;
     }
     return { groups: [...found.values()] };
   }
@@ -279,6 +299,7 @@
       }
 
       const k = key(wanted);
+      if (!k) return null;
       const found = [];
       for (const el of clickables(d)) {
         if (el.matches('a[href],input,[role="combobox"],[role="searchbox"],[role="textbox"]')) continue;
@@ -365,26 +386,70 @@
     }
     if (!search) return { status: "failed", reason: "Abri a escolha do grupo, mas não encontrei o campo de pesquisa.", stop: true };
 
+    // A lista da janela (só as linhas que são grupos) e o aviso «nenhum grupo».
+    const pickerDialog = () => (search.isConnected && search.closest('[role="dialog"]')) || topDialog();
+    const groupRows = () => {
+      const d = pickerDialog();
+      if (!d) return [];
+      return [...d.querySelectorAll('[role="listitem"],[role="option"],[role="row"]')].filter(
+        (r) => isVisible(r) && r.querySelector('a[href*="/groups/"]'),
+      );
+    };
+    const noMatch = () => /nenhum grupo corresponde|no groups match|no results|sem resultados/i.test(text(pickerDialog() || document.body));
+    const snapshot = () => groupRows().map((r) => firstLine(r)).join("|");
+
+    // Espera a lista carregar antes de escrever (escrever cedo demais não filtra nada).
+    await waitFor(() => groupRows().length > 0, 15000);
+    await sleep(600);
+
     const queries = [groupName];
     const short = groupName.replace(/[^\p{L}\p{N}\s&-]/gu, " ").replace(/\s+/g, " ").trim().split(" ").slice(0, 4).join(" ");
     if (short && short !== groupName) queries.push(short);
     let result = null;
     for (const q of queries) {
+      const before = snapshot();
       typeInto(search, q);
-      await sleep(1200); // deixa a lista trocar para os resultados desta pesquisa
-      result = await waitFor(() => findGroupResult(groupName, wantedKey), 12000, 400);
+      // Espera a lista reagir à pesquisa (mudou, ou «nenhum grupo»).
+      await waitFor(() => snapshot() !== before || noMatch(), 8000, 300);
+      await sleep(600);
+      result = await waitFor(() => findGroupResult(groupName, wantedKey), 6000, 400);
       if (result && result.el) break;
     }
+
+    // Último recurso, pelo id: lista completa, a descer até o encontrar
+    // (o grupo pode ter mudado de nome desde que os grupos foram lidos).
+    if (!(result && result.el) && wantedKey) {
+      clearField(search);
+      await waitFor(() => groupRows().length > 0 && !noMatch(), 8000, 300);
+      for (let round = 0; round < 80 && !(result && result.el); round++) {
+        result = findGroupResult("", wantedKey);
+        if (result && result.el) break;
+        const rows = groupRows();
+        const last = rows[rows.length - 1];
+        if (!last) break;
+        const scroller = scrollParent(last);
+        const top = scroller ? scroller.scrollTop : 0;
+        last.scrollIntoView({ block: "start" });
+        if (scroller) scroller.scrollTop = Math.max(scroller.scrollTop, top + 300);
+        await sleep(700);
+        if (scroller && scroller.scrollTop === top && round > 2) {
+          await sleep(1200);
+          result = findGroupResult("", wantedKey);
+          break;
+        }
+      }
+    }
+
     if (result && result.ambiguous)
       return {
         status: "failed",
         reason: `Há mais de um grupo chamado «${groupName}» e não consegui distinguir qual é. Não foi submetido; volte a ler os grupos desta conta.`,
         stop: false,
       };
-    if (!result)
+    if (!(result && result.el))
       return {
         status: "failed",
-        reason: `Não encontrei o grupo «${groupName}» na escolha do Facebook. Não foi submetido; a fila segue para o próximo.`,
+        reason: `Não encontrei o grupo «${groupName}» na escolha do Facebook${wantedKey ? " (procurei pelo nome e pelo id na lista completa)" : ""}. Pode ter saído do grupo ou o grupo não permitir partilhas; volte a ler os grupos desta conta. Não foi submetido; a fila segue para o próximo.`,
         stop: false,
       };
     click(result.el);
@@ -392,7 +457,14 @@
     // 4. «Publicar».
     const post = await waitFor(findPostButton, 20000, 300);
     if (!post)
-      return { retry: true, status: "failed", reason: "Escolhi o grupo, mas o botão Publicar não apareceu. Não foi submetido.", stop: false };
+      return {
+        retry: true,
+        status: "failed",
+        reason: `Escolhi o grupo, mas o botão Publicar não apareceu (janelas abertas: ${
+          dialogs().map((d) => `«${firstLine(d).slice(0, 40)}»`).join(", ") || "nenhuma"
+        }). Não foi submetido.`,
+        stop: false,
+      };
     if (postingLimit()) return { status: "rate_limited", reason: `${LIMIT_REASON} Este grupo ainda não foi submetido.`, stop: true };
 
     const baseline = bodyText();

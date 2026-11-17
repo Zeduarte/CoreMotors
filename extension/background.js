@@ -117,6 +117,7 @@ async function openWork(url) {
   if (work) {
     try {
       await chrome.tabs.get(work.tabId);
+      await bringToFront();
       const loaded = waitComplete(work.tabId, { checkNow: false });
       await chrome.tabs.update(work.tabId, { url });
       await loaded;
@@ -129,6 +130,23 @@ async function openWork(url) {
   work = { tabId: win.tabs[0].id, windowId: win.id };
   await waitComplete(work.tabId, { checkNow: true });
   return work.tabId;
+}
+
+/**
+ * Põe a janela do Facebook à frente. Uma janela tapada ou minimizada é
+ * abrandada pelo Chrome (temporizadores e pesquisa do Facebook muito
+ * lentos), e a partilha ou a leitura dos grupos falham a meio.
+ */
+async function bringToFront() {
+  if (!work) return;
+  try {
+    const win = await chrome.windows.get(work.windowId);
+    if (win.state === "minimized") await chrome.windows.update(work.windowId, { state: "normal" });
+    await chrome.windows.update(work.windowId, { focused: true });
+    await chrome.tabs.update(work.tabId, { active: true });
+  } catch {
+    // A janela foi fechada: openWork cria outra.
+  }
 }
 
 chrome.tabs.onRemoved.addListener((id) => {
@@ -164,6 +182,7 @@ async function readGroups() {
   const tabId = await openWork(GROUPS_URL);
   await sleep(2000);
   await inject(tabId);
+  await bringToFront();
   const r = await call(tabId, "scanGroups");
   if (r.error) throw new Error(r.error);
   if (!r.groups || !r.groups.length)
@@ -185,6 +204,7 @@ async function share({ adUrl, groupName, groupUrl }) {
     const tabId = await openWork(adUrl);
     await sleep(2500);
     await inject(tabId);
+    await bringToFront();
     const r = await call(tabId, "shareToGroup", [groupName.trim(), isFacebookUrl(groupUrl || "") ? groupUrl : null]);
     if (r.retry && attempt === 0) continue;
     if (r.error) return { status: "failed", reason: `Não submetido: ${r.error}`, stop: true };
