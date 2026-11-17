@@ -188,6 +188,8 @@ type CarsRow = {
 };
 type CarsInsert = {
   id?: string;
+  /** Data da venda: sem ela, a base de dados põe a hora em que passou a vendida. */
+  sold_at?: string | null;
   slug: string;
   make: string;
   model: string;
@@ -1282,6 +1284,11 @@ export type Database = {
       expire_reservations: { Args: Record<string, never>; Returns: number };
       close_vehicle_sale: {
         Args: { lead: string; amount: number; sale_date: string };
+        Returns: undefined;
+      };
+      /** Venda sem contacto (0054): vendida + preço e data nos Custos. */
+      mark_vehicle_sold: {
+        Args: { vehicle: string; amount: number; sale_date: string };
         Returns: undefined;
       };
       erase_lead_personal_data: { Args: { lead: string }; Returns: string };

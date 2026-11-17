@@ -15,6 +15,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { manualStatusError } from "@/lib/car-status";
 import { canUseVehicleType, carTypesError, VEHICLE_TYPE_DENIED } from "@/lib/vehicle-access";
 import type { ProfileRow } from "@/lib/supabase/database.types";
+import { canAccess } from "@/lib/permissions";
 import { getSiteVehicleTypes } from "@/lib/site-types-query";
 
 export interface SaveResult {
@@ -303,6 +304,7 @@ export async function setCarStatus(
   }
   const statusError = await statusChangeError(supabase, me, id, current.status, status);
   if (statusError) return { ok: false, error: statusError };
+  const wasSold = current.status === "sold";
   const { data, error } = await supabase
     .from("cars")
     .update({ status })
@@ -310,11 +312,89 @@ export async function setCarStatus(
     .select("slug")
     .single();
   if (error) return { ok: false, error: error.message };
+  // Tirar de «Vendida» uma venda feita sem contacto (só o administrador, para
+  // corrigir um engano): o preço e a data dessa venda saem dos Custos, senão a
+  // margem «realizada» ficava numa viatura que voltou ao stand.
+  if (wasSold && status !== "sold") {
+    await supabase
+      .from("vehicle_financials")
+      .update({ sale_price: null, sold_on: null })
+      .eq("car_id", id)
+      .is("sale_lead_id", null);
+  }
   revalidatePublic(data.slug);
   // Vendida sai do OLX; publicada volta a entrar.
   await queueOlxSync([id]);
   deliverNotificationsSoon();
   return { ok: true };
+}
+
+/** Hoje, em Lisboa (AAAA-MM-DD). */
+const todayLisbon = () =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Lisbon" }).format(new Date());
+
+/**
+ * Venda sem contacto (ao balcão): na lista de Viaturas ou na ficha escolhe-se
+ * «Vendida» e indica-se o preço e a data. Fica como no «Concluir venda» do
+ * contacto: a viatura passa a vendida e o preço e a data vão para os Custos.
+ * Precisa de acesso a Viaturas e a Custos (como no contacto).
+ */
+export async function markCarSold(id: string, amount: number, saleDate: string): Promise<SaveResult> {
+  const me = await requireSection("carros");
+  if (!canAccess(me.role, me.allowed_sections, "financeiro"))
+    return { ok: false, error: "Para registar a venda (preço e data) é preciso acesso a Custos e margens." };
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: "Indique o preço de venda." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(saleDate) || Number.isNaN(Date.parse(saleDate)))
+    return { ok: false, error: "Indique a data da venda." };
+  if (saleDate > todayLisbon()) return { ok: false, error: "A data da venda não pode ser no futuro." };
+
+  const supabase = await createClient();
+  const { data: current } = await supabase
+    .from("cars")
+    .select("status, vehicle_type, slug")
+    .eq("id", id)
+    .maybeSingle();
+  if (!current) return { ok: false, error: "Viatura não encontrada." };
+  if (!canUseVehicleType(me, current.vehicle_type)) return { ok: false, error: VEHICLE_TYPE_DENIED };
+  if (current.status === "sold") return { ok: false, error: "A viatura já está vendida." };
+
+  // Tudo ou nada, na base de dados (0054).
+  const { error } = await supabase.rpc("mark_vehicle_sold", { vehicle: id, amount, sale_date: saleDate });
+  if (error) {
+    // Sem a migração 0054, os mesmos passos aqui (com as mesmas regras).
+    if (error.code === "PGRST202" || /mark_vehicle_sold/.test(error.message)) {
+      const fallback = await markSoldWithoutRpc(supabase, id, current.status, amount, saleDate);
+      if (fallback) return { ok: false, error: fallback };
+    } else {
+      return { ok: false, error: error.message };
+    }
+  }
+  revalidatePublic(current.slug);
+  revalidatePath("/vendidos");
+  revalidatePath("/admin/financeiro");
+  // Vendida sai do OLX e dos outros portais.
+  await queueOlxSync([id]);
+  deliverNotificationsSoon();
+  return { ok: true, message: "Viatura marcada como vendida." };
+}
+
+async function markSoldWithoutRpc(
+  db: Db,
+  id: string,
+  status: CarStatus,
+  amount: number,
+  saleDate: string,
+): Promise<string | null> {
+  if (!["draft", "prepared", "published", "reserved"].includes(status)) return "Viatura indisponível.";
+  const state = await salesState(db, [id]);
+  if (state.activeReservation(id))
+    return "A viatura tem uma reserva ativa: conclua a venda no contacto do cliente.";
+  const fin = await db
+    .from("vehicle_financials")
+    .upsert({ car_id: id, sale_price: amount, sold_on: saleDate }, { onConflict: "car_id" });
+  if (fin.error) return fin.error.message;
+  const car = await db.from("cars").update({ status: "sold", sold_at: saleDate }).eq("id", id);
+  return car.error ? car.error.message : null;
 }
 
 export async function toggleFeatured(

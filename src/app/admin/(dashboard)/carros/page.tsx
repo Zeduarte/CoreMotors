@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { canAccess } from "@/lib/permissions";
 import { getAdminCars } from "@/lib/admin-queries";
 import { requireSection } from "@/lib/guard";
 import { coverImage } from "@/lib/mappers";
@@ -70,6 +71,8 @@ export default async function CarsPage({
       <CarsTable
         items={items}
         isAdmin={me.role === "admin"}
+        // «Vendida» (com preço e data) só para quem tem acesso a Custos.
+        canSell={canAccess(me.role, me.allowed_sections, "financeiro")}
         allowedTypes={allowedTypes}
         siteTypes={siteTypes}
         // Um filtro de um tipo sem filtro à vista não deixa a lista vazia.

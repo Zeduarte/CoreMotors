@@ -22,6 +22,7 @@ import {
 import { CAR_STATUS_LABEL } from "./StatusBadge";
 import { brandOptions, sameBrand } from "@/lib/brand-name";
 import { manualStatusOptions, UNSELL_CONFIRM } from "@/lib/car-status";
+import { SellVehicleDialog, type SellTarget } from "./SellVehicleDialog";
 import type { VehicleType } from "@/lib/vehicle-categories";
 import { TypeFilter, TypeTag, type TypeChoice } from "./TypeFilter";
 
@@ -58,12 +59,15 @@ function priceKey(c: CarListItem, dir: 1 | -1): number {
 export function CarsTable({
   items,
   isAdmin = false,
+  canSell = false,
   allowedTypes = ["car"],
   siteTypes,
   initialType = "todos",
 }: {
   items: CarListItem[];
   isAdmin?: boolean;
+  /** Pode marcar como vendida sem contacto (acesso a Custos): pede preço e data. */
+  canSell?: boolean;
   /**
    * Os tipos que o utilizador pode ver: etiqueta Carro/Mota nas linhas e o
    * filtro «Todos · Carros · Motas» (num site de um só tipo, separa as do
@@ -90,6 +94,7 @@ export function CarsTable({
   const [sort, setSort] = useState<SortKey>("recent");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
+  const [selling, setSelling] = useState<SellTarget | null>(null);
 
   // Agrupado sem olhar a maiúsculas: anúncios antigos com "Bmw" caem na
   // mesma opção que os gravados como "BMW".
@@ -163,6 +168,7 @@ export function CarsTable({
 
   return (
     <div className="space-y-4">
+      {selling && <SellVehicleDialog car={selling} onClose={() => setSelling(null)} />}
       <TypeFilter value={type} allowed={allowedTypes} counts={typeCounts} onSelect={pickType} />
 
       {/* Filtros */}
@@ -372,14 +378,20 @@ export function CarsTable({
                         disabled={pending}
                         onChange={(e) => {
                           const next = e.target.value as CarStatus;
+                          // «Vendida» pede o preço e a data (o seletor fica como
+                          // estava até se gravar).
+                          if (next === "sold") {
+                            setSelling({ id: car.id, label: `${car.make} ${car.model}`, price: car.price });
+                            return;
+                          }
                           if (car.status === "sold" && !confirm(UNSELL_CONFIRM)) return;
                           run(() => setCarStatus(car.id, next), "Estado atualizado.");
                         }}
                         className="rounded-lg border border-white/10 bg-ink px-2 py-1 text-xs text-paper"
                         aria-label="Mudar estado"
                       >
-                        {/* Vendida e reservada só pelo contacto do cliente. */}
-                        {manualStatusOptions(car.status, isAdmin).map((s) => (
+                        {/* Reservada só pelo contacto do cliente; Vendida pede preço e data. */}
+                        {manualStatusOptions(car.status, isAdmin, canSell).map((s) => (
                           <option key={s} value={s}>
                             {CAR_STATUS_LABEL[s]}
                           </option>

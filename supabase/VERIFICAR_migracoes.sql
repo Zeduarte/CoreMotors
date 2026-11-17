@@ -1,4 +1,4 @@
--- Que migrações já estão aplicadas nesta base de dados? (0001 → 0052)
+-- Que migrações já estão aplicadas nesta base de dados? (0001 → 0054)
 --
 -- Cole isto no Supabase → SQL Editor e carregue em Run. Cada linha diz se a
 -- migração está aplicada, pela presença de algo que só ela cria; a última
@@ -162,7 +162,9 @@ with m(migracao, aplicada) as (values
     and to_regclass('public.profiles_username_unique') is not null
     and to_regprocedure('public.login_email(text)') is not null
     and to_regprocedure('public.claim_user_invite(text)') is not null
-    and pg_get_functiondef('public.has_section_for(uuid,text)'::regprocedure) like '%''utilizadores'' then false%')
+    and pg_get_functiondef('public.has_section_for(uuid,text)'::regprocedure) like '%''utilizadores'' then false%'),
+  ('0054_mark_vehicle_sold',
+    to_regprocedure('public.mark_vehicle_sold(uuid,numeric,date)') is not null)
 )
 select migracao, estado from (
   select migracao, case when aplicada then 'aplicada' else 'FALTA' end as estado

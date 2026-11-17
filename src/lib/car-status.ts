@@ -5,8 +5,10 @@ import type { CarStatus } from "@/lib/supabase/database.types";
  * ficha. Função pura — o servidor decide com ela e a interface usa-a para só
  * oferecer o que vai ser aceite.
  *
- *  - «Vendida» só pelo contacto («Concluir venda»): fica o preço, a data e a
- *    margem. Marcada à mão ficava vendida sem nada disso.
+ *  - «Vendida» regista sempre o preço e a data (para a margem): no contacto
+ *    («Concluir venda») ou, numa venda sem contacto, escolhendo «Vendida» na
+ *    lista ou na ficha, que pede o preço e a data (`markCarSold`). Nunca
+ *    como uma simples mudança de estado, que ficava sem preço nem data.
  *  - «Reservada» só pelo contacto («Confirmar reserva»): a reserva tem prazo e
  *    sinal e expira sozinha. Marcada à mão ficava reservada para sempre.
  *  - Sair de «Vendida» é para corrigir um engano: só o administrador, uma a
@@ -29,7 +31,7 @@ export interface StatusChangeContext {
 }
 
 export const SOLD_VIA_LEAD =
-  "Para vender, abra o contacto do cliente e use «Concluir venda»: fica registado o preço, a data e a margem.";
+  "Para vender, escolha «Vendida» e indique o preço e a data (ou use «Concluir venda» no contacto do cliente).";
 export const RESERVED_VIA_LEAD =
   "Para reservar, abra o contacto do cliente e use «Confirmar reserva»: a reserva tem prazo e sinal, e expira sozinha.";
 
@@ -54,12 +56,19 @@ export function manualStatusError(
   return null;
 }
 
-/** Os estados que se oferecem para uma viatura (o atual incluído). */
-export function manualStatusOptions(from: CarStatus, isAdmin: boolean): CarStatus[] {
+/** Estados a partir dos quais se pode vender sem contacto (com preço e data). */
+export const SELLABLE_FROM: CarStatus[] = ["draft", "prepared", "published", "reserved"];
+
+/**
+ * Os estados que se oferecem para uma viatura (o atual incluído). Com
+ * `canSell` (acesso a Custos), também «Vendida» — que pede o preço e a data.
+ */
+export function manualStatusOptions(from: CarStatus, isAdmin: boolean, canSell = false): CarStatus[] {
   const free: CarStatus[] = ["draft", "prepared", "published"];
   if (from === "sold") return isAdmin ? ["sold", ...free] : ["sold"];
-  if (from === "reserved" || from === "workshop") return [from, ...free];
-  return free;
+  const sell: CarStatus[] = canSell && SELLABLE_FROM.includes(from) ? ["sold"] : [];
+  if (from === "reserved" || from === "workshop") return [from, ...free, ...sell];
+  return [...free, ...sell];
 }
 
 /** Aviso a confirmar antes de um administrador tirar uma viatura de «Vendida». */

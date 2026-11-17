@@ -292,3 +292,28 @@ await test('0049: only the admin writes the site type and the card badges; the h
   await pg.exec(await readFile('supabase/migrations/0049_site_settings_admin.sql', 'utf8'));
   await pg.query("delete from site_content where key in ('site','home')");
 });
+
+await test('0054: mark_vehicle_sold records a sale without a contact (price and date), only with Viaturas + Custos', async () => {
+  const car = await newCar(`venda-balcao-${Date.now()}`, 'published');
+  const seller = '00000000-0000-4000-8000-000000000054';
+  await pg.query('insert into auth.users(id,email) values($1,$2) on conflict do nothing', [seller, 'vendedor54@example.test']);
+  await pg.query("insert into public.profiles(id,role,allowed_sections) values($1,'vendedor',array['carros']) on conflict (id) do update set allowed_sections=array['carros']", [seller]);
+  const sell = (who, amount, date, id = car) => as('authenticated', 'select public.mark_vehicle_sold($1,$2,$3)', [id, amount, date], who);
+  // Sem acesso a Custos: não.
+  await assert.rejects(sell(seller, 20000, '2026-01-10'), /custos/i);
+  // Preço e data válidos.
+  await assert.rejects(sell(admin, 0, '2026-01-10'), /inválida/);
+  await assert.rejects(sell(admin, 20000, '2999-01-01'), /inválida/);
+  // O administrador regista: vendida, com a data, e o preço nos Custos.
+  await sell(admin, 21500, '2026-01-10');
+  const c = (await pg.query('select status, sold_at::date::text d from cars where id=$1', [car])).rows[0];
+  assert.deepEqual([c.status, c.d], ['sold', '2026-01-10']);
+  const f = (await pg.query('select sale_price::numeric::text p, sold_on::text d, sale_lead_id from vehicle_financials where car_id=$1', [car])).rows[0];
+  assert.deepEqual([Number(f.p), f.d, f.sale_lead_id], [21500, '2026-01-10', null]);
+  // Já vendida: não volta a vender.
+  await assert.rejects(sell(admin, 21500, '2026-01-10'), /indisponível/);
+  // O público não chama a função.
+  await assert.rejects(as('anon', 'select public.mark_vehicle_sold($1,$2,$3)', [car, 1, '2026-01-10']), /permission denied/);
+  // Pode correr outra vez.
+  await pg.exec(await readFile('supabase/migrations/0054_mark_vehicle_sold.sql', 'utf8'));
+});

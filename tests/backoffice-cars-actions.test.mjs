@@ -32,6 +32,7 @@ function from(table) {
     update(p) { op = 'update'; patch = p; return api; },
     delete() { op = 'delete'; return api; },
     insert(row) { op = 'insert'; patch = row; return api; },
+    upsert(row) { op = 'upsert'; patch = row; return api; },
     maybeSingle() { single = true; return api; },
     single() { single = true; return api; },
     then(res, rej) {
@@ -39,6 +40,7 @@ function from(table) {
       let data = rows, error = null;
       if (op === 'update') rows.forEach((r) => Object.assign(r, patch));
       if (op === 'insert') { const row = { id: `id-${Math.random().toString(16).slice(2)}`, ...patch }; t[table].push(row); data = [row]; }
+      if (op === 'upsert') { const hit = t[table].find((r) => r.car_id === patch.car_id); if (hit) Object.assign(hit, patch); else t[table].push({ ...patch }); data = [patch]; }
       if (op === 'delete') {
         for (const r of rows) { error = deleteHook(table, r); if (error) break; }
         if (error) data = null;
@@ -259,4 +261,61 @@ await test('em lote, nem o administrador tira uma viatura de «Vendida» (só um
 await test('the backoffice no longer has an /admin/vehicle-context switch', () => {
   const fs = require('node:fs');
   assert.equal(fs.existsSync('src/app/admin/vehicle-context/route.ts'), false);
+});
+
+// ---- Venda sem contacto («Vendida» com preço e data) -------------------------
+await test('selling without a contact asks for price and date, needs Custos, and records the sale', async () => {
+  // O seletor só oferece «Vendida» a quem tem acesso a Custos.
+  assert.deepEqual(manualStatusOptions('published', false, true), ['draft', 'prepared', 'published', 'sold']);
+  assert.deepEqual(manualStatusOptions('reserved', false, true), ['reserved', 'draft', 'prepared', 'published', 'sold']);
+  assert.deepEqual(manualStatusOptions('published', false, false), ['draft', 'prepared', 'published']);
+  assert.ok(!manualStatusOptions('workshop', true, true).includes('sold'), 'na oficina não se vende');
+  // Uma simples mudança de estado para «Vendida» continua recusada (sem preço nem data).
+  seed();
+  assert.match((await cars.setCarStatus(CAR, 'sold')).error, /preço e a data/);
+
+  // Sem acesso a Custos: não regista.
+  seed();
+  me = { id: 'u2', role: 'vendedor', allowed_vehicle_types: null, allowed_sections: ['carros'] };
+  assert.match((await cars.markCarSold(CAR, 20000, '2026-01-10')).error, /Custos/);
+  assert.equal(rpcCalls.length, 0);
+
+  // Validação: preço e data.
+  seed();
+  assert.match((await cars.markCarSold(CAR, 0, '2026-01-10')).error, /preço/);
+  assert.match((await cars.markCarSold(CAR, 100, 'ontem')).error, /data/);
+  assert.match((await cars.markCarSold(CAR, 100, '2999-01-01')).error, /futuro/);
+  t.cars[0].status = 'sold';
+  assert.match((await cars.markCarSold(CAR, 100, '2026-01-10')).error, /já está vendida/);
+
+  // Com a migração 0054: tudo numa só função da base de dados.
+  seed();
+  const ok = await cars.markCarSold(CAR, 23500, '2026-01-10');
+  assert.equal(ok.ok, true);
+  assert.deepEqual(rpcCalls.at(-1), ['mark_vehicle_sold', { vehicle: CAR, amount: 23500, sale_date: '2026-01-10' }]);
+  assert.deepEqual(olx.queued, [CAR], 'sai do OLX e dos portais');
+  rpcResult = () => ({ data: null, error: { message: 'Viatura com reserva ativa: conclua a venda no contacto do cliente' } });
+  assert.match((await cars.markCarSold(CAR, 23500, '2026-01-10')).error, /reserva ativa/);
+
+  // Sem a migração 0054: os mesmos passos no servidor.
+  seed();
+  rpcResult = () => ({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.mark_vehicle_sold' } });
+  assert.equal((await cars.markCarSold(CAR, 23500, '2026-01-10')).ok, true);
+  assert.equal(t.cars[0].status, 'sold');
+  assert.equal(t.cars[0].sold_at, '2026-01-10');
+  assert.deepEqual(t.vehicle_financials.find((f) => f.car_id === CAR), { car_id: CAR, sale_price: 23500, sold_on: '2026-01-10' });
+  seed();
+  rpcResult = () => ({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.mark_vehicle_sold' } });
+  t.reservations.push({ id: RES, car_id: CAR, lead_id: LEAD, status: 'active' });
+  assert.match((await cars.markCarSold(CAR, 23500, '2026-01-10')).error, /reserva ativa/);
+  assert.equal(t.cars[0].status, 'published');
+
+  // O administrador corrige um engano: tirar de «Vendida» uma venda sem
+  // contacto limpa o preço e a data dos Custos.
+  seed();
+  t.cars[0].status = 'sold';
+  t.vehicle_financials.push({ car_id: CAR, sale_price: 23500, sold_on: '2026-01-10', sale_lead_id: null });
+  assert.equal((await cars.setCarStatus(CAR, 'published')).ok, true);
+  assert.equal(t.vehicle_financials[0].sale_price, null);
+  assert.equal(t.vehicle_financials[0].sold_on, null);
 });

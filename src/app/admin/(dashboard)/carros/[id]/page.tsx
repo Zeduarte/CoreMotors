@@ -1,5 +1,7 @@
 import { getShowroomContent } from "@/lib/showroom-queries";
 import { requireSection } from "@/lib/guard";
+import { SELLABLE_FROM } from "@/lib/car-status";
+import { SellVehicleButton } from "@/components/admin/SellVehicleDialog";
 import { PreparationPanel } from "@/components/admin/PreparationPanel";
 import { AuditHistory } from "@/components/admin/AuditHistory";
 import { canAccess } from "@/lib/permissions";
@@ -153,6 +155,12 @@ export default async function EditCarPage({ params }: { params: Params }) {
           >
             ↗ Ver no site
           </Link>
+        )}
+        {/* Venda sem contacto: pede o preço e a data (acesso a Custos). */}
+        {canAccess(profile.role, profile.allowed_sections, "financeiro") && SELLABLE_FROM.includes(car.status) && (
+          <SellVehicleButton
+            car={{ id: car.id, label: `${car.make} ${car.model}`, price: car.price_on_request ? null : car.price }}
+          />
         )}
       </div>
 
