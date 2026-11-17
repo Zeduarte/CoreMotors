@@ -68,6 +68,12 @@ html.lenis body {
   pointer-events: none;
 }
 
+/* Entrada da 1.ª visita (SiteIntro): enquanto tapa o site, a página por baixo
+   não faz scroll. */
+html[data-intro="show"] {
+  overflow: hidden;
+}
+
 /* ---- Backoffice: tema escuro com vidro (só dentro de `.admin-shell`) ----
    Fundo preto com brilhos suaves, cartões translúcidos e cantos grandes. Fica
    tudo aqui para não mexer nas dezenas de ecrãs do backoffice: eles já usam

@@ -17,6 +17,8 @@ import { getBadges, getBranding, getSoldVehicleList, getVehicleList } from "@/li
 import { BadgesProvider } from "@/components/site/BadgesContext";
 import { existingMedia } from "@/lib/hero-media";
 import { OPTIONAL_MEDIA } from "@/lib/media";
+import { SiteIntro } from "@/components/site/SiteIntro";
+import { vehiclesLabel } from "@/lib/site-types";
 
 /**
  * Chrome do site PÚBLICO: smooth scroll (Lenis), barra de progresso, grão,
@@ -54,6 +56,8 @@ export default async function PublicLayout({
       {/* `.site`: estilos só do site público (ex.: botões); `contents` não
           cria caixa, por isso não altera o layout. */}
       <div className="site contents">
+        {/* Entrada da 1.ª visita: a foto das motas enquanto o site carrega. */}
+        <SiteIntro name={branding.companyName} label={vehiclesLabel(siteTypes)} />
         {/* Salto para conteúdo — acessibilidade por teclado. */}
         <a
           href="#conteudo"
