@@ -32,8 +32,15 @@ export const INTRO_OUT_MS = 650;
 export const INTRO_BOT_UA = /bot|crawl|spider|slurp|lighthouse|headless|facebookexternalhit|whatsapp/i;
 
 /**
+ * Só aparece a quem entra pela página inicial (supermotas.com). Quem chega por
+ * um link direto (uma viatura partilhada, o Google) vê logo a página — e a
+ * visita não conta: se mais tarde abrir o site pela página inicial, vê-a então.
+ */
+export const INTRO_PATH = "/";
+
+/**
  * Estados em `<html data-intro>`:
- *  - (sem atributo) não há entrada (visita repetida, robô, sem JS);
+ *  - (sem atributo) não há entrada (visita repetida, link direto, robô, sem JS);
  *  - `show` a entrada tapa o site;
  *  - `out`  a desaparecer (transição);
  *  - `done` acabou (o CSS tira-a do ecrã).
@@ -42,7 +49,7 @@ export const INTRO_BOT_UA = /bot|crawl|spider|slurp|lighthouse|headless|facebook
  * `INTRO_MIN_MS` nem depois de `INTRO_MAX_MS`. Um toque ou Esc saltam-na.
  */
 export function introScript(): string {
-  return `(function(){var d=document.documentElement;try{var n=navigator;if(n.webdriver||${INTRO_BOT_UA}.test(n.userAgent||""))return;if(localStorage.getItem("${INTRO_STORAGE_KEY}"))return;localStorage.setItem("${INTRO_STORAGE_KEY}","1")}catch(e){return}d.setAttribute("data-intro","show");var t=Date.now(),f=0;function end(){if(f)return;f=1;d.setAttribute("data-intro","out");setTimeout(function(){d.setAttribute("data-intro","done")},${INTRO_OUT_MS})}function ready(){setTimeout(end,Math.max(0,${INTRO_MIN_MS}-(Date.now()-t)))}if(document.readyState==="complete")ready();else addEventListener("load",ready);setTimeout(end,${INTRO_MAX_MS});addEventListener("keydown",function(e){if(e.key==="Escape")end()});document.addEventListener("click",function(){if(d.getAttribute("data-intro")==="show")end()},true)})();`;
+  return `(function(){var d=document.documentElement;if(location.pathname!=="${INTRO_PATH}")return;try{var n=navigator;if(n.webdriver||${INTRO_BOT_UA}.test(n.userAgent||""))return;if(localStorage.getItem("${INTRO_STORAGE_KEY}"))return;localStorage.setItem("${INTRO_STORAGE_KEY}","1")}catch(e){return}d.setAttribute("data-intro","show");var t=Date.now(),f=0;function end(){if(f)return;f=1;d.setAttribute("data-intro","out");setTimeout(function(){d.setAttribute("data-intro","done")},${INTRO_OUT_MS})}function ready(){setTimeout(end,Math.max(0,${INTRO_MIN_MS}-(Date.now()-t)))}if(document.readyState==="complete")ready();else addEventListener("load",ready);setTimeout(end,${INTRO_MAX_MS});addEventListener("keydown",function(e){if(e.key==="Escape")end()});document.addEventListener("click",function(){if(d.getAttribute("data-intro")==="show")end()},true)})();`;
 }
 
 /**

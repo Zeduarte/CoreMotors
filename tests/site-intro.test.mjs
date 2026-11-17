@@ -16,7 +16,7 @@ const { INTRO_IMAGE, INTRO_STORAGE_KEY, INTRO_MIN_MS, INTRO_MAX_MS, INTRO_OUT_MS
  * Corre o script inline num browser de mentira: relógio e temporizadores
  * controlados, localStorage, `load`, cliques e teclas.
  */
-function browser({ stored = false, ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1", webdriver = false, readyState = "loading", storageThrows = false } = {}) {
+function browser({ path = "/", stored = false, ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1", webdriver = false, readyState = "loading", storageThrows = false } = {}) {
   let now = 0;
   const timers = [];
   const attrs = {};
@@ -27,6 +27,7 @@ function browser({ stored = false, ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0
     if (storageThrows) throw new Error("SecurityError");
   };
   const context = {
+    location: { pathname: path },
     navigator: { userAgent: ua, webdriver },
     localStorage: {
       getItem: (k) => (blocked(), storage.has(k) ? storage.get(k) : null),
@@ -119,6 +120,17 @@ test("a tap or Escape skips the intro", () => {
   assert.equal(esc.state(), "show");
   esc.key("Escape");
   assert.equal(esc.state(), "out");
+});
+
+test("only a first visit through the home page shows the intro", () => {
+  // Link direto (viatura partilhada, Google): vê logo a página, e a visita
+  // não conta como vista — se depois abrir supermotas.com, vê a entrada.
+  for (const path of ["/viaturas/citroen-c3-c-series-2021", "/inventario", "/motas/yamaha", "/contactos"]) {
+    const b = browser({ path });
+    assert.equal(b.state(), undefined, path);
+    assert.equal(b.storage.size, 0, path);
+  }
+  assert.equal(browser({ path: "/" }).state(), "show");
 });
 
 test("later visits never show the intro", () => {
