@@ -16,9 +16,10 @@ import styles from "./SiteIntro.module.css";
  * HTML. O backoffice tem outra layout, por isso nunca a mostra.
  */
 export function SiteIntro({ name, label }: { name: string; label: string }) {
-  // Imagem otimizada pelo Next (AVIF/WebP). 1200 px chegam para um telemóvel
+  // Imagem otimizada pelo Next (AVIF/WebP), em qualidade alta para a foto
+  // ficar nítida. 1200 px chegam para um telemóvel
   // de alta densidade e para a coluna da foto num computador.
-  const { srcSet, src } = getImageProps({ src: INTRO_IMAGE, alt: "", fill: true, sizes: "100vw" }).props;
+  const { srcSet, src } = getImageProps({ src: INTRO_IMAGE, alt: "", fill: true, sizes: "100vw", quality: 90 }).props;
   const url = srcAtWidth(srcSet, 1200) ?? src;
   const style = { "--intro-photo": `url("${url}")` } as CSSProperties;
 
@@ -27,7 +28,6 @@ export function SiteIntro({ name, label }: { name: string; label: string }) {
       {/* Antes da entrada: decide se ela aparece antes de ser desenhada. */}
       <script dangerouslySetInnerHTML={{ __html: introScript() }} />
       <div className={styles.intro} style={style} aria-hidden="true" data-lenis-prevent>
-        <span className={styles.backdrop} />
         <span className={styles.photo} />
         <span className={styles.shade} />
         <div className={styles.copy}>
