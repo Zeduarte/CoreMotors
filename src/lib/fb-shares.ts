@@ -66,6 +66,9 @@ const MARKET =
  */
 export function suggestExclusion(name: string, ad: Pick<ShareAd, "price" | "vehicle_type">): string {
   const n = normalizeName(name);
+  // Compra e venda, mas de outras coisas («Venda de Bilhetes» passava só por ter «venda»).
+  if (/\b(bilhet\w*|tickets?|reticket|imoveis|imobiliari\w*|apartamentos?|arrendamentos?|empregos?|roupas?|animais)\b/.test(n))
+    return "Grupo de outro tipo de artigos (bilhetes, imóveis, emprego…)";
   if (/\b(pecas|desmanche|sucata|acessorios)\b/.test(n)) return "Grupo de peças ou acessórios";
   if (/\b(classicos?|vintage|antigos?)\b/.test(n)) return "Grupo de clássicos";
   const auto = AUTO.test(n);

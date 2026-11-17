@@ -31,6 +31,11 @@ test('sugestões pelo nome do grupo: peças, motas, carros, clássicos e preço 
   assert.match(fb.suggestExclusion('Carros Usados Até 10.000€', car), /10.000/);
   assert.equal(fb.suggestExclusion('Carros Usados Até 50,000€ PORTUGAL', car), '');
   assert.match(fb.suggestExclusion('Receitas da avó', car), /Sem indicação/);
+  assert.match(fb.suggestExclusion('Venda de Bilhetes', car), /bilhetes/);
+  assert.match(fb.suggestExclusion('Compra - Venda - Troca de Bilhetes', moto), /bilhetes/);
+  assert.match(fb.suggestExclusion('Reticket - Vende os teus bilhetes', car), /bilhetes/);
+  assert.match(fb.suggestExclusion('Imóveis Porto - compra e venda', car), /imóveis/);
+  assert.equal(fb.suggestExclusion('Vendas e Trocas', car), '');
 });
 
 test('a fila: pela ordem do Facebook, sem os excluídos, os que saíram e os já partilhados', () => {
