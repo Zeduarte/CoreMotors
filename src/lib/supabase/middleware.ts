@@ -38,9 +38,12 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isAdmin = pathname.startsWith("/admin");
   const isLogin = pathname === "/admin/login";
+  // O link de convite abre-se sem sessão: é aí que a pessoa define a
+  // palavra-passe. A página valida o token (só um segmento, sem subcaminhos).
+  const isInvite = /^\/admin\/convite\/[^/]+$/.test(pathname);
 
   // Rota de admin sem sessão → login.
-  if (isAdmin && !isLogin && !user) {
+  if (isAdmin && !isLogin && !isInvite && !user) {
     // O destino leva os filtros (ex.: /admin/carros?tipo=motas): depois de
     // entrar, volta-se exatamente onde se estava.
     const url = request.nextUrl.clone();

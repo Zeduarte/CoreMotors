@@ -2,6 +2,7 @@ import { compactPhone, isValidPhone } from "@/lib/phone";
 import { z } from "zod";
 import { MOTORCYCLE_BODIES, isMotorcycleBody } from "./vehicle-categories";
 import { canonicalBrand } from "./brand-name";
+import { usernameProblem } from "./usernames";
 
 /**
  * Esquemas de validação partilhados (cliente + servidor).
@@ -415,16 +416,15 @@ export const integrationsSchema = z.object({
 export type IntegrationsValues = z.infer<typeof integrationsSchema>;
 
 // ---- Novo utilizador (admin) ----------------------------------------------
+// Só o nome de utilizador: a pessoa define a palavra-passe no link de convite,
+// e o papel (vendedor por omissão) e os acessos ajustam-se depois na lista.
 export const newUserSchema = z.object({
-  full_name: z.string().trim().min(2, "Indique o nome").max(80),
-  // Obrigatório: é com ele que se entra no backoffice (não há entrada por
-  // telefone). O telefone de cada um grava-se no próprio perfil.
-  email: z.string().trim().min(1, "Indique o email").email("Email inválido"),
-  password: z.string().min(8, "Mínimo 8 caracteres").max(72),
-  role: z.enum(["admin", "chefe", "vendedor", "mecanico"]).default("vendedor"),
-  /** Separadores a que o novo utilizador terá acesso (opcional). */
-  allowed_sections: z.array(z.string()).optional(),
-  /** Tipos de viatura acessíveis. Vazio/ausente = os dois. */
-  allowed_vehicle_types: z.array(z.enum(["car", "motorcycle"])).optional(),
+  username: z
+    .string()
+    .trim()
+    .superRefine((value, ctx) => {
+      const problem = usernameProblem(value);
+      if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
+    }),
 });
 export type NewUserValues = z.infer<typeof newUserSchema>;

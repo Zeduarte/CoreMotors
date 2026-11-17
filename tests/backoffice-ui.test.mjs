@@ -40,10 +40,14 @@ test('o histórico mostra o nome de quem alterou', async () => {
   assert.ok(!html.includes('Utilizador 00000000'));
 });
 
-test('novo utilizador: o email é obrigatório (não há entrada por telefone)', () => {
+test('novo utilizador: só o nome de utilizador (a palavra-passe define-a a pessoa no convite)', () => {
   const { newUserSchema } = load('src/lib/schemas.ts');
-  const base = { full_name: 'Novo', password: '12345678', role: 'vendedor' };
-  assert.equal(newUserSchema.safeParse({ ...base, email: '' }).success, false);
-  assert.equal(newUserSchema.safeParse(base).success, false);
-  assert.equal(newUserSchema.safeParse({ ...base, email: 'novo@stand.pt' }).success, true);
+  const ok = (username) => newUserSchema.safeParse({ username }).success;
+  assert.equal(ok('jose.duarte'), true);
+  assert.equal(ok('  Core  '), true, 'espaços à volta tiram-se');
+  assert.equal(newUserSchema.safeParse({ username: ' jose.duarte ' }).data.username, 'jose.duarte');
+  for (const bad of ['', 'ab', 'josé', 'jose duarte', 'jose..duarte', '.jose', 'jose.', 'novo@stand.pt', 'a'.repeat(33)]) {
+    assert.equal(ok(bad), false, bad);
+  }
+  assert.match(newUserSchema.safeParse({ username: 'josé' }).error.issues[0].message, /sem acentos/);
 });

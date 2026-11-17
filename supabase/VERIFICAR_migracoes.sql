@@ -156,7 +156,13 @@ with m(migracao, aplicada) as (values
     to_regclass('public.olx_adverts') is not null),
   ('0052_facebook_shares',
     to_regclass('public.fb_share_attempts') is not null
-    and pg_get_functiondef('public.has_section_for(uuid,text)'::regprocedure) like '%partilhas%')
+    and pg_get_functiondef('public.has_section_for(uuid,text)'::regprocedure) like '%partilhas%'),
+  ('0053_usernames_invites',
+    to_regclass('public.user_invites') is not null
+    and to_regclass('public.profiles_username_unique') is not null
+    and to_regprocedure('public.login_email(text)') is not null
+    and to_regprocedure('public.claim_user_invite(text)') is not null
+    and pg_get_functiondef('public.has_section_for(uuid,text)'::regprocedure) like '%''utilizadores'' then false%')
 )
 select migracao, estado from (
   select migracao, case when aplicada then 'aplicada' else 'FALTA' end as estado

@@ -3,7 +3,11 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFile, readdir } from 'node:fs/promises';
 
-export async function bootDatabase() {
+/**
+ * `before` (opcional, ex.: '0053'): pára antes dessa migração, para se testar
+ * como ela trata dados que já existiam. Corre-se depois com `runMigrations`.
+ */
+export async function bootDatabase({ before } = {}) {
   const db = new PGlite();
   await db.exec(`
  create role anon; create role authenticated; create role service_role bypassrls;
@@ -20,11 +24,18 @@ export async function bootDatabase() {
  alter default privileges in schema public grant usage,select on sequences to anon,authenticated,service_role;
  grant all on storage.objects to anon,authenticated,service_role;
 `);
+  await runMigrations(db, { before });
+  return db;
+}
+
+/** Corre as migrações por ordem: só as anteriores a `before`, ou a partir de `from`. */
+export async function runMigrations(db, { before, from } = {}) {
   for (const file of (await readdir('supabase/migrations')).sort()) {
+    if (before && file >= before) continue;
+    if (from && file < from) continue;
     const sql = (await readFile(`supabase/migrations/${file}`, 'utf8')).replace('create extension if not exists "pgcrypto";', '');
     await db.exec(sql);
   }
-  return db;
 }
 
 export async function addUser(db, id, role, name = role) {

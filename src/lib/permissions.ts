@@ -2,13 +2,13 @@
  * Papéis e permissões do backoffice.
  *
  * Hierarquia: admin (3) > chefe (2) > vendedor (1).
- *  - Quem tem rank MAIOR pode gerir (editar papel + acessos) quem tem rank
- *    menor. Nunca se pode gerir alguém de rank igual ou superior.
+ *  - Só administradores criam, gerem e apagam utilizadores. Outro
+ *    administrador só é gerido pelo dono da conta.
  *  - Cada utilizador tem acesso a um conjunto de "separadores" (sections). O
  *    admin vê sempre todos. Para chefe/vendedor, os acessos vêm de
- *    `allowed_sections` (configurável por um superior) ou, se estiver vazio,
- *    dos defaults do papel.
- *  - Um gestor só pode conceder separadores a que ele próprio tem acesso.
+ *    `allowed_sections` (definido por um administrador) ou, se estiver vazio,
+ *    dos defaults do papel. Os separadores de ADMIN_ONLY nunca se concedem.
+ *  - A hierarquia continua a contar para as férias (canDecideLeaveFor).
  */
 
 import { VEHICLE_TYPES, type VehicleType } from "@/lib/vehicle-categories";
@@ -94,6 +94,12 @@ export const ALWAYS: Section = "dashboard";
  */
 export const PERSONAL: Section = "horas";
 
+/**
+ * Separadores só de administradores: não se concedem a mais ninguém, mesmo que
+ * estejam em `allowed_sections` (na BD, `has_section_for` faz o mesmo, 0053).
+ */
+export const ADMIN_ONLY: Section[] = ["utilizadores"];
+
 /** Separadores efetivos de um utilizador. Admin → todos. */
 export function effectiveSections(
   role: string,
@@ -104,10 +110,11 @@ export function effectiveSections(
   // o dashboard.
   if (role === "mecanico") return ["oficina", PERSONAL];
   const r: Role = isRole(role) ? role : "vendedor";
-  const base =
+  const base = (
     allowed && allowed.length
       ? ALL_SECTIONS.filter((s) => allowed.includes(s))
-      : DEFAULT_SECTIONS[r];
+      : DEFAULT_SECTIONS[r]
+  ).filter((s) => !ADMIN_ONLY.includes(s));
   const withDashboard = base.includes(ALWAYS) ? base : [ALWAYS, ...base];
   return withDashboard.includes(PERSONAL) ? withDashboard : [...withDashboard, PERSONAL];
 }
@@ -177,48 +184,31 @@ export function leaveSelfApproves(role: string): boolean {
 }
 
 /**
- * `manager` pode gerir (editar) `target`? Rank estritamente superior — com uma
- * exceção: outro administrador só é gerível pelo dono da conta, que também é
- * admin mas está acima dos restantes.
+ * `manager` pode gerir (editar papel e acessos, dar um link de acesso novo,
+ * apagar) `target`? Só administradores gerem utilizadores. Entre eles, outro
+ * administrador só é gerível pelo dono da conta.
  */
 export function canManage(
   managerRole: string,
   targetRole: string,
   managerIsOwner = false,
 ): boolean {
-  if (targetRole === "admin") return managerRole === "admin" && managerIsOwner;
-  if (targetRole === "mecanico" && managerRole !== "admin") return false;
-  const m = isRole(managerRole) ? ROLE_RANK[managerRole] : 0;
-  const t = isRole(targetRole) ? ROLE_RANK[targetRole] : 0;
-  return m > t;
+  if (managerRole !== "admin") return false;
+  if (targetRole === "admin") return managerIsOwner;
+  return true;
 }
 
 /**
- * Papéis que um gestor pode atribuir. O admin pode atribuir qualquer papel
- * (incluindo admin); os restantes só papéis de rank inferior ao seu.
+ * Papéis que um gestor pode atribuir: o administrador atribui qualquer um
+ * (incluindo admin); mais ninguém atribui papéis.
  */
 export function assignableRoles(managerRole: string): Role[] {
-  if (managerRole === "admin")
-    return ["admin", "chefe", "vendedor", "mecanico"];
-  const m = isRole(managerRole) ? ROLE_RANK[managerRole] : 0;
-  // O mecânico não é atribuível por não-admins (fora da hierarquia comercial).
-  return (["admin", "chefe", "vendedor"] as Role[]).filter(
-    (r) => ROLE_RANK[r] < m,
-  );
+  if (managerRole === "admin") return ["admin", "chefe", "vendedor", "mecanico"];
+  return [];
 }
 
 /**
- * Papel pré-selecionado ao criar uma conta.
- *
- * Nunca o primeiro da lista: essa era "admin", e bastava não tocar no campo
- * para criar outro administrador sem intenção. Começa-se pelo papel com menos
- * poder e quem cria sobe-o de propósito, se for o caso.
+ * Papel de uma conta acabada de criar: o de menos poder entre os comerciais.
+ * Quem cria sobe-o de propósito depois, se for o caso — nunca nasce admin.
  */
-export function defaultAssignableRole(managerRole: string): Role | null {
-  const roles = assignableRoles(managerRole);
-  if (roles.length === 0) return null;
-  return (
-    roles.find((r) => r === "vendedor") ??
-    roles.reduce((low, r) => (ROLE_RANK[r] < ROLE_RANK[low] ? r : low), roles[0]!)
-  );
-}
+export const NEW_USER_ROLE: Role = "vendedor";

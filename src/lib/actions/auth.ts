@@ -2,10 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { internalEmail, isUsername } from "@/lib/usernames";
 
 export interface AuthState {
   error?: string;
 }
+
+const WRONG_CREDENTIALS = "Nome de utilizador ou palavra-passe incorretos.";
 
 /**
  * A mensagem para cada recusa do Supabase Auth. Decide-se pelo código e pelo
@@ -15,9 +19,9 @@ export interface AuthState {
 function loginErrorMessage(error: { code?: string; status?: number }): string {
   switch (error.code) {
     case "invalid_credentials":
-      return "Email ou password incorretos.";
+      return WRONG_CREDENTIALS;
     case "email_not_confirmed":
-      return "Confirme o seu email antes de entrar — veja a caixa de entrada.";
+      return "Esta conta ainda não está ativa. Peça um link de acesso ao administrador.";
     case "user_banned":
       return "O acesso desta conta está suspenso. Fale com o administrador.";
   }
@@ -27,28 +31,52 @@ function loginErrorMessage(error: { code?: string; status?: number }): string {
   if (error.status && error.status >= 500) {
     return "O serviço de autenticação não está disponível. Tente daqui a pouco.";
   }
-  return "Email ou password incorretos.";
+  return WRONG_CREDENTIALS;
 }
 
-/** Login com email/password via Supabase Auth. */
+/**
+ * O email de Auth de um nome de utilizador. As contas antigas (o dono
+ * incluído) mantêm o email real, por isso pergunta-se à BD (`login_email`, só
+ * com a chave de serviço). Sem resposta, usa-se o email interno das contas
+ * novas: um nome que não existe dá o mesmo «incorretos» que uma palavra-passe
+ * errada, sem dizer qual das duas falhou.
+ */
+async function loginEmailFor(username: string): Promise<string> {
+  const admin = createAdminClient();
+  if (admin) {
+    try {
+      const { data, error } = await admin.rpc("login_email", { p_username: username });
+      if (error) console.warn(`login: nome não resolvido (${error.code ?? "sem código"})`);
+      else if (typeof data === "string" && data) return data;
+    } catch {
+      console.warn("login: nome não resolvido (sem ligação)");
+    }
+  }
+  return internalEmail(username);
+}
+
+/** Login com nome de utilizador + palavra-passe via Supabase Auth. */
 export async function login(
   _prev: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
-  const email = String(formData.get("email") ?? "").trim();
+  const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const redirectTo = String(formData.get("redirect") ?? "/admin");
 
-  if (!email || !password) {
-    return { error: "Preencha email e password." };
+  if (!username || !password) {
+    return { error: "Preencha o nome de utilizador e a palavra-passe." };
   }
+  // Um email, espaços ou acentos nunca são um nome válido: nem se pergunta.
+  if (!isUsername(username)) return { error: WRONG_CREDENTIALS };
 
+  const email = await loginEmailFor(username);
   const supabase = await createClient();
   let error: { code?: string; status?: number } | null;
   try {
     ({ error } = await supabase.auth.signInWithPassword({ email, password }));
   } catch {
-    // Sem resposta do Supabase (rede, DNS, tempo esgotado): não é a password.
+    // Sem resposta do Supabase (rede, DNS, tempo esgotado): não é a palavra-passe.
     console.warn("login: sem ligação ao serviço de autenticação");
     return {
       error: "Não foi possível contactar o serviço de autenticação. Verifique a ligação e tente outra vez.",
@@ -56,7 +84,7 @@ export async function login(
   }
 
   if (error) {
-    // Só o código, para diagnóstico: nunca o email nem o texto do erro.
+    // Só o código, para diagnóstico: nunca o nome, o email nem o texto do erro.
     console.warn(`login: recusado (${error.code ?? error.status ?? "sem código"})`);
     return { error: loginErrorMessage(error) };
   }

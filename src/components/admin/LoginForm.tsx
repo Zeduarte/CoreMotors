@@ -15,24 +15,27 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
       <input type="hidden" name="redirect" value={redirectTo} />
 
       <div>
-        <label htmlFor="email" className="field-label">
-          Email
+        <label htmlFor="username" className="field-label">
+          Nome de utilizador
         </label>
         <input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
+          id="username"
+          name="username"
+          type="text"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           required
           autoFocus
           className="field"
-          placeholder="vendedor@supermotas.pt"
+          placeholder="ex.: jose.duarte"
         />
       </div>
 
       <div>
         <label htmlFor="password" className="field-label">
-          Password
+          Palavra-passe
         </label>
         <input
           id="password"

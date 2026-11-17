@@ -67,7 +67,9 @@ await test('company contacts come from the main point of sale, keeping what the 
 });
 await test('only the account owner manages other admins',()=>{
  assert.equal(canManage('admin','admin'),false);assert.equal(canManage('admin','admin',false),false);assert.equal(canManage('admin','admin',true),true);
- assert.equal(canManage('chefe','admin',true),false);assert.equal(canManage('admin','chefe'),true);assert.equal(canManage('admin','mecanico'),true);assert.equal(canManage('chefe','vendedor'),true);
+ assert.equal(canManage('chefe','admin',true),false);assert.equal(canManage('admin','chefe'),true);assert.equal(canManage('admin','mecanico'),true);
+ // Só administradores gerem utilizadores: o chefe já não gere o vendedor.
+ assert.equal(canManage('chefe','vendedor'),false);assert.equal(canManage('chefe','vendedor',true),false);
 });
 await test('pagination reads every row and propagates failures',async()=>{
  const rows=Array.from({length:1203},(_,i)=>i);assert.equal((await allRows(async(a,b)=>({data:rows.slice(a,b+1),error:null}))).length,1203);
@@ -294,12 +296,13 @@ await test('whatsapp links always carry a country code',()=>{
  assert.equal(normalizeWhatsApp('4915112345678'),'4915112345678','estrangeiro fica igual');
 });
 
-const {defaultAssignableRole}=load('src/lib/permissions.ts');
+const {NEW_USER_ROLE,assignableRoles}=load('src/lib/permissions.ts');
 await test('creating a user does not default to administrator',()=>{
- // Do relatório: o papel pré-selecionado era Administrador.
- assert.equal(defaultAssignableRole('admin'),'vendedor');
- assert.equal(defaultAssignableRole('chefe'),'vendedor');
- assert.equal(defaultAssignableRole('vendedor'),null,'não atribui papéis a ninguém');
+ // Do relatório: o papel pré-selecionado era Administrador. Agora a conta nasce
+ // sempre vendedor e só um administrador atribui papéis.
+ assert.equal(NEW_USER_ROLE,'vendedor');
+ assert.deepEqual(assignableRoles('chefe'),[]);
+ assert.deepEqual(assignableRoles('vendedor'),[],'não atribui papéis a ninguém');
 });
 
 const {extrasCatalog,groupExtras}=load('src/lib/extras.ts');

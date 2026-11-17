@@ -92,6 +92,8 @@ type ProfilesRow = {
   job_title: string | null;
   /** Dono da conta: o único admin que gere outros admins. */
   is_owner: boolean;
+  /** Nome com que se entra no backoffice (0053). Único, sem olhar a maiúsculas. */
+  username: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -106,6 +108,7 @@ type ProfilesInsert = {
   birth_date?: string | null;
   job_title?: string | null;
   is_owner?: boolean;
+  username?: string | null;
 };
 type ProfilesUpdate = {
   id?: string;
@@ -118,6 +121,19 @@ type ProfilesUpdate = {
   birth_date?: string | null;
   job_title?: string | null;
   is_owner?: boolean;
+  username?: string | null;
+};
+
+// ---- user_invites (0053) ---------------------------------------------------
+/** Convite para definir a palavra-passe. Só o servidor (service_role) lhe acede. */
+export type UserInviteRow = {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  created_by: string | null;
+  created_at: string;
+  expires_at: string;
+  used_at: string | null;
 };
 
 // ---- cars ------------------------------------------------------------------
@@ -1084,6 +1100,12 @@ export type Database = {
         Update: Partial<FbShareAttemptInsert>; // sem grant de update: o histórico não se reescreve
         Relationships: [];
       };
+      user_invites: {
+        Row: UserInviteRow;
+        Insert: Omit<UserInviteRow, "id" | "created_at" | "used_at"> & { used_at?: string | null };
+        Update: Partial<UserInviteRow>;
+        Relationships: [];
+      };
       channel_listings: {
         Row: ChannelListingsRow;
         Insert: ChannelListingsInsert;
@@ -1099,6 +1121,14 @@ export type Database = {
       };
     };
     Functions: {
+      // ---- 0053: nomes de utilizador e convites (só service_role) ----
+      login_email: { Args: { p_username: string }; Returns: string | null };
+      create_user_invite: {
+        Args: { p_user: string; p_token_hash: string; p_created_by: string | null; p_expires_at: string };
+        Returns: string;
+      };
+      claim_user_invite: { Args: { p_token_hash: string }; Returns: string | null };
+      release_user_invite: { Args: { p_token_hash: string }; Returns: undefined };
       claim_notification_jobs: {
         Args: Record<string, never>;
         Returns: NotificationJob[];

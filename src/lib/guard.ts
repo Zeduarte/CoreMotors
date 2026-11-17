@@ -21,6 +21,17 @@ export async function requireSection(section: Section): Promise<ProfileRow> {
 }
 
 /**
+ * Só administradores: criar, gerir e apagar utilizadores. Sem sessão → login;
+ * outro papel → Dashboard.
+ */
+export async function requireAdmin(): Promise<ProfileRow> {
+  const profile = await getCurrentProfile();
+  if (!profile) redirect("/admin/login");
+  if (profile.role !== "admin") redirect("/admin");
+  return profile;
+}
+
+/**
  * Quem só tem acesso a carros (ou só a motas) não pode criar nem mexer no
  * outro tipo: a RLS só olha ao separador, por isso a barreira é feita aqui,
  * nas Server Actions, e não só escondendo o outro mundo na interface.
