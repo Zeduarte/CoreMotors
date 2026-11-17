@@ -195,3 +195,21 @@ export function isFacebookUrl(value: string): boolean {
 export function isFbUserId(value: unknown): value is string {
   return typeof value === "string" && /^[0-9]{1,30}$/.test(value);
 }
+
+/**
+ * A extensão instalada (`installed`, ex. "1.0.2") é mais antiga do que a
+ * publicada com o site (`latest`)? Compara número a número; uma versão que
+ * não se consegue ler não conta como antiga (não se pede uma atualização à toa).
+ */
+export function isOlderVersion(installed: string, latest: string): boolean {
+  const parse = (v: string) => (/^\d+(\.\d+){0,3}$/.test(String(v ?? "").trim()) ? String(v).trim().split(".").map(Number) : null);
+  const a = parse(installed);
+  const b = parse(latest);
+  if (!a || !b) return false;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const x = a[i] ?? 0;
+    const y = b[i] ?? 0;
+    if (x !== y) return x < y;
+  }
+  return false;
+}

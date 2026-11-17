@@ -1,6 +1,9 @@
 import { requireSection } from "@/lib/guard";
 import { getSharesData } from "@/lib/fb-shares-queries";
 import { SharesPanel } from "@/components/admin/SharesPanel";
+// A versão da extensão que vai com este site (a do ZIP para descarregar):
+// a página avisa quem tiver uma mais antiga instalada no Chrome.
+import extensionManifest from "../../../../../extension/manifest.json";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +44,7 @@ export default async function PartilhasPage({ searchParams }: { searchParams: Se
           attempts={data.attempts}
           cars={data.cars}
           extensionZip="/extensao/coremotors-partilhas.zip"
+          extensionVersion={extensionManifest.version}
         />
       )}
     </>

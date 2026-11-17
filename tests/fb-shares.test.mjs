@@ -36,6 +36,14 @@ test('sugestões pelo nome do grupo: peças, motas, carros, clássicos e preço 
   assert.match(fb.suggestExclusion('Reticket - Vende os teus bilhetes', car), /bilhetes/);
   assert.match(fb.suggestExclusion('Imóveis Porto - compra e venda', car), /imóveis/);
   assert.equal(fb.suggestExclusion('Vendas e Trocas', car), '');
+
+  // Aviso de extensão desatualizada.
+  assert.equal(fb.isOlderVersion('1.0.0', '1.0.4'), true);
+  assert.equal(fb.isOlderVersion('1.0.9', '1.1'), true);
+  assert.equal(fb.isOlderVersion('1.0.10', '1.0.9'), false);
+  assert.equal(fb.isOlderVersion('1.0.4', '1.0.4'), false);
+  assert.equal(fb.isOlderVersion('2.0.0', '1.9.9'), false);
+  assert.equal(fb.isOlderVersion('lixo', '1.0.4'), false);
 });
 
 test('a fila: pela ordem do Facebook, sem os excluídos, os que saíram e os já partilhados', () => {

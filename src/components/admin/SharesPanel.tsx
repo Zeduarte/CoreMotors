@@ -21,6 +21,7 @@ import {
   STATUS_LABEL,
   buildQueue,
   isBlocked,
+  isOlderVersion,
   latestStatusByGroup,
   suggestExclusion,
   type ShareResultStatus,
@@ -95,6 +96,7 @@ export function SharesPanel({
   attempts,
   cars,
   extensionZip,
+  extensionVersion,
 }: {
   accounts: FbAccountRow[];
   account: FbAccountRow | null;
@@ -103,6 +105,8 @@ export function SharesPanel({
   attempts: FbShareAttemptRow[];
   cars: ShareCarOption[];
   extensionZip: string;
+  /** A versão da extensão que vai com este site; uma instalada mais antiga tem de ser atualizada. */
+  extensionVersion: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -288,11 +292,26 @@ export function SharesPanel({
     });
   }
 
-  const canUseExtension = ext.state === "ready" && !wrongFacebook && !noFacebook;
+  // Extensão desatualizada: as versões antigas têm erros já corrigidos, por isso
+  // não se publica nem se leem grupos com elas.
+  const installedVersion = ext.state === "ready" || ext.state === "not_paired" ? ext.version : null;
+  const outdated = installedVersion !== null && isOlderVersion(installedVersion, extensionVersion);
+  const warnedVersion = useRef<string | null>(null);
+  useEffect(() => {
+    if (!outdated || !installedVersion || warnedVersion.current === installedVersion) return;
+    warnedVersion.current = installedVersion;
+    toast.warning(`Há uma versão nova da extensão (v${extensionVersion}). Atualize-a antes de publicar.`);
+  }, [outdated, installedVersion, extensionVersion]);
+
+  const canUseExtension = ext.state === "ready" && !outdated && !wrongFacebook && !noFacebook;
 
   return (
     <div className="space-y-6">
-      <ExtensionCard ext={ext} zip={extensionZip} onRetry={() => void checkExtension()} />
+      {outdated && installedVersion ? (
+        <UpdateExtensionCard installed={installedVersion} latest={extensionVersion} zip={extensionZip} onRetry={() => void checkExtension()} />
+      ) : (
+        <ExtensionCard ext={ext} zip={extensionZip} onRetry={() => void checkExtension()} />
+      )}
 
       {/* Separadores: uma conta do Facebook por separador. */}
       <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Contas do Facebook">
@@ -464,6 +483,48 @@ export function SharesPanel({
 }
 
 // ---------------------------------------------------------------------------
+
+function UpdateExtensionCard({
+  installed,
+  latest,
+  zip,
+  onRetry,
+}: {
+  installed: string;
+  latest: string;
+  zip: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div role="alert" className="card border-amber-500/40 p-5 text-sm text-paper/80">
+      <p className="font-semibold text-amber-300">
+        Há uma versão nova da extensão: v{latest} (no seu Chrome está a v{installed})
+      </p>
+      <p className="mt-1 text-paper/60">
+        A versão antiga tem erros já corrigidos. Atualize-a antes de ler grupos ou publicar; até lá, esses botões ficam
+        desligados.
+      </p>
+      <ol className="mt-3 list-decimal space-y-1 pl-5">
+        <li>
+          <a href={zip} download className="text-accent underline">
+            Descarregue a extensão nova
+          </a>{" "}
+          e descompacte-a <strong>por cima da pasta</strong> onde está a atual (substitua os ficheiros).
+        </li>
+        <li>
+          Abra <code>chrome://extensions</code> e, na «CoreMotors Partilhas», carregue em <strong>Recarregar</strong> (↻).
+        </li>
+        <li>Volte a esta página: o aviso desaparece quando a versão nova estiver ligada.</li>
+      </ol>
+      <p className="mt-2 text-xs text-paper/50">
+        Se instalou a extensão a partir da pasta do projeto, basta o passo 2.
+      </p>
+      <button type="button" className="btn-ghost mt-3" onClick={onRetry}>
+        Verificar de novo
+      </button>
+    </div>
+  );
+}
 
 function ExtensionCard({ ext, zip, onRetry }: { ext: ExtState; zip: string; onRetry: () => void }) {
   if (ext.state === "checking") return null;
