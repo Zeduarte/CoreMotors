@@ -486,6 +486,7 @@ const metaStubs = {
   '@/lib/vehicle-context': { getPublicVehicleType: async () => 'car', getSiteVehicleTypes: async () => ['car', 'motorcycle'] },
   '@/lib/showroom-queries': { getShowroomContent: async () => ({ services: [{ id: 'garantia', enabled: true, title: 'Garantia', summary: 'Proteção.' }], faqs: [], locations: [], google: {} }) },
   '@/lib/olx/search': { inventoryWithOlx: async (vehicles) => ({ vehicles, fields: [] }) },
+  '@/lib/site-theme-query': { getSiteTheme: async () => 'core' },
   __id: 'meta',
 };
 

@@ -32,6 +32,18 @@ export async function requireAdmin(): Promise<ProfileRow> {
 }
 
 /**
+ * Só o acesso core (o dono da conta, `profiles.is_owner`): o separador Gestão
+ * (a versão do site). Não é uma permissão que se dê em Utilizadores — nem um
+ * administrador a tem. Sem sessão → login; outro utilizador → Dashboard.
+ */
+export async function requireOwner(): Promise<ProfileRow> {
+  const profile = await getCurrentProfile();
+  if (!profile) redirect("/admin/login");
+  if (!profile.is_owner) redirect("/admin");
+  return profile;
+}
+
+/**
  * Quem só tem acesso a carros (ou só a motas) não pode criar nem mexer no
  * outro tipo: a RLS só olha ao separador, por isso a barreira é feita aqui,
  * nas Server Actions, e não só escondendo o outro mundo na interface.

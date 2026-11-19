@@ -1,0 +1,15 @@
+/*
+ * Tema Core2 — o aspeto que muda em relação ao Core.
+ *
+ * Tudo aqui tem de ficar debaixo de [data-site-theme="core2"] (o atributo está
+ * no invólucro `.site` do site público), para não mexer no Core nem no
+ * backoffice. Exemplos do que se pode mudar:
+ *
+ *   [data-site-theme="core2"] h1 { font-size: … }           tamanhos de letra
+ *   [data-site-theme="core2"] [data-hero-media] { order: … } posição das imagens
+ *
+ * Por agora vazio: o Core2 é igual ao Core.
+ */
+[data-site-theme="core2"] {
+  --theme-id: core2;
+}

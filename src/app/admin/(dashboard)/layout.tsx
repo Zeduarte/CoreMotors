@@ -52,7 +52,7 @@ export default async function DashboardLayout({
   return (
     <div className="admin-shell min-h-dvh text-paper">
       {/* Sem invólucro: o `sticky` da barra precisa de ter como pai a página inteira. */}
-      <MobileNav user={user} sections={sections} companyName={companyName} newLeads={count ?? 0}/>
+      <MobileNav user={user} sections={sections} companyName={companyName} newLeads={count ?? 0} isOwner={!!profile.is_owner}/>
       {/* Em desktop: faixa de vidro no topo, barra de ícones à esquerda e pílula
           de atalhos em baixo, todas a flutuar. Safe-area para o modo app. */}
       <div className="hidden md:block">
@@ -60,7 +60,7 @@ export default async function DashboardLayout({
           <AdminTopBar user={user} companyName={companyName} newLeads={count ?? 0} showLeads={sections.includes("leads")} />
         </div>
         <div className="fixed bottom-24 left-[max(1rem,env(safe-area-inset-left))] top-[5.5rem] z-30">
-          <Sidebar sections={sections} newLeads={count ?? 0} />
+          <Sidebar sections={sections} newLeads={count ?? 0} isOwner={!!profile.is_owner} />
         </div>
         <AdminDock sections={sections} canCreate={allowedTypes.some((t) => siteTypes.includes(t))} />
       </div>

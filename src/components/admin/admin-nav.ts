@@ -10,10 +10,20 @@ export type AdminNavItem = {
   exact: boolean;
   /** A permissão que o mostra; `null` = toda a gente (ex.: o próprio perfil). */
   section: Section | null;
+  /**
+   * Só para o acesso core (o dono da conta, `profiles.is_owner`): não é uma
+   * permissão que se dê a alguém em Utilizadores.
+   */
+  ownerOnly?: boolean;
 };
 
 /** Este separador aparece a quem tem estas permissões? */
-export function canSeeNavItem(item: Pick<AdminNavItem, "section">, sections: readonly Section[]): boolean {
+export function canSeeNavItem(
+  item: Pick<AdminNavItem, "section" | "ownerOnly">,
+  sections: readonly Section[],
+  isOwner = false,
+): boolean {
+  if (item.ownerOnly) return isOwner;
   return item.section === null || sections.includes(item.section);
 }
 
@@ -36,6 +46,8 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/partilhas", label: "Partilhas no Facebook", short: "Partilhas", icon: "share", exact: false, section: "partilhas" },
   // Dados pessoais e férias (/admin/perfil/…): de cada um, sem permissão própria.
   { href: "/admin/perfil", label: "Os meus dados e férias", short: "Perfil", icon: "user", exact: false, section: null },
+  // A versão do site (Core / Core2) e o que é da plataforma: só o acesso core.
+  { href: "/admin/gestao", label: "Gestão", short: "Gestão", icon: "shield", exact: false, section: null, ownerOnly: true },
 ];
 
 /** A agenda vive debaixo de /admin/leads, mas é um separador à parte. */
@@ -92,4 +104,5 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   },
   // O que é de cada um: os dados pessoais e férias, e as horas registadas.
   { key: "perfil", short: "Perfil", label: "O meu perfil", icon: "user", hrefs: ["/admin/perfil", "/admin/horas"] },
+  { key: "gestao", short: "Gestão", label: "Gestão", icon: "shield", hrefs: ["/admin/gestao"] },
 ];

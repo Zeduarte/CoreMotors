@@ -403,7 +403,8 @@ test("header: «Stock» is active on every stock page (lists, vehicles, sold, co
   assert.ok(isNavActive("/servicos", "/servicos/garantia") && !isNavActive("/servicos", "/servicos-x"));
   const header = readFileSync("src/components/layout/Header.tsx", "utf8");
   // O menu móvel também marca a página aberta (aria-current), favoritos incluídos.
-  assert.match(header, /\[\.\.\.NAV, \{ href: "\/favoritos", label: "Favoritos" \}\]\.map/);
+  // (os nomes do menu vêm do tema: `nav`, construído a partir de NAV)
+  assert.match(header, /\[\.\.\.nav, \{ href: "\/favoritos", label: "Favoritos" \}\]\.map/);
   assert.equal((header.match(/aria-current=/g) ?? []).length, 3);
 });
 

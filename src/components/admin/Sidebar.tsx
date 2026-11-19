@@ -11,7 +11,7 @@ import { ADMIN_NAV, ADMIN_NAV_GROUPS, canSeeNavItem, isAdminNavActive, type Admi
 // Em ecrãs baixos (portáteis de 720–768 px) os itens encolhem e, abaixo de
 // ~620 px, ficam só os ícones: assim a barra cabe sempre, sem scroll.
 const ITEM =
-  "relative flex min-h-12 w-full shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 transition-colors [@media(min-height:621px)_and_(max-height:780px)]:min-h-10 [@media(min-height:621px)_and_(max-height:780px)]:py-1 [@media(max-height:620px)]:min-h-8 [@media(max-height:620px)]:py-0.5";
+  "relative flex min-h-12 w-full shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 transition-colors [@media(min-height:621px)_and_(max-height:780px)]:min-h-10 [@media(min-height:621px)_and_(max-height:780px)]:py-1 [@media(min-height:601px)_and_(max-height:620px)]:min-h-8 [@media(max-height:620px)]:py-0.5 [@media(max-height:600px)]:min-h-7";
 const LABEL = "max-w-full truncate text-[9.5px] font-medium leading-tight [@media(max-height:620px)]:hidden";
 const IDLE = "text-paper/60 hover:bg-white/10 hover:text-paper";
 const ACTIVE = "bg-paper text-ink shadow-md";
@@ -29,9 +29,12 @@ const CLOSE_DELAY = 180;
 export function Sidebar({
   sections,
   newLeads = 0,
+  isOwner = false,
 }: {
   sections: Section[];
   newLeads?: number;
+  /** O acesso core (dono da conta): vê também «Gestão». */
+  isOwner?: boolean;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState<string | null>(null);
@@ -44,7 +47,7 @@ export function Sidebar({
     ...g,
     items: g.hrefs
       .map((href) => ADMIN_NAV.find((i) => i.href === href))
-      .filter((i): i is AdminNavItem => !!i && canSeeNavItem(i, sections)),
+      .filter((i): i is AdminNavItem => !!i && canSeeNavItem(i, sections, isOwner)),
   })).filter((g) => g.items.length > 0);
 
   const cancelClose = () => clearTimeout(closeTimer.current);

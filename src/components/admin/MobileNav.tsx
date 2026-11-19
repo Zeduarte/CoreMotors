@@ -14,15 +14,18 @@ export function MobileNav({
   sections,
   companyName = "Supermotas",
   newLeads = 0,
+  isOwner = false,
 }: {
   user: { name: string; role: string };
   sections: Section[];
   companyName?: string;
   newLeads?: number;
+  /** O acesso core (dono da conta): vê também «Gestão». */
+  isOwner?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const items = ADMIN_NAV.filter((i) => canSeeNavItem(i, sections));
+  const items = ADMIN_NAV.filter((i) => canSeeNavItem(i, sections, isOwner));
 
   return (
     // Em modo app (iPhone, `viewport-fit=cover`) a barra estende o fundo por

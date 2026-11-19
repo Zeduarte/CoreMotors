@@ -8,6 +8,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { DEFAULT_BRANDING, type Branding } from "@/lib/branding";
 import { useLocalList, FAVORITES_KEY } from "@/hooks/useLocalList";
 import { NAV_START_EVENT, type NavStartDetail } from "@/lib/page-transition";
+import { useSiteTheme } from "@/components/site/SiteTheme";
+import type { ThemeTexts } from "@/themes/index";
 
 /** Entrada em cascata de cada item do menu mobile. */
 const MENU_ITEM = {
@@ -15,13 +17,14 @@ const MENU_ITEM = {
   closed: { opacity: 0, y: -8, transition: { duration: 0.15 } },
 } as const;
 
-const NAV = [
-  { href: "/", label: "Início" },
-  { href: "/inventario", label: "Stock" },
-  { href: "/quiz", label: "Veículo ideal" },
-  { href: "/servicos", label: "Serviços" },
-  { href: "/sobre", label: "Sobre" },
-  { href: "/contactos", label: "Contactos" },
+// Os nomes vêm do tema (Core / Core2): ver `navFor`.
+const NAV: { href: string; text: keyof ThemeTexts }[] = [
+  { href: "/", text: "navHome" },
+  { href: "/inventario", text: "navStock" },
+  { href: "/quiz", text: "navIdeal" },
+  { href: "/servicos", text: "navServices" },
+  { href: "/sobre", text: "navAbout" },
+  { href: "/contactos", text: "navContacts" },
 ];
 
 /** Páginas que contam como «Stock»: as listas por tipo, as fichas, os vendidos e o comparador. */
@@ -47,6 +50,9 @@ export function Header({
   stockSlugs?: string[];
 }) {
   const pathname = usePathname();
+  // O menu com os nomes do tema ativo.
+  const { texts } = useSiteTheme();
+  const nav = NAV.map((item) => ({ href: item.href, label: texts[item.text] }));
   const router = useRouter();
   // Numa ficha de viatura (/viaturas/slug, não sub-rotas) mostramos a seta de
   // voltar ao lado do logótipo — sempre acessível no topo fixo.
@@ -153,7 +159,7 @@ export function Header({
         </div>
 
         <ul className="hidden items-center gap-8 md:flex">
-          {NAV.map((item) => {
+          {nav.map((item) => {
             const active = isNavActive(item.href, activePath);
             return (
               <li key={item.href}>
@@ -271,7 +277,7 @@ export function Header({
               }}
             >
               {/* A página aberta fica marcada, como no menu do computador. */}
-              {[...NAV, { href: "/favoritos", label: "Favoritos" }].map((item) => {
+              {[...nav, { href: "/favoritos", label: "Favoritos" }].map((item) => {
                 const active = isNavActive(item.href, activePath);
                 const fav = item.href === "/favoritos";
                 return (

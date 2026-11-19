@@ -28,6 +28,9 @@ import { existingMedia, getHeroMedia } from "@/lib/hero-media";
 import { OPTIONAL_MEDIA } from "@/lib/media";
 import { bodiesFor } from "@/lib/vehicle-categories";
 import { brandOptions, sameBrand } from "@/lib/brand-name";
+import { Fragment } from "react";
+import { getSiteTheme } from "@/lib/site-theme-query";
+import { getTheme, type HomeSection } from "@/themes/index";
 
 // O canónico da página inicial (sem query strings) e o seu `og:url`. O título
 // e a descrição vêm da layout raiz.
@@ -44,7 +47,7 @@ export const revalidate = 60;
 export default async function HomePage() {
   // Um só site: carros e motas juntos. O tipo principal (carros, salvo num
   // site só de motas) dá o topo, as fotos e os textos.
-  const [type, siteTypes] = await Promise.all([getPublicVehicleType(), getSiteVehicleTypes()]);
+  const [type, siteTypes, theme] = await Promise.all([getPublicVehicleType(), getSiteVehicleTypes(), getSiteTheme()]);
   const [showroom, content, testimonials, branding, allVehicles, sold] =
     await Promise.all([
       getShowroomContent(),
@@ -94,8 +97,10 @@ export default async function HomePage() {
   // As motas têm o seu próprio topo, editável no backoffice (Página inicial).
   const heroContent = heroType === "motorcycle" ? { ...content.hero, ...content.motoHero } : content.hero;
 
-  return (
-    <>
+  // Cada secção da página inicial; o tema (Core / Core2) decide a ordem e
+  // quais aparecem (src/themes).
+  const sections: Record<HomeSection, React.ReactNode> = {
+    hero: (
       <Hero
         content={heroContent}
         media={heroMedia}
@@ -106,38 +111,45 @@ export default async function HomePage() {
           allVehicles.length > 0 ? <QuickSearch vehicles={searchItems} /> : null
         }
       />
-
-      {/* Opcional: Página inicial → Secções (por defeito escondida). */}
-      {content.showSegments && <Segments segments={segments} />}
-      {/* A lista vem com as marcadas como destaque primeiro, depois as mais
-          recentes. */}
-      <FeaturedVehicles vehicles={allVehicles} total={allVehicles.length} />
-      <BrandMarquee
-        brands={marqueeBrands}
-        available={stockBrands}
-      />
-      <HomeStock vehicles={allVehicles} />
-      {/* Num site com carros e motas, «Tem uma viatura para trocar?». */}
-      <SellCTA vehicleType={type} mixed={siteTypes.length > 1} />
+    ),
+    // Opcional: Página inicial → Secções (por defeito escondida).
+    segments: content.showSegments ? <Segments segments={segments} /> : null,
+    // A lista vem com as marcadas como destaque primeiro, depois as mais recentes.
+    featured: <FeaturedVehicles vehicles={allVehicles} total={allVehicles.length} />,
+    brands: <BrandMarquee brands={marqueeBrands} available={stockBrands} />,
+    stock: <HomeStock vehicles={allVehicles} />,
+    // Num site com carros e motas, «Tem uma viatura para trocar?».
+    sell: <SellCTA vehicleType={type} mixed={siteTypes.length > 1} />,
+    trust: (
       <PinnedTrust
         content={content.trust}
         video={existingMedia(type, OPTIONAL_MEDIA.confianca)}
         poster={existingMedia(type, OPTIONAL_MEDIA.confiancaPoster)}
       />
-      <SoldShowcase vehicles={sold} />
+    ),
+    sold: <SoldShowcase vehicles={sold} />,
+    showroom: (
       <div className="container-px">
         <ServiceCards items={showroom.services} />
         <GoogleReviews config={showroom.google} />
-        <FaqSection
-          items={showroom.faqs.filter((f) => f.category === "geral")}
-        />
+        <FaqSection items={showroom.faqs.filter((f) => f.category === "geral")} />
       </div>
-      <Testimonials items={testimonials} />
+    ),
+    testimonials: <Testimonials items={testimonials} />,
+    contact: (
       <ContactCTA
         content={content.cta}
         company={branding.company}
         background={existingMedia(type, OPTIONAL_MEDIA.contacto)}
       />
+    ),
+  };
+
+  return (
+    <>
+      {getTheme(theme).homeSections.map((key) => (
+        <Fragment key={key}>{sections[key]}</Fragment>
+      ))}
     </>
   );
 }

@@ -317,3 +317,29 @@ await test('0054: mark_vehicle_sold records a sale without a contact (price and 
   // Pode correr outra vez.
   await pg.exec(await readFile('supabase/migrations/0054_mark_vehicle_sold.sql', 'utf8'));
 });
+
+await test('0055: only the account owner (core access) writes the site theme; an administrator cannot', async () => {
+  const owner = '00000000-0000-4000-8000-000000000055';
+  await pg.query('insert into auth.users(id,email) values($1,$2) on conflict do nothing', [owner, 'core@example.test']);
+  // Só pode haver um dono: este teste usa o seu (se já houver outro, fica esse).
+  const existing = (await pg.query('select id from public.profiles where is_owner')).rows[0]?.id;
+  const ownerId = existing ?? owner;
+  if (!existing) await pg.query("insert into public.profiles(id,role,is_owner) values($1,'admin',true) on conflict (id) do update set is_owner=true, role='admin'", [owner]);
+  assert.notEqual(ownerId, admin, 'o administrador de teste não é o dono');
+  const upsert = (theme) => `insert into site_content(key,content) values('theme','{"theme":"${theme}"}'::jsonb)
+    on conflict (key) do update set content=excluded.content`;
+  // O administrador (sem ser o dono) não muda a versão do site…
+  await assert.rejects(as('authenticated', upsert('core2'), [], admin), /row-level security|policy/);
+  // …o dono muda.
+  await as('authenticated', upsert('core2'), [], ownerId);
+  assert.deepEqual((await pg.query("select content from site_content where key='theme'")).rows[0].content, { theme: 'core2' });
+  // O administrador também não muda nem apaga o que o dono gravou.
+  await as('authenticated', `update site_content set content='{"theme":"core"}'::jsonb where key='theme'`, [], admin);
+  await as('authenticated', "delete from site_content where key='theme'", [], admin);
+  assert.deepEqual((await pg.query("select content from site_content where key='theme'")).rows[0].content, { theme: 'core2' });
+  // O público lê (o site precisa de saber a versão), e o administrador continua a gravar os textos.
+  assert.equal((await as('anon', "select content from site_content where key='theme'")).rows.length, 1);
+  await as('authenticated', `insert into site_content(key,content) values('home','{}'::jsonb) on conflict (key) do update set content=excluded.content`, [], admin);
+  await pg.exec(await readFile('supabase/migrations/0055_site_theme_owner.sql', 'utf8'));
+  await pg.query("delete from site_content where key in ('theme','home')");
+});

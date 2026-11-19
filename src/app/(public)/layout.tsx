@@ -19,6 +19,10 @@ import { existingMedia } from "@/lib/hero-media";
 import { OPTIONAL_MEDIA } from "@/lib/media";
 import { SiteIntro } from "@/components/site/SiteIntro";
 import { vehiclesLabel } from "@/lib/site-types";
+import { getSiteTheme } from "@/lib/site-theme-query";
+import { SiteThemeProvider } from "@/components/site/SiteTheme";
+// O CSS de cada tema (sempre debaixo de [data-site-theme="…"]).
+import "@/themes/core2.css";
 
 /**
  * Chrome do site PÚBLICO: smooth scroll (Lenis), barra de progresso, grão,
@@ -31,7 +35,7 @@ export default async function PublicLayout({
   // Um só site: carros e motas juntos (os tipos de Definições → Tipo de site).
   // O tipo principal dá o aspeto (fotos e textos) — o dos carros, salvo num
   // site só de motas.
-  const [branding, type, siteTypes, badges, stock, sold] = await Promise.all([
+  const [branding, type, siteTypes, badges, stock, sold, theme] = await Promise.all([
     getBranding(),
     getPublicVehicleType(),
     getSiteVehicleTypes(),
@@ -40,6 +44,8 @@ export default async function PublicLayout({
     // que o site mostra. Leituras em cache (as mesmas das páginas).
     getVehicleList(),
     getSoldVehicleList(),
+    // A versão do site (Gestão): Core ou Core2.
+    getSiteTheme(),
   ]);
   // Sem stock nenhum (ou a leitura falhou), não se filtra nada: um erro
   // passageiro não pode apagar a comparação de quem está a navegar.
@@ -48,14 +54,15 @@ export default async function PublicLayout({
   const renderedAt = Date.now();
 
   return (
-    <VehicleWorld type={type} types={siteTypes}><BadgesProvider badges={badges} now={renderedAt}><LenisProvider>
+    <SiteThemeProvider theme={theme}><VehicleWorld type={type} types={siteTypes}><BadgesProvider badges={badges} now={renderedAt}><LenisProvider>
       {/* O provider envolve o conteúdo: a barra fixa da ficha de viatura
           precisa de abrir o mesmo painel de conversa que o botão flutuante. */}
       <ChatProvider enabled={!!process.env.ANTHROPIC_API_KEY}>
       <CompareProvider available={stockSlugs && [...stockSlugs, ...sold.map((v) => v.slug)]}>
       {/* `.site`: estilos só do site público (ex.: botões); `contents` não
           cria caixa, por isso não altera o layout. */}
-      <div className="site contents">
+      {/* `data-site-theme`: o CSS de cada tema (src/themes/<tema>.css). */}
+      <div className="site contents" data-site-theme={theme}>
         {/* Entrada da 1.ª visita: a foto das motas enquanto o site carrega. */}
         <SiteIntro name={branding.companyName} label={vehiclesLabel(siteTypes)} />
         {/* Salto para conteúdo — acessibilidade por teclado. */}
@@ -89,6 +96,6 @@ export default async function PublicLayout({
       </div>
       </CompareProvider>
       </ChatProvider>
-    </LenisProvider></BadgesProvider></VehicleWorld>
+    </LenisProvider></BadgesProvider></VehicleWorld></SiteThemeProvider>
   );
 }
