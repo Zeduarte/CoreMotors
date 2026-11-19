@@ -10,6 +10,8 @@ import { inventoryWithOlx } from "@/lib/olx/search";
 import { filtersFromQuery, sortFromQuery } from "@/lib/vehicles";
 import { InventoryClient } from "@/components/inventory/InventoryClient";
 import { SeoLinks } from "@/components/seo/SeoLinks";
+import { Core2Stock } from "@/components/themes/core2/Core2Stock";
+import { getSiteTheme } from "@/lib/site-theme-query";
 
 export const revalidate = 60;
 
@@ -66,7 +68,7 @@ export default async function InventoryPage({
   const sp = await searchParams;
   // Um só stock: carros e motas juntos (os tipos que o site vende). O filtro
   // «Todos · Carros · Motas» está no próprio stock (`?tipo=`).
-  const [world, siteTypes] = await Promise.all([getPublicVehicleType(), getSiteVehicleTypes()]);
+  const [world, siteTypes, theme] = await Promise.all([getPublicVehicleType(), getSiteVehicleTypes(), getSiteTheme()]);
   // Filtros vindos do endereço: a pesquisa rápida da página inicial, um link
   // partilhado ou o «voltar» da ficha (?tipo=motas&marca=Yamaha…).
   const fromQuery = filtersFromQuery(sp);
@@ -87,6 +89,33 @@ export default async function InventoryPage({
   const vehicles = perType.flatMap((p) => p.vehicles);
   const olxFieldsByType = Object.fromEntries(siteTypes.map((t, i) => [t, perType[i]!.fields]));
   const initialFilters = { ...fromQuery, vehicleType };
+
+  // Pesquisas populares: páginas por marca, categoria e preço (Google),
+  // uma caixa por cada tipo que o site vende — com o tipo no título
+  // quando são duas («Pesquisas populares — motas»).
+  const popular = siteTypes.map((t) => (
+    <SeoLinks
+      key={t}
+      type={t}
+      vehicles={vehicles.filter((v) => (v.vehicleType ?? "car") === t)}
+      showType={siteTypes.length > 1}
+      className="mt-20"
+    />
+  ));
+
+  // Tema Core2: a página do stock é outra (fundo claro, coluna de filtros).
+  if (theme === "core2") {
+    return (
+      <Core2Stock
+        key={JSON.stringify(sp)}
+        vehicles={vehicles}
+        query={sp}
+        siteTypes={siteTypes}
+        olxFieldsByType={olxFieldsByType}
+        below={popular}
+      />
+    );
+  }
 
   return (
     <div className="container-px pb-24 pt-6 md:pt-10">
@@ -110,18 +139,7 @@ export default async function InventoryPage({
         vehicleTypes={siteTypes}
       />
 
-      {/* Pesquisas populares: páginas por marca, categoria e preço (Google),
-          uma caixa por cada tipo que o site vende — com o tipo no título
-          quando são duas («Pesquisas populares — motas»). */}
-      {siteTypes.map((t) => (
-        <SeoLinks
-          key={t}
-          type={t}
-          vehicles={vehicles.filter((v) => (v.vehicleType ?? "car") === t)}
-          showType={siteTypes.length > 1}
-          className="mt-20"
-        />
-      ))}
+      {popular}
     </div>
   );
 }
