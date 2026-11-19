@@ -3,93 +3,13 @@
  *
  * Tudo aqui tem de ficar debaixo de [data-site-theme="core2"] (o atributo está
  * no invólucro `.site` do site público), para não mexer no Core nem no
- * backoffice.
+ * backoffice. Exemplos do que se pode mudar:
  *
- * Página do Stock (`.core2-stock`): fundo claro como nas maquetes. Troca-se só
- * a paleta dentro da página (as cores do site são variáveis: `ink` = fundo,
- * `paper` = texto); o menu e o rodapé continuam escuros.
+ *   [data-site-theme="core2"] h1 { font-size: … }           tamanhos de letra
+ *   [data-site-theme="core2"] [data-hero-media] { order: … } posição das imagens
+ *
+ * Por agora vazio: o Core2 é igual ao Core.
  */
 [data-site-theme="core2"] {
   --theme-id: core2;
-}
-
-[data-site-theme="core2"] .core2-stock {
-  --ink: 250 250 250;
-  --ink-soft: 255 255 255;
-  --ink-muted: 243 243 245;
-  --paper: 23 23 23;
-  color-scheme: light;
-}
-
-/* Títulos e preços em serifada (DM Serif Display). */
-[data-site-theme="core2"] .core2-stock .core2-serif {
-  font-family: var(--font-core2-serif), Georgia, "Times New Roman", serif;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-}
-
-/* A fachada no topo desvanece para a esquerda (para o título). */
-[data-site-theme="core2"] .core2-stock .core2-hero-fade {
-  background: linear-gradient(90deg, rgb(var(--ink-muted)) 0%, rgb(var(--ink-muted) / 0.55) 30%, transparent 65%);
-}
-
-/* Cartões de tipo: o escolhido com o contorno na cor de destaque. */
-[data-site-theme="core2"] .core2-stock .core2-on {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent);
-}
-[data-site-theme="core2"] .core2-stock .core2-hover-accent:hover {
-  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
-}
-
-/* Chips dos filtros ativos. */
-[data-site-theme="core2"] .core2-stock .core2-chip {
-  border: 1px solid color-mix(in srgb, var(--accent) 70%, transparent);
-  color: color-mix(in srgb, var(--accent) 80%, #000);
-}
-[data-site-theme="core2"] .core2-stock .core2-chip:hover {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-/* Campos. */
-[data-site-theme="core2"] .core2-stock .core2-select {
-  border: 1px solid rgb(0 0 0 / 0.15);
-  border-radius: 0.5rem;
-  background: #fff;
-  color: inherit;
-  padding: 0.375rem 0.5rem;
-  font-size: 0.875rem;
-  min-width: 0;
-}
-[data-site-theme="core2"] .core2-stock .core2-check {
-  width: 1rem;
-  height: 1rem;
-  accent-color: var(--accent);
-}
-[data-site-theme="core2"] .core2-stock .core2-range {
-  accent-color: var(--accent);
-}
-
-/* O preço e os destaques a laranja precisam de contraste no fundo claro. */
-[data-site-theme="core2"] .core2-stock .text-accent {
-  color: color-mix(in srgb, var(--accent) 82%, #000);
-}
-
-/*
- * Componentes partilhados com o Core (alerta, pesquisas populares) usam
- * películas brancas (`border-white/10`…), pensadas para fundo escuro: aqui
- * passam a escuras, como no tema claro do backoffice.
- */
-[data-site-theme="core2"] .core2-stock :is(.border-white\/5, .border-white\/10, .border-white\/15, .border-white\/20) {
-  border-color: rgb(0 0 0 / 0.1);
-}
-[data-site-theme="core2"] .core2-stock :is(.bg-white\/5, .bg-white\/10) {
-  background-color: rgb(0 0 0 / 0.05);
-}
-[data-site-theme="core2"] .core2-stock :is(.hover\:bg-white\/5:hover, .hover\:bg-white\/10:hover) {
-  background-color: rgb(0 0 0 / 0.06);
-}
-/* Texto escuro sobre a cor de destaque (aqui `ink` é claro). */
-[data-site-theme="core2"] .core2-stock .text-ink:not(.bg-paper) {
-  color: #111;
 }
