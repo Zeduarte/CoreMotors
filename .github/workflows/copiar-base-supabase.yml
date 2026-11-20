@@ -1,0 +1,174 @@
+name: Copiar base de dados
+
+# Copia a base de dados (tabelas e utilizadores) e as fotos do projeto Supabase
+# atual para um projeto Supabase NOVO e VAZIO (por exemplo, noutra conta).
+#
+# O projeto atual só é LIDO: nada muda nele e o site continua a usá-lo.
+# Corre só à mão: Actions → «Copiar base de dados» → Run workflow.
+# Passo a passo, e os 4 segredos de que precisa, em docs/copiar-base-de-dados.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmar:
+        description: "Escreva COPIAR para confirmar"
+        required: true
+        type: string
+      copiar:
+        description: "O que copiar"
+        required: true
+        type: choice
+        default: "base e fotos"
+        options:
+          - "base e fotos"
+          - "apenas a base"
+          - "apenas as fotos"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: copiar-base
+  cancel-in-progress: false
+
+jobs:
+  copiar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      ORIGEM_DB_URL: ${{ secrets.SUPABASE_ORIGEM_DB_URL }}
+      DESTINO_DB_URL: ${{ secrets.SUPABASE_DESTINO_DB_URL }}
+      CONFIRMAR: ${{ inputs.confirmar }}
+    steps:
+      - name: Confirmar e verificar os segredos
+        run: |
+          if [ "$CONFIRMAR" != "COPIAR" ]; then
+            echo "::error::Escreva COPIAR (em maiúsculas) no campo de confirmação."
+            exit 1
+          fi
+          for v in ORIGEM_DB_URL DESTINO_DB_URL; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Falta o segredo SUPABASE_$v (GitHub → Settings → Secrets and variables → Actions)."
+              exit 1
+            fi
+          done
+          if [ "$ORIGEM_DB_URL" = "$DESTINO_DB_URL" ]; then
+            echo "::error::A origem e o destino são o mesmo endereço."
+            exit 1
+          fi
+
+      # ---------------------------------------------------------------- base
+      - name: Instalar o cliente PostgreSQL 17
+        if: inputs.copiar != 'apenas as fotos'
+        run: |
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y > /dev/null
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Confirmar que a origem tem dados e o destino está vazio
+        if: inputs.copiar != 'apenas as fotos'
+        run: |
+          q="select (select count(*) from pg_tables where schemaname = 'public') + (select count(*) from storage.buckets)"
+          origem=$(psql "$ORIGEM_DB_URL" -X -At -v ON_ERROR_STOP=1 -c "$q")
+          destino=$(psql "$DESTINO_DB_URL" -X -At -v ON_ERROR_STOP=1 -c "$q")
+          if [ "$origem" = "0" ]; then
+            echo "::error::A origem não tem tabelas nem buckets. Os segredos ORIGEM e DESTINO estão trocados?"
+            exit 1
+          fi
+          if [ "$destino" != "0" ]; then
+            echo "::error::O projeto de destino já tem tabelas ou buckets. A cópia só se faz para um projeto novo e vazio (os segredos estão trocados, ou a cópia já foi feita)."
+            exit 1
+          fi
+          echo "Origem com dados, destino vazio ✔"
+
+      - uses: supabase/setup-cli@v1
+        if: inputs.copiar != 'apenas as fotos'
+        with:
+          version: latest
+
+      - name: Exportar a base atual (só leitura)
+        if: inputs.copiar != 'apenas as fotos'
+        working-directory: ${{ runner.temp }}
+        run: |
+          supabase db dump --db-url "$ORIGEM_DB_URL" -f roles.sql --role-only
+          supabase db dump --db-url "$ORIGEM_DB_URL" -f schema.sql
+          supabase db dump --db-url "$ORIGEM_DB_URL" -f data.sql --use-copy --data-only \
+            -x "storage.buckets_vectors" -x "storage.vector_indexes"
+          ls -lh roles.sql schema.sql data.sql
+
+      - name: Importar no projeto novo
+        if: inputs.copiar != 'apenas as fotos'
+        working-directory: ${{ runner.temp }}
+        # Tudo numa transação: se algum passo falhar, o destino fica vazio como estava.
+        run: |
+          psql -X \
+            --single-transaction \
+            --variable ON_ERROR_STOP=1 \
+            --file roles.sql \
+            --file schema.sql \
+            --command 'SET session_replication_role = replica' \
+            --file data.sql \
+            --dbname "$DESTINO_DB_URL" > /dev/null
+          rm -f roles.sql schema.sql data.sql
+          echo "Base importada ✔"
+
+      - name: Comparar a origem com a cópia
+        if: inputs.copiar != 'apenas as fotos'
+        working-directory: ${{ runner.temp }}
+        run: |
+          cat > contar.sql <<'SQL'
+          select format('%I.%I', n.nspname, c.relname),
+                 (xpath('/row/n/text()', query_to_xml(format('select count(*) as n from %I.%I', n.nspname, c.relname), false, true, '')))[1]::text
+            from pg_class c join pg_namespace n on n.oid = c.relnamespace
+           where c.relkind in ('r', 'p')
+             and (n.nspname = 'public' or (n.nspname, c.relname) in (('auth', 'users'), ('storage', 'buckets'), ('storage', 'objects')))
+          union all
+          select 'regras de acesso (' || schemaname || ')', count(*)::text
+            from pg_policies where schemaname in ('public', 'storage') group by schemaname
+          union all
+          select 'funções (public)', count(*)::text
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'
+          order by 1;
+          SQL
+          psql "$ORIGEM_DB_URL" -X -At -F '|' -v ON_ERROR_STOP=1 -f contar.sql | LC_ALL=C sort -t '|' -k1,1 > origem.txt
+          psql "$DESTINO_DB_URL" -X -At -F '|' -v ON_ERROR_STOP=1 -f contar.sql | LC_ALL=C sort -t '|' -k1,1 > destino.txt
+          LC_ALL=C join -t '|' -a 1 -a 2 -e '—' -o '0,1.2,2.2' origem.txt destino.txt > comparar.txt
+          diferentes=$(awk -F'|' '$2 != $3' comparar.txt | wc -l)
+          {
+            echo "## Base de dados: origem × cópia"
+            echo
+            if [ "$diferentes" = "0" ]; then
+              echo "✅ Todas as tabelas têm o mesmo número de linhas."
+            else
+              echo "⚠️ $diferentes valor(es) diferente(s). Pequenas diferenças em filas, notificações ou contadores podem ser normais: o site continuou a funcionar durante a cópia."
+            fi
+            echo
+            echo "| Tabela | Origem | Cópia | |"
+            echo "|---|---:|---:|:-:|"
+            awk -F'|' '{ print "| " $1 " | " $2 " | " $3 " | " ($2 == $3 ? "✅" : "⚠️") " |" }' comparar.txt
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$diferentes" != "0" ]; then
+            echo "::warning::$diferentes tabela(s) com número de linhas diferente — ver o resumo."
+          fi
+
+      # --------------------------------------------------------------- fotos
+      - uses: actions/checkout@v4
+        if: inputs.copiar != 'apenas a base'
+
+      - uses: actions/setup-node@v4
+        if: inputs.copiar != 'apenas a base'
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependências
+        if: inputs.copiar != 'apenas a base'
+        run: npm ci --ignore-scripts
+
+      - name: Copiar as fotos (Storage)
+        if: inputs.copiar != 'apenas a base'
+        env:
+          ORIGEM_SECRET_KEY: ${{ secrets.SUPABASE_ORIGEM_SECRET_KEY }}
+          DESTINO_SECRET_KEY: ${{ secrets.SUPABASE_DESTINO_SECRET_KEY }}
+        run: node scripts/copiar-fotos-supabase.mjs
