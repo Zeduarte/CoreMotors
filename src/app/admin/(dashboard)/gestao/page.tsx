@@ -2,6 +2,8 @@ import { requireOwner } from "@/lib/guard";
 import { getSiteTheme } from "@/lib/site-theme-query";
 import { SiteThemeForm } from "@/components/admin/SiteThemeForm";
 import { THEMES } from "@/themes/index";
+import { MediaStorageCard } from "@/components/admin/MediaStorageCard";
+import { getMediaStorageStatus } from "@/lib/actions/media-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +13,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function GestaoPage() {
   await requireOwner();
-  const current = await getSiteTheme();
+  const [current, media] = await Promise.all([getSiteTheme(), getMediaStorageStatus()]);
   const themes = Object.values(THEMES).map(({ id, label, description }) => ({ id, label, description }));
 
   return (
@@ -29,6 +31,15 @@ export default async function GestaoPage() {
         </p>
       </div>
       <SiteThemeForm initial={current} themes={themes} />
+
+      <div className="mb-6 mt-10">
+        <h2 className="text-lg font-semibold text-paper">Fotos</h2>
+        <p className="mt-1 text-sm text-paper/50">
+          Onde ficam as fotos e vídeos das viaturas. No Cloudflare R2 o tráfego das fotos não tem custo nem conta para
+          os limites do Supabase.
+        </p>
+      </div>
+      <MediaStorageCard initial={media} />
     </>
   );
 }

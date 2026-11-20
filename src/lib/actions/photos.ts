@@ -3,7 +3,8 @@
 import { requireSection } from "@/lib/guard";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePublic } from "@/lib/public-cache";
-import { MEDIA_BUCKET, MEDIA_CACHE_CONTROL, PHOTOS_PER_BATCH } from "@/lib/storage";
+import { PHOTOS_PER_BATCH } from "@/lib/storage";
+import { mediaStore } from "@/lib/media-store";
 import { MAX_PHOTO_SIDE } from "@/lib/image-compress";
 import {
   BACKUP_PREFIX,
@@ -28,35 +29,6 @@ export interface PhotoScan {
   backups: { count: number; size: number };
 }
 
-type ObjectInfo = {
-  name: string;
-  id: string | null;
-  metadata: { size?: number; cacheControl?: string; mimetype?: string } | null;
-};
-type FileInfo = { size: number; longCache: boolean };
-
-/** Lista pastas do bucket (tamanho e cache de cada ficheiro), várias de cada vez. */
-async function listFolders(db: Awaited<ReturnType<typeof createClient>>, folders: string[]) {
-  const sizes = new Map<string, FileInfo>();
-  const queue = [...folders];
-  await Promise.all(
-    Array.from({ length: 8 }, async () => {
-      while (queue.length) {
-        const folder = queue.shift()!;
-        const { data } = await db.storage.from(MEDIA_BUCKET).list(folder, { limit: 1000 });
-        for (const o of (data ?? []) as ObjectInfo[]) {
-          if (o.id)
-            sizes.set(`${folder}/${o.name}`, {
-              size: o.metadata?.size ?? 0,
-              longCache: (o.metadata?.cacheControl ?? "").includes(MEDIA_CACHE_CONTROL),
-            });
-        }
-      }
-    }),
-  );
-  return sizes;
-}
-
 /** Que fotos estão pesadas (sem descarregar nenhuma: lê só os tamanhos). */
 export async function scanPhotos(): Promise<PhotoScan> {
   await requireSection("definicoes");
@@ -72,7 +44,8 @@ export async function scanPhotos(): Promise<PhotoScan> {
   const photos = (rows ?? []).filter((r) => !/^https?:\/\//i.test(r.storage_path));
 
   const folders = [...new Set(photos.map((p) => p.storage_path.split("/").slice(0, -1).join("/")))];
-  const sizes = await listFolders(db, folders);
+  const store = mediaStore(db);
+  const sizes = await store.sizes(folders);
   // Pesada = ficheiro grande E (maior do que o site mostra, dimensões
   // desconhecidas ou mesmo muito grande). Uma foto já reduzida com muito
   // detalhe pode passar dos 500 KB — não volta a aparecer como pesada.
@@ -83,11 +56,7 @@ export async function scanPhotos(): Promise<PhotoScan> {
   const todo = all.filter(heavy).map((p) => ({ id: p.id, size: p.size }));
   const stale = all.filter((p) => !heavy(p) && !p.longCache).map((p) => ({ id: p.id, size: p.size }));
 
-  const { data: backupFolders } = await db.storage.from(MEDIA_BUCKET).list(BACKUP_PREFIX, { limit: 1000 });
-  const backupSizes = await listFolders(
-    db,
-    ((backupFolders ?? []) as ObjectInfo[]).filter((f) => !f.id).map((f) => `${BACKUP_PREFIX}/${f.name}`),
-  );
+  const backupSizes = await store.tree(BACKUP_PREFIX);
   const backupSize = [...backupSizes.values()].reduce((a, b) => a + b.size, 0);
 
   return { ok: true, todo, stale, total: photos.length, backups: { count: backupSizes.size, size: backupSize } };
@@ -123,14 +92,12 @@ export async function refreshPhotoCache(ids: string[]): Promise<{ ok: boolean; e
     .in("id", ids.slice(0, PHOTOS_PER_BATCH));
   if (error) return { ok: false, error: error.message, done: 0 };
   let done = 0;
+  const store = mediaStore(db);
   for (const row of rows ?? []) {
-    const { data: blob } = await db.storage.from(MEDIA_BUCKET).download(row.storage_path);
-    if (!blob) continue;
-    const { error: upError } = await db.storage.from(MEDIA_BUCKET).upload(row.storage_path, blob, {
-      upsert: true,
-      contentType: blob.type || "image/jpeg",
-      cacheControl: MEDIA_CACHE_CONTROL,
-    });
+    const data = await store.download(row.storage_path);
+    if (!data) continue;
+    const type = /\.png$/i.test(row.storage_path) ? "image/png" : /\.webp$/i.test(row.storage_path) ? "image/webp" : "image/jpeg";
+    const upError = await store.upload(row.storage_path, data, { upsert: true, contentType: type });
     if (!upError) done++;
   }
   return { ok: true, done };
@@ -140,15 +107,11 @@ export async function refreshPhotoCache(ids: string[]): Promise<{ ok: boolean; e
 export async function deletePhotoBackups(): Promise<{ ok: boolean; error?: string; removed: number }> {
   await requireSection("definicoes");
   const db = await createClient();
-  const { data: folders } = await db.storage.from(MEDIA_BUCKET).list(BACKUP_PREFIX, { limit: 1000 });
-  const files = await listFolders(
-    db,
-    ((folders ?? []) as ObjectInfo[]).filter((f) => !f.id).map((f) => `${BACKUP_PREFIX}/${f.name}`),
-  );
-  const paths = [...files.keys()];
+  const store = mediaStore(db);
+  const paths = [...(await store.tree(BACKUP_PREFIX)).keys()];
   for (let i = 0; i < paths.length; i += 100) {
-    const { error } = await db.storage.from(MEDIA_BUCKET).remove(paths.slice(i, i + 100));
-    if (error) return { ok: false, error: error.message, removed: i };
+    const error = await store.remove(paths.slice(i, i + 100));
+    if (error) return { ok: false, error, removed: i };
   }
   return { ok: true, removed: paths.length };
 }

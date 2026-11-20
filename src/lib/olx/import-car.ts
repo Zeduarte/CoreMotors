@@ -4,7 +4,7 @@ import { fieldFor, pickValue, type OlxAttributeDef } from "@/lib/olx/attributes"
 import { unwrap } from "@/lib/olx/categories";
 import { olxFetch, type OlxResponse } from "@/lib/olx/client";
 import { BODY_TYPES, FUEL_TYPES, TRANSMISSIONS } from "@/lib/schemas";
-import { MEDIA_BUCKET, MEDIA_CACHE_CONTROL } from "@/lib/storage";
+import { mediaStore } from "@/lib/media-store";
 import { isMotorcycleBody } from "@/lib/vehicle-categories";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -179,13 +179,9 @@ export async function copyAdvertPhotos(
       continue;
     }
     const path = `${carId}/olx-${copied + 1}.jpg`;
-    const up = await db.storage.from(MEDIA_BUCKET).upload(path, photo.bytes, {
-      contentType: photo.type,
-      cacheControl: MEDIA_CACHE_CONTROL,
-      upsert: true,
-    });
-    if (up.error) {
-      console.error("olx copyAdvertPhotos:", up.error.message);
+    const upError = await mediaStore(db).upload(path, photo.bytes, { contentType: photo.type, upsert: true });
+    if (upError) {
+      console.error("olx copyAdvertPhotos:", upError);
       failed += 1;
       continue;
     }
@@ -195,7 +191,7 @@ export async function copyAdvertPhotos(
     if (error) {
       // Sem registo, o ficheiro ficava órfão no Storage.
       console.error("olx copyAdvertPhotos:", error.message);
-      await db.storage.from(MEDIA_BUCKET).remove([path]);
+      await mediaStore(db).remove([path]);
       failed += 1;
       continue;
     }

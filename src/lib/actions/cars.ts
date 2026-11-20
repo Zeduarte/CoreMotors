@@ -7,7 +7,7 @@ import { PUBLIC_DATA_TAG } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
 import { carFormSchema } from "@/lib/schemas";
 import { vehicleSlug } from "@/lib/slug";
-import { MEDIA_BUCKET } from "@/lib/storage";
+import { mediaStore } from "@/lib/media-store";
 import type { CarInsert, CarStatus } from "@/lib/supabase/database.types";
 import { olxAdvertIds, queueOlxSync, retireOlxAdverts } from "@/lib/olx/queue";
 import { deliverNotificationsSoon } from "@/lib/notifications-kick";
@@ -527,8 +527,8 @@ async function deleteCars(supabase: Db, me: ProfileRow, ids: string[]): Promise<
     out.deleted.push(id);
     await retireOlxAdverts(adverts);
     if (paths.length) {
-      const { error: cleanupError } = await supabase.storage.from(MEDIA_BUCKET).remove(paths);
-      if (cleanupError) console.error("Car media cleanup:", cleanupError.message);
+      const cleanupError = await mediaStore(supabase).remove(paths);
+      if (cleanupError) console.error("Car media cleanup:", cleanupError);
     }
   }
   return out;

@@ -1,7 +1,7 @@
 import "server-only";
 import sharp from "sharp";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { MEDIA_BUCKET, MEDIA_CACHE_CONTROL } from "@/lib/storage";
+import { mediaStore } from "@/lib/media-store";
 import { MAX_PHOTO_SIDE } from "@/lib/image-compress";
 
 /**
@@ -56,9 +56,9 @@ export async function optimizeStoredPhoto(db: SupabaseClient, row: PhotoRow): Pr
   const path = row.storage_path;
   const fail = (error: string, before = 0): PhotoResult => ({ id: row.id, before, after: before, status: "erro", error });
 
-  const { data: blob, error: dlError } = await db.storage.from(MEDIA_BUCKET).download(path);
-  if (dlError || !blob) return fail(`não descarregou (${dlError?.message ?? "vazio"})`);
-  const original = Buffer.from(await blob.arrayBuffer());
+  const store = mediaStore(db);
+  const original = await store.download(path);
+  if (!original) return fail("não descarregou");
 
   let output: Buffer;
   let width: number;
@@ -86,25 +86,23 @@ export async function optimizeStoredPhoto(db: SupabaseClient, row: PhotoRow): Pr
   // Cópia de segurança do original (se já existir de uma tentativa anterior,
   // fica a que lá está — é a original).
   const backup = `${BACKUP_PREFIX}/${path}`;
-  const { error: copyError } = await db.storage.from(MEDIA_BUCKET).copy(path, backup);
-  if (copyError && !/exists|duplicate/i.test(copyError.message)) {
-    return fail(`sem cópia de segurança, não mexi (${copyError.message})`, original.length);
+  const copyError = await store.copy(path, backup);
+  if (copyError && !/exists|duplicate/i.test(copyError)) {
+    return fail(`sem cópia de segurança, não mexi (${copyError})`, original.length);
   }
 
   // Outra extensão (ex.: .png) passa a .jpg: caminho novo, a linha da BD
   // aponta para ele e o antigo sai (o original está na cópia).
   const target = /\.jpe?g$/i.test(path) ? path : path.replace(/\.[^./]+$/, "") + ".jpg";
-  const { error: upError } = await db.storage
-    .from(MEDIA_BUCKET)
-    .upload(target, output, { upsert: true, contentType: "image/jpeg", cacheControl: MEDIA_CACHE_CONTROL });
-  if (upError) return fail(`não gravou (${upError.message})`, original.length);
+  const upError = await store.upload(target, output, { upsert: true, contentType: "image/jpeg" });
+  if (upError) return fail(`não gravou (${upError})`, original.length);
 
   const { error: rowError } = await db
     .from("car_media")
     .update({ storage_path: target, width, height })
     .eq("id", row.id);
   if (rowError) return fail(`foto gravada mas a ficha não atualizou (${rowError.message})`, original.length);
-  if (target !== path) await db.storage.from(MEDIA_BUCKET).remove([path]);
+  if (target !== path) await store.remove([path]);
 
   return { id: row.id, before: original.length, after: output.length, status: "reduzida" };
 }

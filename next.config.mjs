@@ -5,6 +5,19 @@
 // principal que o Netlify dá ao site no build (o domínio próprio, quando há).
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.URL || "";
 
+// O endereço público das fotos no Cloudflare R2 (ex.: https://fotos.supermotas.com),
+// quando as fotos lá estão — ver src/lib/storage.ts. O otimizador de imagens
+// só aceita fotos de endereços conhecidos.
+const mediaHost = (() => {
+  try {
+    if (!process.env.NEXT_PUBLIC_MEDIA_URL) return null;
+    const u = new URL(process.env.NEXT_PUBLIC_MEDIA_URL);
+    return { protocol: u.protocol.replace(":", ""), hostname: u.hostname, ...(u.port ? { port: u.port } : {}) };
+  } catch {
+    return null;
+  }
+})();
+
 // Páginas públicas guardadas na CDN do Netlify. Sem isto, cada visita acordava
 // a função nos EUA (com o Supabase na Europa). Assim a CDN guarda uma cópia e
 // a serve logo; passado um minuto, a visita seguinte ainda
@@ -74,7 +87,8 @@ const contentSecurityPolicy = [
   "media-src 'self' blob: https:",
   "font-src 'self' data:",
   // nominatim: a pesquisa de morada do mapa no backoffice (AddressMapPicker).
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://www.facebook.com https://connect.facebook.net https://nominatim.openstreetmap.org",
+  // r2.cloudflarestorage.com: o backoffice carrega as fotos direto para o Cloudflare R2.
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.r2.cloudflarestorage.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://www.facebook.com https://connect.facebook.net https://nominatim.openstreetmap.org",
   "frame-src 'self' https://www.google.com https://maps.google.com https://www.facebook.com https://web.facebook.com",
   // Service Worker e manifest da app do backoffice (/admin/sw.js,
   // /admin/manifest.webmanifest) — do próprio domínio.
@@ -121,6 +135,8 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "**.supabase.co" },
+      { protocol: "https", hostname: "**.r2.dev" },
+      ...(mediaHost ? [mediaHost] : []),
     ],
     formats: ["image/avif", "image/webp"],
   },

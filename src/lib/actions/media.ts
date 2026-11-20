@@ -5,7 +5,7 @@ import { requireCarsAccess, requireSection } from "@/lib/guard";
 
 import { revalidatePublic } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
-import { MEDIA_BUCKET } from "@/lib/storage";
+import { mediaStore } from "@/lib/media-store";
 import type { MediaKind } from "@/lib/supabase/database.types";
 import { queueOlxSync } from "@/lib/olx/queue";
 
@@ -182,8 +182,8 @@ export async function deleteMedia(
   if (error) return { ok: false, error: error.message };
 
   if (!/^https?:\/\//i.test(row.storage_path)) {
-    const {error: cleanupError} = await supabase.storage.from(MEDIA_BUCKET).remove([row.storage_path]);
-    if (cleanupError) console.error("Media cleanup:",cleanupError.message);
+    const cleanupError = await mediaStore(supabase).remove([row.storage_path]);
+    if (cleanupError) console.error("Media cleanup:", cleanupError);
   }
 
   // Se apagámos a capa, promove a primeira imagem restante.

@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { canonicalBrand } from "@/lib/brand-name";
 import { reencodePhoto } from "@/lib/photo-optimize";
-import { MEDIA_BUCKET, MEDIA_CACHE_CONTROL } from "@/lib/storage";
+import { mediaStore } from "@/lib/media-store";
 import type { WhatsAppNumber } from "./account";
 import { MAX_PHOTOS, PendingActionSchema, PhotosInput, type PendingAction } from "./actions";
 import { isUsable } from "./confirm";
@@ -581,22 +581,18 @@ export async function attachPhotos(
     const { data: blob, error } = await db.storage.from(STAGING_BUCKET).download(row.storage_path);
     if (error || !blob) return null;
     const path = `${action.carId}/${randomUUID()}.jpg`;
-    const { error: upError } = await db.storage.from(MEDIA_BUCKET).upload(path, Buffer.from(await blob.arrayBuffer()), {
-      contentType: "image/jpeg",
-      cacheControl: MEDIA_CACHE_CONTROL,
-      upsert: false,
-    });
+    const upError = await mediaStore(db).upload(path, Buffer.from(await blob.arrayBuffer()), { contentType: "image/jpeg" });
     return upError ? null : { media: row.id, path, width: row.width, height: row.height };
   });
   const done = copies.filter((c): c is NonNullable<typeof c> => c !== null);
   if (done.length !== staged.length) {
-    if (done.length) await db.storage.from(MEDIA_BUCKET).remove(done.map((c) => c.path));
+    if (done.length) await mediaStore(db).remove(done.map((c) => c.path));
     return fail("Fotografia indisponível");
   }
 
   const result = await db.rpc("wa_add_car_media", { actor, car: action.carId, items: done });
   if (result.error) {
-    await db.storage.from(MEDIA_BUCKET).remove(done.map((c) => c.path));
+    await mediaStore(db).remove(done.map((c) => c.path));
     return fail(result.error.message);
   }
   // Já estão na galeria: a cópia privada deixa de ser precisa.

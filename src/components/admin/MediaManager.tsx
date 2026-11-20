@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { MEDIA_BUCKET, MEDIA_CACHE_CONTROL, publicMediaUrl } from "@/lib/storage";
+import { publicMediaUrl } from "@/lib/storage";
+import { uploadMediaFiles } from "@/lib/media-upload";
 import { optimizePhoto } from "@/lib/image-compress";
 import {
   deleteMedia,
@@ -137,16 +138,15 @@ export function MediaManager({
         return;
       }
       try {
-        // Upload em PARALELO (rápido), preservando a ordem de seleção.
+        // Upload em PARALELO (rápido), preservando a ordem de seleção —
+        // para o Supabase ou para o Cloudflare R2 (o servidor diz qual).
+        const uploaded = await uploadMediaFiles(supabase, valid, { scope: "car", carId });
+        if (uploaded.error) toast.error(uploaded.error);
         const results = await Promise.all(
-          valid.map(async (file) => {
-            const fileExt = ext(file.name) || "bin";
-            const path = `${carId}/${crypto.randomUUID()}.${fileExt}`;
-            const { error } = await supabase.storage
-              .from(MEDIA_BUCKET)
-              .upload(path, file, { cacheControl: MEDIA_CACHE_CONTROL, upsert: false });
-            if (error) {
-              toast.error(`Falha ao carregar ${file.name}.`);
+          valid.map(async (file, i) => {
+            const path = uploaded.paths[i];
+            if (!path) {
+              if (!uploaded.error) toast.error(`Falha ao carregar ${file.name}.`);
               return null;
             }
             const { width, height } = await imageSize(file);
