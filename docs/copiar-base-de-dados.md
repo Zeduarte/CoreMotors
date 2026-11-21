@@ -13,6 +13,7 @@ backoffice e fotos) para um projeto **novo e vazio**, por exemplo noutra conta.
 |---|---|
 | Tabelas (viaturas, contactos, oficina, financeiro, …) | ✅ |
 | Utilizadores do backoffice, com as mesmas palavras-passe | ✅ |
+| Regras de acesso, também as das fotos (`storage.objects`), e o gatilho dos novos utilizadores | ✅ |
 | Fotos e vídeos (buckets `car-media` e `wa-media`) | ✅ |
 | Definições do painel do Supabase (Auth → URL Configuration, SMTP, modelos de email) | ❌ só são precisas se um dia o site passar a usar a cópia |
 | Chaves da API | ❌ o projeto novo tem as suas |
