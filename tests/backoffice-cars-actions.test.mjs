@@ -222,17 +222,19 @@ await test('a car-only seller cannot create, change or delete motorcycles, nor w
   assert.equal((await cars.setCarStatus(CAR, 'draft')).ok, true);
 });
 
-// ---- 8. Vendida e reservada só pelo contacto ------------------------------------------
-await test('sold and reserved are only set through the lead flow; reverting a sale is admin-only and never for a recorded sale', async () => {
+// ---- 8. Vendida com preço e data; reservada à mão ou pelo contacto ---------------------
+await test('sold is never a plain status change; reserved can be picked by hand; reverting a sale is admin-only and never for a recorded sale', async () => {
   assert.match(manualStatusError('published', 'sold', { isAdmin: true }), /Concluir venda/);
-  assert.match(manualStatusError('published', 'reserved', { isAdmin: true }), /Confirmar reserva/);
+  assert.equal(manualStatusError('published', 'reserved', { isAdmin: false }), null, 'reserva sem contacto: escolhe-se à mão');
   assert.match(manualStatusError('reserved', 'draft', { isAdmin: true, activeReservation: true }), /reserva ativa/);
   assert.equal(manualStatusError('reserved', 'published', { isAdmin: false, activeReservation: false }), null, 'reservada sem reserva (antiga): corrige-se');
   assert.match(manualStatusError('sold', 'draft', { isAdmin: false }), /administrador/);
   assert.match(manualStatusError('sold', 'published', { isAdmin: true, saleRecorded: true }), /contacto/);
   assert.equal(manualStatusError('sold', 'published', { isAdmin: true, saleRecorded: false }), null);
-  assert.deepEqual(manualStatusOptions('published', false), ['draft', 'prepared', 'published']);
+  assert.deepEqual(manualStatusOptions('published', false), ['draft', 'prepared', 'published', 'reserved']);
+  assert.deepEqual(manualStatusOptions('reserved', false), ['draft', 'prepared', 'published', 'reserved']);
   assert.deepEqual(manualStatusOptions('sold', false), ['sold']);
+  assert.deepEqual(manualStatusOptions('sold', true), ['sold', 'draft', 'prepared', 'published', 'reserved']);
 
   seed();
   me = { id: 'u2', role: 'vendedor', allowed_vehicle_types: null, allowed_sections: null };
@@ -245,6 +247,9 @@ await test('sold and reserved are only set through the lead flow; reverting a sa
   assert.match(bulk.error, /^1 viatura atualizada\. Ficaram como estavam — Yamaha MT-07: Só um administrador/);
   assert.deepEqual(t.cars.map((c) => c.status), ['draft', 'sold']);
   assert.deepEqual(olx.queued, [CAR]);
+  // «Reservada» à mão (reserva sem contacto): o servidor aceita.
+  assert.equal((await cars.setCarStatus(CAR, 'reserved')).ok, true);
+  assert.equal(t.cars[0].status, 'reserved');
 });
 
 await test('em lote, nem o administrador tira uma viatura de «Vendida» (só uma a uma, com confirmação)', async () => {
@@ -266,9 +271,9 @@ await test('the backoffice no longer has an /admin/vehicle-context switch', () =
 // ---- Venda sem contacto («Vendida» com preço e data) -------------------------
 await test('selling without a contact asks for price and date, needs Custos, and records the sale', async () => {
   // O seletor só oferece «Vendida» a quem tem acesso a Custos.
-  assert.deepEqual(manualStatusOptions('published', false, true), ['draft', 'prepared', 'published', 'sold']);
-  assert.deepEqual(manualStatusOptions('reserved', false, true), ['reserved', 'draft', 'prepared', 'published', 'sold']);
-  assert.deepEqual(manualStatusOptions('published', false, false), ['draft', 'prepared', 'published']);
+  assert.deepEqual(manualStatusOptions('published', false, true), ['draft', 'prepared', 'published', 'reserved', 'sold']);
+  assert.deepEqual(manualStatusOptions('reserved', false, true), ['draft', 'prepared', 'published', 'reserved', 'sold']);
+  assert.deepEqual(manualStatusOptions('published', false, false), ['draft', 'prepared', 'published', 'reserved']);
   assert.ok(!manualStatusOptions('workshop', true, true).includes('sold'), 'na oficina não se vende');
   // Uma simples mudança de estado para «Vendida» continua recusada (sem preço nem data).
   seed();
