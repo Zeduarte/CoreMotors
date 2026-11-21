@@ -49,6 +49,8 @@ const server=http.createServer(async(req,res)=>{
  }
  m=url.pathname.match(/^\/v25\.0\/(\d+)\/message_templates$/);
  if(m&&req.method==='POST'){
+  // A Meta demora a criar cada modelo (segundos, na realidade).
+  if(meta.templateDelayMs)await new Promise(r=>setTimeout(r,meta.templateDelayMs));
   if(meta.existing.has(body.name))return send(400,{error:{message:'Message template already exists in this language',code:100}});
   if(meta.dupSub?.has(body.name))return send(400,{error:{message:'Invalid parameter',code:100,error_subcode:meta.dupSub.get(body.name),error_user_msg:'There is already Portuguese (POR) content for this template.'}});
   meta.templates.push({waba:m[1],...body});return send(200,{id:'1',status:'PENDING',category:'UTILITY'});
@@ -354,7 +356,9 @@ await test('creating the templates submits all nine as Utility in pt_PT, and ski
  const numero={phoneNumberId:'222',accessToken:TOKEN,source:'backoffice'};
  const r=await createMessageTemplates(numero,'111');
  assert.equal(r.ok,true);
- assert.deepEqual(meta.templates.map(t=>t.name),['engineline_contacto','engineline_novidade','engineline_testemunho_novo','engineline_visita_equipa','engineline_aviso_geral','engineline_alerta_stock','engineline_visita','engineline_visita_cancelada','engineline_visita_pedido']);
+ // Pedidos em simultâneo: a ordem de chegada à Meta não é fixa, mas as linhas do resumo seguem a lista.
+ assert.deepEqual(meta.templates.map(t=>t.name).sort(),['engineline_contacto','engineline_novidade','engineline_testemunho_novo','engineline_visita_equipa','engineline_aviso_geral','engineline_alerta_stock','engineline_visita','engineline_visita_cancelada','engineline_visita_pedido'].sort());
+ assert.deepEqual(r.lines.map(l=>l.split(':')[0]),['engineline_contacto','engineline_novidade','engineline_testemunho_novo','engineline_visita_equipa','engineline_aviso_geral','engineline_alerta_stock','engineline_visita','engineline_visita_cancelada','engineline_visita_pedido']);
  for(const t of meta.templates){
   assert.equal(t.waba,'111');assert.equal(t.category,'UTILITY');assert.equal(t.language,'pt_PT');
   const [body]=t.components;assert.equal(body.type,'BODY');
@@ -383,6 +387,19 @@ await test('a template Meta reports as already there (subcodes 2388024/2388026) 
  assert.equal(r.ok,true);
  assert.match(r.lines[0],/engineline_contacto: já existia/);assert.match(r.lines[1],/engineline_novidade: já existia/);
  assert.equal(meta.templates.length,7);
+});
+
+await test('the nine templates go to Meta at the same time, so the button answers within Netlify\'s 10 s limit',async()=>{
+ // Um a um, nove pedidos de alguns segundos passavam dos 10 s do Netlify e o
+ // botão mostrava «Não foi possível guardar. Verifique a ligação…».
+ reset();meta.templates.length=0;meta.existing.clear();meta.templateDelayMs=300;
+ const numero={phoneNumberId:'222',accessToken:TOKEN,source:'backoffice'};
+ const inicio=Date.now();
+ const r=await createMessageTemplates(numero,'111');
+ const ms=Date.now()-inicio;
+ meta.templateDelayMs=0;
+ assert.equal(r.ok,true);assert.equal(meta.templates.length,9);
+ assert.ok(ms<1500,`demorou ${ms} ms (um a um seriam 9 × 300 ms)`);
 });
 
 server.close();

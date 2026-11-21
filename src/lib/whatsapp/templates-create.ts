@@ -53,23 +53,37 @@ export async function createMessageTemplates(
     };
   }
   const language = templateLanguage();
+  const token = number.accessToken;
   const falhas: string[] = [];
-  for (const { name, def } of definitions()) {
-    const r = await graphRequest(`${wabaId}/message_templates`, {
-      method: "POST",
-      token: number.accessToken,
-      body: {
-        name,
-        language,
-        category: "UTILITY",
-        components: [
-          { type: "BODY", text: def.body, example: { body_text: [def.example] } },
-          ...(def.buttons?.length
-            ? [{ type: "BUTTONS", buttons: def.buttons.map((text) => ({ type: "QUICK_REPLY", text })) }]
-            : []),
-        ],
-      },
-    });
+  // Todos ao mesmo tempo: a Meta demora segundos a criar cada modelo, e um a um
+  // os nove passavam dos 10 s que o Netlify dá a um pedido — o botão mostrava
+  // «Não foi possível guardar. Verifique a ligação…» sem dizer o que ficou
+  // feito. Cada pedido tem 8 s; um que não responda a tempo aparece como
+  // recusado e, ao carregar outra vez, os que entretanto ficaram criados dizem
+  // «já existia».
+  const all = definitions();
+  const results = await Promise.all(
+    all.map(({ name, def }) =>
+      graphRequest(`${wabaId}/message_templates`, {
+        method: "POST",
+        token,
+        timeoutMs: 8000,
+        body: {
+          name,
+          language,
+          category: "UTILITY",
+          components: [
+            { type: "BODY", text: def.body, example: { body_text: [def.example] } },
+            ...(def.buttons?.length
+              ? [{ type: "BUTTONS", buttons: def.buttons.map((text) => ({ type: "QUICK_REPLY", text })) }]
+              : []),
+          ],
+        },
+      }),
+    ),
+  );
+  for (const [i, { name }] of all.entries()) {
+    const r = results[i]!;
     if (r.ok) lines.push(`${name}: enviado para aprovação.`);
     // A Meta responde «Invalid parameter» com um subcódigo quando o modelo já existe:
     // 2388024 (já há conteúdo nesse idioma) e 2388026 (existe com outra categoria,
@@ -81,6 +95,6 @@ export async function createMessageTemplates(
     }
   }
   return falhas.length
-    ? { ok: false, error: `A Meta recusou ${falhas.length} de ${definitions().length}: ${falhas.join(", ")}.`, lines }
+    ? { ok: false, error: `A Meta recusou ${falhas.length} de ${all.length}: ${falhas.join(", ")}.`, lines }
     : { ok: true, lines };
 }
