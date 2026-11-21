@@ -158,6 +158,13 @@ push/PR.
 > **Supabase Auth:** em **Authentication → URL Configuration**, adicione o
 > domínio do Netlify (produção e previews) aos _Redirect URLs_ / _Site URL_.
 
+## Copiar a base de dados para outro projeto
+
+A ação **Copiar base de dados** (GitHub → Actions) copia as tabelas, os
+utilizadores e as fotos para um projeto Supabase novo, por exemplo noutra conta,
+sem mexer no projeto atual. Passo a passo em
+[docs/copiar-base-de-dados.md](docs/copiar-base-de-dados.md).
+
 ## Checklist de testes (validação funcional)
 
 - [ ] **Login** — `/admin` sem sessão redireciona para `/admin/login`; login
