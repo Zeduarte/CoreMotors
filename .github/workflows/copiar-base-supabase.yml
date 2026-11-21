@@ -57,6 +57,13 @@ jobs:
             exit 1
           fi
 
+      - uses: actions/checkout@v4
+
+      # Projeto e servidor de cada endereço, e os enganos comuns ao colar
+      # (sem mostrar a palavra-passe).
+      - name: Verificar os endereços
+        run: node scripts/verificar-enderecos-supabase.mjs
+
       # ---------------------------------------------------------------- base
       - name: Instalar o cliente PostgreSQL 17
         if: inputs.copiar != 'apenas as fotos'
@@ -70,8 +77,21 @@ jobs:
         if: inputs.copiar != 'apenas as fotos'
         run: |
           q="select (select count(*) from pg_tables where schemaname = 'public') + (select count(*) from storage.buckets) + (select count(*) from auth.users)"
-          origem=$(psql "$ORIGEM_DB_URL" -X -At -v ON_ERROR_STOP=1 -c "$q")
-          destino=$(psql "$DESTINO_DB_URL" -X -At -v ON_ERROR_STOP=1 -c "$q")
+          entrar() { # $1 = ORIGEM | DESTINO
+            local url="${1}_DB_URL" nome; [ "$1" = ORIGEM ] && nome="projeto atual" || nome="projeto novo"
+            if ! psql "${!url}" -X -At -v ON_ERROR_STOP=1 -c "$q" > "linhas-$1.txt" 2> erro.txt; then
+              echo "::error::Não consegui entrar na base de $1 ($nome): $(grep -m1 -o 'FATAL:.*' erro.txt || tail -1 erro.txt)"
+              if grep -q "password authentication failed" erro.txt; then
+                echo "::error::A palavra-passe dentro de SUPABASE_${1}_DB_URL não é a da base do $nome. Faça Reset database password nesse projeto e cole a nova no segredo (se acabou de a mudar, espere 2 minutos e tente outra vez)."
+              fi
+              exit 1
+            fi
+            echo "Entrei na base de $1 ($nome) ✔"
+          }
+          entrar ORIGEM
+          entrar DESTINO
+          origem=$(cat linhas-ORIGEM.txt)
+          destino=$(cat linhas-DESTINO.txt)
           if [ "$origem" = "0" ]; then
             echo "::error::A origem não tem tabelas, buckets nem utilizadores. Os segredos ORIGEM e DESTINO estão trocados?"
             exit 1
@@ -194,9 +214,6 @@ jobs:
           fi
 
       # --------------------------------------------------------------- fotos
-      - uses: actions/checkout@v4
-        if: inputs.copiar != 'apenas a base'
-
       - uses: actions/setup-node@v4
         if: inputs.copiar != 'apenas a base'
         with:
