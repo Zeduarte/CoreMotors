@@ -390,7 +390,7 @@ export function CarsTable({
                         className="rounded-lg border border-white/10 bg-ink px-2 py-1 text-xs text-paper"
                         aria-label="Mudar estado"
                       >
-                        {/* Reservada só pelo contacto do cliente; Vendida pede preço e data. */}
+                        {/* Vendida pede preço e data; a reserva com prazo e sinal faz-se no contacto. */}
                         {manualStatusOptions(car.status, isAdmin, canSell).map((s) => (
                           <option key={s} value={s}>
                             {CAR_STATUS_LABEL[s]}

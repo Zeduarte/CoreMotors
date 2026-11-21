@@ -37,6 +37,8 @@ export async function graphRequest<T>(
     token?: string;
     query?: Record<string, string>;
     body?: unknown;
+    /** Tempo limite do pedido (por omissão 10 s). */
+    timeoutMs?: number;
   } = {},
 ): Promise<GraphResult<T>> {
   const url = new URL(`${graphBase()}/${graphVersion()}/${path}`);
@@ -51,7 +53,7 @@ export async function graphRequest<T>(
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
       // Tempo limite curto e sem seguir redireccionamentos, que num pedido com
       // o token seriam uma fuga (como em src/lib/notifications.ts).
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(options.timeoutMs ?? 10000),
       redirect: "error",
     });
     const data = (await response.json().catch(() => null)) as

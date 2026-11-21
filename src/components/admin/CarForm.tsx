@@ -596,7 +596,7 @@ export function CarForm({
           </div>
           <Field label="Estado" error={errors.status?.message}>
             <select className="field" {...register("status")}>
-              {/* Vendida e reservada só pelo contacto do cliente (car-status.ts). */}
+              {/* Vendida pede preço e data (car-status.ts). */}
               {manualStatusOptions(defaults?.status ?? "draft", isAdmin).map((s) => (
                 <option key={s} value={s}>
                   {CAR_STATUS_LABEL[s]}
