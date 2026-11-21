@@ -217,7 +217,8 @@ jobs:
       - uses: actions/setup-node@v4
         if: inputs.copiar != 'apenas a base'
         with:
-          node-version: 20
+          # O @supabase/supabase-js 2.111 exige Node 22 (WebSocket nativo).
+          node-version: 22
           cache: npm
 
       - name: Instalar dependências
