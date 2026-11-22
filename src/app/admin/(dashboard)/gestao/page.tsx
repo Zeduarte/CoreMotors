@@ -1,5 +1,5 @@
 import { requireOwner } from "@/lib/guard";
-import { getSiteTheme } from "@/lib/site-theme-query";
+import { getSiteAppearance } from "@/lib/site-theme-query";
 import { SiteThemeForm } from "@/components/admin/SiteThemeForm";
 import { THEMES } from "@/themes/index";
 import { MediaStorageCard } from "@/components/admin/MediaStorageCard";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function GestaoPage() {
   await requireOwner();
-  const [current, media] = await Promise.all([getSiteTheme(), getMediaStorageStatus()]);
+  const [current, media] = await Promise.all([getSiteAppearance(), getMediaStorageStatus()]);
   const themes = Object.values(THEMES).map(({ id, label, description }) => ({ id, label, description }));
 
   return (
@@ -27,10 +27,10 @@ export default async function GestaoPage() {
         <h2 className="text-lg font-semibold text-paper">Versão do site</h2>
         <p className="mt-1 text-sm text-paper/50">
           O aspeto do site público. Os dados (viaturas, contactos, textos da página inicial) são os mesmos em
-          todas as versões.
+          todas as versões. Cada versão pode ser escura, clara ou seguir o sistema de quem visita.
         </p>
       </div>
-      <SiteThemeForm initial={current} themes={themes} />
+      <SiteThemeForm initial={current.theme} initialModes={current.modes} themes={themes} />
 
       <div className="mb-6 mt-10">
         <h2 className="text-lg font-semibold text-paper">Fotos</h2>

@@ -4,23 +4,36 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { saveSiteTheme } from "@/lib/actions/gestao";
-import type { ThemeId } from "@/themes/index";
+import { SITE_MODES, SITE_MODE_LABELS, type SiteMode, type ThemeId } from "@/themes/index";
 
-/** Gestão → Versão do site: um cartão por tema (Core, Core2). */
+const MODE_HINT: Record<SiteMode, string> = {
+  dark: "O de sempre: fundo preto.",
+  light: "O mesmo site, com fundo branco.",
+  system: "Escuro ou claro, conforme o sistema do dispositivo de quem visita.",
+};
+
+/**
+ * Gestão → Versão do site: um cartão por tema (Core, Core2). Em cada um, a
+ * aparência: Escuro, Claro ou Automático (segue o sistema do dispositivo).
+ */
 export function SiteThemeForm({
   initial,
+  initialModes,
   themes,
 }: {
   initial: ThemeId;
+  initialModes: Record<ThemeId, SiteMode>;
   themes: { id: ThemeId; label: string; description: string }[];
 }) {
   const router = useRouter();
   const [theme, setTheme] = useState<ThemeId>(initial);
+  const [modes, setModes] = useState<Record<ThemeId, SiteMode>>(initialModes);
   const [pending, start] = useTransition();
+  const changed = theme !== initial || themes.some((t) => modes[t.id] !== initialModes[t.id]);
 
   function save() {
     start(async () => {
-      const r = await saveSiteTheme(theme);
+      const r = await saveSiteTheme(theme, modes);
       if (!r.ok) {
         toast.error(r.error ?? "Não foi possível guardar.");
         return;
@@ -36,35 +49,54 @@ export function SiteThemeForm({
         {themes.map((t) => {
           const on = t.id === theme;
           return (
-            <button
+            <div
               key={t.id}
-              type="button"
-              aria-pressed={on}
-              onClick={() => setTheme(t.id)}
-              className={`rounded-2xl border p-4 text-left transition-colors ${
+              className={`rounded-2xl border p-4 transition-colors ${
                 on
                   ? "border-[color:var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]"
                   : "border-white/10 hover:border-white/25"
               }`}
             >
-              <span className="flex items-center gap-2 font-semibold text-paper">
-                <span
-                  aria-hidden
-                  className={`grid h-4 w-4 place-items-center rounded-full border ${
-                    on ? "border-[color:var(--accent)]" : "border-white/20"
-                  }`}
-                >
-                  {on && <span className="h-2 w-2 rounded-full bg-accent" />}
-                </span>
-                {t.label}
-                {t.id === initial && (
-                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-paper/60">
-                    Em uso
+              <button type="button" aria-pressed={on} onClick={() => setTheme(t.id)} className="block w-full text-left">
+                <span className="flex items-center gap-2 font-semibold text-paper">
+                  <span
+                    aria-hidden
+                    className={`grid h-4 w-4 place-items-center rounded-full border ${
+                      on ? "border-[color:var(--accent)]" : "border-white/20"
+                    }`}
+                  >
+                    {on && <span className="h-2 w-2 rounded-full bg-accent" />}
                   </span>
-                )}
-              </span>
-              <span className="mt-1 block text-xs text-paper/55">{t.description}</span>
-            </button>
+                  {t.label}
+                  {t.id === initial && (
+                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-paper/60">
+                      Em uso
+                    </span>
+                  )}
+                </span>
+                <span className="mt-1 block text-xs text-paper/55">{t.description}</span>
+              </button>
+
+              <div role="group" aria-label={`Aparência do ${t.label}`} className="mt-4 grid grid-cols-3 gap-1 rounded-full border border-white/10 p-1">
+                {SITE_MODES.map((m) => {
+                  const picked = modes[t.id] === m;
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      aria-pressed={picked}
+                      onClick={() => setModes((prev) => ({ ...prev, [t.id]: m }))}
+                      className={`rounded-full px-2 py-1.5 text-xs font-semibold transition-colors ${
+                        picked ? "bg-paper text-ink" : "text-paper/65 hover:text-paper"
+                      }`}
+                    >
+                      {SITE_MODE_LABELS[m]}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs text-paper/45">{MODE_HINT[modes[t.id]]}</p>
+            </div>
           );
         })}
       </div>
@@ -72,7 +104,7 @@ export function SiteThemeForm({
         <a href="/" target="_blank" rel="noreferrer" className="text-sm text-accent hover:underline">
           Ver o site ↗
         </a>
-        <button type="button" onClick={save} disabled={pending || theme === initial} className="btn-primary">
+        <button type="button" onClick={save} disabled={pending || !changed} className="btn-primary">
           {pending ? "A guardar…" : "Guardar versão"}
         </button>
       </div>

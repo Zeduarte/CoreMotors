@@ -51,6 +51,18 @@ test("themes: Core and Core2, every home section, and the saved theme falls back
   assert.notEqual(T.getTheme("core2").homeSections, T.getTheme("core").homeSections);
   for (const raw of [null, {}, { theme: "outro" }, { theme: 2 }]) assert.equal(T.parseThemeId(raw), "core", JSON.stringify(raw));
   assert.equal(T.parseThemeId({ theme: "core2" }), "core2");
+  // A aparência de cada versão: Escuro (o de sempre), Claro ou Automático; o que faltar é Escuro.
+  assert.deepEqual(T.SITE_MODES, ["dark", "light", "system"]);
+  assert.deepEqual(Object.values(T.SITE_MODE_LABELS), ["Escuro", "Claro", "Automático"]);
+  for (const raw of [null, {}, { theme: "core2" }, { modes: { core: "rosa" } }])
+    assert.deepEqual(T.parseSiteModes(raw), { core: "dark", core2: "dark" }, JSON.stringify(raw));
+  assert.deepEqual(T.parseSiteModes({ modes: { core: "light", core2: "system" } }), { core: "light", core2: "system" });
+  assert.deepEqual(T.parseSiteAppearance({ theme: "core2", modes: { core: "light", core2: "system" } }), {
+    theme: "core2",
+    mode: "system",
+    modes: { core: "light", core2: "system" },
+  });
+  assert.equal(T.parseSiteAppearance({ theme: "core", modes: { core: "light" } }).mode, "light", "cada versão tem a sua");
   // O CSS do Core2 fica todo debaixo do atributo do tema.
   const css = readFileSync("src/themes/core2.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   for (const rule of css.split("}").map((r) => r.trim()).filter(Boolean))
@@ -97,6 +109,67 @@ test("saving the site theme: only the owner, only known themes, and the public s
   assert.equal((await saveSiteTheme("core2")).ok, true);
   assert.deepEqual(writes[0], ["site_content", { key: "theme", content: { theme: "core2" } }, { onConflict: "key" }]);
   assert.deepEqual(revalidated[0], ["/", "layout"]);
+  // Com a aparência de cada versão (só modos conhecidos, todas as versões).
+  assert.equal((await saveSiteTheme("core", { core: "light", core2: "system" })).ok, true);
+  assert.deepEqual(writes[1][1], { key: "theme", content: { theme: "core", modes: { core: "light", core2: "system" } } });
+  assert.match((await saveSiteTheme("core", { core: "rosa", core2: "dark" })).error, /Escuro, Claro ou Automático/);
+  assert.match((await saveSiteTheme("core", { core: "light" })).error, /Escuro, Claro ou Automático/);
+  assert.match((await saveSiteTheme("core", null)).error, /Escuro, Claro ou Automático/);
+  assert.equal(writes.length, 2);
+});
+
+test("Gestão: each version (Core, Core2) has Escuro · Claro · Automático, and saving sends the version and every appearance", async () => {
+  const React = require("react");
+  const { renderToStaticMarkup } = require("react-dom/server");
+  const { SiteThemeForm } = loader({
+    "next/navigation": { useRouter: () => ({ refresh() {} }) },
+    sonner: { toast: { success() {}, error() {} } },
+    "@/lib/actions/gestao": { saveSiteTheme: async () => ({ ok: true }) },
+  })("src/components/admin/SiteThemeForm.tsx");
+  const html = renderToStaticMarkup(
+    React.createElement(SiteThemeForm, {
+      initial: "core2",
+      initialModes: { core: "dark", core2: "system" },
+      themes: [
+        { id: "core", label: "Core", description: "O original." },
+        { id: "core2", label: "Core2", description: "Stock das maquetes." },
+      ],
+    }),
+  );
+  assert.match(html, /aria-label="Aparência do Core"/);
+  assert.match(html, /aria-label="Aparência do Core2"/);
+  const groups = html.split('aria-label="Aparência do ').slice(1).map((g) => [...g.matchAll(/aria-pressed="(true|false)"[^>]*>([^<]+)</g)].map((m) => `${m[2]}:${m[1]}`).slice(0, 3));
+  assert.deepEqual(groups, [
+    ["Escuro:true", "Claro:false", "Automático:false"],
+    ["Escuro:false", "Claro:false", "Automático:true"],
+  ]);
+  assert.match(html, /conforme o sistema do dispositivo/);
+  assert.match(html, /<button type="button" disabled="" class="btn-primary">Guardar versão/, "sem mudanças, nada a guardar");
+  // A Gestão lê a versão e as aparências guardadas.
+  const page = readFileSync("src/app/admin/(dashboard)/gestao/page.tsx", "utf8");
+  assert.match(page, /<SiteThemeForm initial=\{current\.theme\} initialModes=\{current\.modes\}/);
+});
+
+test("appearance CSS: dark keeps Tailwind's values, light (and Automático with a light system) turns the site white", () => {
+  const css = readFileSync("src/themes/modes.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  // Tudo fica no site público (nada do backoffice).
+  for (const rule of css.replace(/@media[^{]*\{/g, "").split("}").map((r) => r.trim()).filter(Boolean))
+    assert.match(rule, /^(?:\.site\b|html:has\(\.site)/, `regra fora do site: ${rule.slice(0, 60)}`);
+  // No escuro as películas são brancas, com os valores do Tailwind (nada muda no site de sempre).
+  assert.match(css, /\.site \{\s*--site-film: 255 255 255;/);
+  assert.match(css, /\.site \.border-white\\\/10 \{ border-color: rgb\(var\(--site-film\) \/ 0\.1\); \}/);
+  // O claro: fundo branco, texto escuro, películas pretas; o Automático faz o mesmo com o sistema em claro.
+  const block = (sel) => css.match(new RegExp(`${sel.replace(/[[\]().*"=]/g, "\\$&")} \\{([^}]*)\\}`))?.[1].replace(/\s+/g, " ").trim();
+  const light = block('.site[data-site-mode="light"]');
+  assert.match(light, /--ink: 255 255 255;[\s\S]*--paper: 20 20 22;[\s\S]*--site-film: 0 0 0;[\s\S]*color-scheme: light;/);
+  assert.match(css, /@media \(prefers-color-scheme: light\) \{\s*\.site\[data-site-mode="system"\] \{/);
+  assert.equal(block('.site[data-site-mode="system"]'), light, "o Automático em claro é igual ao Claro");
+  assert.match(css, /html:has\(\.site\[data-site-mode="light"\]\) body \{\s*background-color: #ffffff;/);
+  // A layout põe a aparência no invólucro do site.
+  const layout = readFileSync("src/app/(public)/layout.tsx", "utf8");
+  assert.match(layout, /data-site-theme=\{theme\} data-site-mode=\{mode\}/);
+  assert.match(layout, /import "@\/themes\/modes\.css";/);
+  assert.match(layout, /const \{ theme, mode \} = appearance;/);
 });
 
 test("the Gestão page is guarded by requireOwner, which sends anyone else to the Dashboard", async () => {
@@ -337,8 +410,15 @@ test("Core2 stock list: filter column and active filters bar as in the mockup, d
   // Os cartões das viaturas são os do stock do Core (foto, favorito, ano, preço, dados e ponto de venda).
   assert.deepEqual([...html.matchAll(/data-card="([^"]+)"/g)].map((m) => m[1]), ["gs"]);
   assert.match(html, /data-card="gs" data-priority="true"/);
-  // Grelha de 3 colunas no computador, 2 no meio e 1 no telemóvel; a coluna dos filtros num botão no telemóvel.
-  assert.match(html, /grid gap-x-6 gap-y-10 sm:grid-cols-2 min-\[1380px\]:grid-cols-3/);
+  // Grelha: 4 por linha nos ecrãs largos, 3 nos médios, 2 nos tablets e 1 no telemóvel; a coluna dos filtros um pouco mais estreita.
+  assert.match(html, /grid gap-x-5 gap-y-8 sm:grid-cols-2 xl:grid-cols-3 min-\[1600px\]:grid-cols-4/);
+  assert.match(html, /lg:grid-cols-\[19rem_minmax\(0,1fr\)\] xl:grid-cols-\[20\.5rem_minmax\(0,1fr\)\]/);
+  // Telemóvel: Marca e Modelo à vista, como no stock do Core (o resto no botão «Filtros»).
+  const quick = html.match(/<div class="mb-4 space-y-4 [^"]*lg:hidden">([\s\S]*?)<\/div>/)?.[1] ?? "";
+  assert.match(quick, />Marca<\/span><select[^>]*><option value="">Todas<\/option><option value="BMW" selected="">BMW<\/option><option value="Honda">Honda<\/option><option value="Yamaha">Yamaha<\/option><\/select>/);
+  assert.match(quick, />Modelo<\/span><select[^>]*><option value="" selected="">Todos<\/option><option value="X">X<\/option><\/select>/);
+  assert.match(render("marca=BMW,Honda", both), /<option value="__varias__" disabled="" selected="">Várias marcas<\/option>/);
+  assert.match(render("marca=Honda&modelo=PCX", both), /<option value="PCX" selected="">PCX<\/option>/, "o modelo pedido fica à vista");
   assert.match(html, /<aside aria-label="Filtros" class="hidden lg:block">/);
   assert.match(html, /aria-haspopup="dialog"[^>]*lg:hidden/);
   // Nada por baixo da grelha (sem alerta nem pesquisas populares).
@@ -409,15 +489,29 @@ test("only the stock page changes with Core2 (top + list); the layout, the home 
   assert.deepEqual(users.filter((f) => !f.startsWith("src/components/themes/core2/")), ["src/app/(public)/inventario/page.tsx"]);
 });
 
-test("Core2 keeps the site's black background (no palette changes), the stock's fields are dark, and the photos come with the theme", () => {
+test("Core2 leaves the palette to the appearance (no colours of its own), the stock's fields follow it, and the photos come with the theme", () => {
   const css = readFileSync("src/themes/core2.css", "utf8");
   const rules = css.replace(/\/\*[\s\S]*?\*\//g, "");
-  assert.doesNotMatch(rules, /--ink:|--paper:|--background:|color-scheme: light|html:has|\.border-white|\.bg-white/);
-  assert.match(rules, /\[data-site-theme="core2"\] \.core2-stock \{\s*color-scheme: dark;/);
+  assert.doesNotMatch(rules, /--ink:|--paper:|--background:|color-scheme: (?:light|dark)|html:has|\.border-white|\.bg-white/);
+  assert.match(rules, /\[data-site-theme="core2"\] \.core2-stock \{\s*color-scheme: var\(--site-scheme, dark\);/);
+  assert.match(rules, /border: 1px solid rgb\(var\(--site-film, 255 255 255\) \/ 0\.18\)/);
   assert.match(rules, /\[data-site-theme="core2"\] \.core2-serif \{[^}]*var\(--font-core2-serif\)/);
   assert.match(readFileSync("src/themes/core2/fonts.ts", "utf8"), /DM_Serif_Display\([\s\S]*preload: false[\s\S]*--font-core2-serif/);
+  // As fotos: a da loja (recorte das maquetes) e as originais das categorias (horizontais, 1376x768).
+  const jpegSize = (buf) => {
+    for (let i = 2; i < buf.length; ) {
+      const marker = buf[i + 1];
+      const len = buf.readUInt16BE(i + 2);
+      if (marker >= 0xc0 && marker <= 0xc3) return [buf.readUInt16BE(i + 7), buf.readUInt16BE(i + 5)];
+      i += 2 + len;
+    }
+    return null;
+  };
   for (const name of ["inicio", "motas", "moto4", "carros"]) {
     const jpg = readFileSync(`public/media/core2/${name}.jpg`);
     assert.deepEqual([...jpg.subarray(0, 3)], [0xff, 0xd8, 0xff], `${name}.jpg é um JPEG`);
+    if (name !== "inicio") assert.deepEqual(jpegSize(jpg), [1376, 768], `${name}.jpg é a original`);
   }
+  // A viatura está à direita e em baixo nas fotos das categorias.
+  assert.match(readFileSync("src/components/themes/core2/Core2StockTop.tsx", "utf8"), /object-\[85%_60%\]/);
 });

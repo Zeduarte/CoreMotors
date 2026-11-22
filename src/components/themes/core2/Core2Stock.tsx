@@ -95,6 +95,11 @@ export function Core2Stock({ vehicles, siteTypes }: { vehicles: Vehicle[]; siteT
     setApplied((s) => ({ ...s, sort }));
     setDraft((s) => ({ ...s, sort }));
   };
+  // Telemóvel: Marca e Modelo à vista (mudam logo a lista, como no stock do Core).
+  const quick = (patch: Partial<Core2Filters>) => {
+    setApplied((s) => ({ ...s, filters: { ...s.filters, ...patch } }));
+    setDraft((s) => ({ ...s, filters: { ...s.filters, ...patch } }));
+  };
   const openSheet = () => {
     // O painel abre com o que está aplicado (o que ficou por aplicar da última vez sai).
     setDraft(applied);
@@ -119,13 +124,15 @@ export function Core2Stock({ vehicles, siteTypes }: { vehicles: Vehicle[]; siteT
     // `#lista`: os botões e as categorias do topo saltam para aqui.
     <div id="lista" className="core2-stock scroll-mt-20 pb-24 pt-8 text-paper md:pt-10">
       <div className="container-px">
-        <div className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)] xl:gap-7">
+        <div className="grid gap-6 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[20.5rem_minmax(0,1fr)]">
           {/* Coluna dos filtros (no telemóvel, no painel do botão «Filtros»). */}
           <aside aria-label="Filtros" className="hidden lg:block">
             {panel(false)}
           </aside>
 
           <div className="min-w-0">
+            <QuickFilters vehicles={vehicles} filters={applied.filters} onChange={quick} />
+
             {/* Barra de cima: filtros activos · quantos · ordenar. */}
             <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl border border-white/10 bg-ink-soft px-4 py-3 md:px-6">
               <button
@@ -183,7 +190,7 @@ export function Core2Stock({ vehicles, siteTypes }: { vehicles: Vehicle[]; siteT
               </div>
             ) : (
               <section aria-label="Viaturas" className="mt-6">
-                <ul className="grid gap-x-6 gap-y-10 sm:grid-cols-2 min-[1380px]:grid-cols-3">
+                <ul className="grid gap-x-5 gap-y-8 sm:grid-cols-2 xl:grid-cols-3 min-[1600px]:grid-cols-4">
                   {results.map((v, i) => (
                     <li key={v.slug}>
                       <VehicleCard vehicle={v} priority={i < 3} />
@@ -200,6 +207,79 @@ export function Core2Stock({ vehicles, siteTypes }: { vehicles: Vehicle[]; siteT
     </div>
   );
 }
+
+/**
+ * Telemóvel: os filtros rápidos do stock do Core, só Marca e Modelo (o resto
+ * fica no botão «Filtros»). Com várias marcas escolhidas na coluna, a lista
+ * diz «Várias marcas» até se escolher outra.
+ */
+function QuickFilters({
+  vehicles,
+  filters: f,
+  onChange,
+}: {
+  vehicles: Vehicle[];
+  filters: Core2Filters;
+  onChange: (patch: Partial<Core2Filters>) => void;
+}) {
+  const pool = useMemo(() => vehicles.filter((v) => inKinds(v, f.kinds)), [vehicles, f.kinds]);
+  const makes = useMemo(() => makeOptions(pool, f.makes), [pool, f.makes]);
+  const make = f.makes.length === 1 ? (makes.find((m) => sameBrand(m, f.makes[0]!)) ?? f.makes[0]!) : f.makes.length ? MANY : "";
+  const models = useMemo(() => {
+    const scoped = f.makes.length ? pool.filter((v) => f.makes.some((m) => sameBrand(v.make, m))) : pool;
+    const list = [...new Set(scoped.map((v) => v.model).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt"));
+    return f.base.model && !list.includes(f.base.model) ? [...list, f.base.model] : list;
+  }, [pool, f.makes, f.base.model]);
+
+  return (
+    <div className="mb-4 space-y-4 rounded-2xl border border-white/10 bg-ink-soft p-4 lg:hidden">
+      <label className="block">
+        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.15em] text-paper/55">Marca</span>
+        <select
+          className="core2-select w-full !rounded-xl !px-4 !py-3 !text-base"
+          value={make}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value === MANY) return;
+            const next = value ? [value] : [];
+            // O modelo sai se não for da marca escolhida.
+            const keepModel =
+              !!f.base.model && pool.some((v) => v.model === f.base.model && (!value || sameBrand(v.make, value)));
+            onChange({ makes: next, base: { ...f.base, model: keepModel ? f.base.model : null } });
+          }}
+        >
+          <option value="">Todas</option>
+          {make === MANY && (
+            <option value={MANY} disabled>
+              Várias marcas
+            </option>
+          )}
+          {makes.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block">
+        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.15em] text-paper/55">Modelo</span>
+        <select
+          className="core2-select w-full !rounded-xl !px-4 !py-3 !text-base"
+          value={f.base.model ?? ""}
+          onChange={(e) => onChange({ base: { ...f.base, model: e.target.value || null } })}
+        >
+          <option value="">Todos</option>
+          {models.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+}
+const MANY = "__varias__";
 
 // ---- Coluna dos filtros -----------------------------------------------------------
 
@@ -368,14 +448,14 @@ function FilterPanel({
       </div>
 
       <div
-        className={`grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-3 border-t border-white/10 p-5 ${
+        className={`grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] gap-2.5 border-t border-white/10 p-5 ${
           sticky ? "sticky bottom-0 rounded-b-xl bg-ink-soft" : ""
         }`}
       >
         <button
           type="button"
           onClick={onApply}
-          className={`inline-flex items-center justify-center gap-2.5 rounded-md bg-accent px-4 py-3.5 text-[1.05rem] font-semibold text-white transition-[filter,box-shadow] hover:brightness-110 ${
+          className={`inline-flex items-center justify-center gap-2 rounded-md bg-accent px-3 py-3.5 text-[0.95rem] font-semibold text-white transition-[filter,box-shadow] hover:brightness-110 ${
             dirty ? "shadow-[0_0_0_3px_rgb(255_255_255/0.14)]" : ""
           }`}
         >
@@ -384,7 +464,7 @@ function FilterPanel({
         <button
           type="button"
           onClick={onClear}
-          className="inline-flex items-center justify-center gap-2.5 rounded-md border border-white/30 bg-transparent px-4 py-3.5 text-[1.05rem] font-semibold text-paper transition-colors hover:bg-white/5"
+          className="inline-flex items-center justify-center gap-2 rounded-md border border-white/30 bg-transparent px-3 py-3.5 text-[0.95rem] font-semibold text-paper transition-colors hover:bg-white/5"
         >
           <Core2Icon name="reset" className="h-5 w-5" /> Limpar
         </button>

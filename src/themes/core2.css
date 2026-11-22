@@ -5,9 +5,10 @@
  * no invólucro `.site` do site público), para não mexer no Core nem no
  * backoffice.
  *
- * O site é o do Core (fundo preto); só a página do Stock é outra
- * (`.core2-stock`, em src/components/themes/core2/): o topo com a foto e os
- * cartões das categorias, a coluna dos filtros e a grelha de cartões.
+ * O site é o do Core; só a página do Stock é outra (`.core2-stock`, em
+ * src/components/themes/core2/): o topo com a foto e os cartões das
+ * categorias, a coluna dos filtros e a grelha de cartões. O escuro / claro
+ * vem da aparência escolhida em Gestão (src/themes/modes.css).
  */
 [data-site-theme="core2"] {
   --theme-id: core2;
@@ -20,9 +21,9 @@
   letter-spacing: -0.005em;
 }
 
-/* Os campos do Stock no fundo escuro, com a cor de destaque (Definições) nas escolhas. */
+/* Os campos do Stock na aparência do site, com a cor de destaque (Definições) nas escolhas. */
 [data-site-theme="core2"] .core2-stock {
-  color-scheme: dark;
+  color-scheme: var(--site-scheme, dark);
 }
 
 [data-site-theme="core2"] .core2-stock .core2-check {
@@ -36,7 +37,7 @@
 [data-site-theme="core2"] .core2-stock .core2-select {
   min-width: 0;
   max-width: 100%;
-  border: 1px solid rgb(255 255 255 / 0.18);
+  border: 1px solid rgb(var(--site-film, 255 255 255) / 0.18);
   border-radius: 0.375rem;
   background-color: rgb(var(--ink));
   color: inherit;
@@ -55,7 +56,7 @@
   height: 0.375rem;
   border-radius: 999px;
   cursor: pointer;
-  background: linear-gradient(to right, var(--accent) var(--fill, 100%), rgb(255 255 255 / 0.18) var(--fill, 100%));
+  background: linear-gradient(to right, var(--accent) var(--fill, 100%), rgb(var(--site-film, 255 255 255) / 0.18) var(--fill, 100%));
 }
 [data-site-theme="core2"] .core2-stock .core2-range::-webkit-slider-thumb {
   -webkit-appearance: none;

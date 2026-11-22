@@ -66,11 +66,14 @@ core2/  (só com o tema Core2 — Gestão → Versão do site)
 ------
   inicio.jpg       Foto da loja no topo do Stock (/inventario). Larga (~2,75:1);
                    a parte da esquerda desvanece para o título.
-  motas.jpg        Cartão «Motas» do topo do Stock. Larga (~2,8:1); o lado
-  moto4.jpg        Cartão «Moto 4».             esquerdo fica por baixo do nome,
-  carros.jpg       Cartão «Automóveis».         por isso a viatura vai à direita.
-  Por agora são recortes das maquetes; podem trocar-se por fotos verdadeiras
-  com o mesmo nome.
+  motas.jpg        Cartão «Motas» do topo do Stock.
+  moto4.jpg        Cartão «Moto 4».
+  carros.jpg       Cartão «Automóveis».
+                   Horizontais (~1376x768); a viatura à direita e um pouco
+                   abaixo do meio (o lado esquerdo fica por baixo do nome, e no
+                   telemóvel o cartão é quase quadrado).
+  A foto da loja (inicio.jpg) é um recorte das maquetes; pode trocar-se por uma
+  verdadeira com o mesmo nome.
 
 extra/
 ------

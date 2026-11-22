@@ -10,6 +10,18 @@
 export const THEME_IDS = ["core", "core2"] as const;
 export type ThemeId = (typeof THEME_IDS)[number];
 
+/**
+ * A aparência de cada versão: Escuro (o de sempre), Claro (o mesmo site em
+ * branco) ou Automático (segue o sistema do dispositivo). Também em Gestão.
+ */
+export const SITE_MODES = ["dark", "light", "system"] as const;
+export type SiteMode = (typeof SITE_MODES)[number];
+export const SITE_MODE_LABELS: Record<SiteMode, string> = {
+  dark: "Escuro",
+  light: "Claro",
+  system: "Automático",
+};
+
 /** As secções da página inicial, pela ordem em que o tema as mostra. */
 export type HomeSection =
   | "hero"

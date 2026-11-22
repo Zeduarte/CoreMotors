@@ -19,10 +19,12 @@ import { existingMedia } from "@/lib/hero-media";
 import { OPTIONAL_MEDIA } from "@/lib/media";
 import { SiteIntro } from "@/components/site/SiteIntro";
 import { vehiclesLabel } from "@/lib/site-types";
-import { getSiteTheme } from "@/lib/site-theme-query";
+import { getSiteAppearance } from "@/lib/site-theme-query";
 import { SiteThemeProvider } from "@/components/site/SiteTheme";
-// O CSS de cada tema (sempre debaixo de [data-site-theme="…"]).
+// O CSS de cada tema (sempre debaixo de [data-site-theme="…"]) e o da
+// aparência (Escuro / Claro / Automático, em [data-site-mode="…"]).
 import "@/themes/core2.css";
+import "@/themes/modes.css";
 
 /**
  * Chrome do site PÚBLICO: smooth scroll (Lenis), barra de progresso, grão,
@@ -35,7 +37,7 @@ export default async function PublicLayout({
   // Um só site: carros e motas juntos (os tipos de Definições → Tipo de site).
   // O tipo principal dá o aspeto (fotos e textos) — o dos carros, salvo num
   // site só de motas.
-  const [branding, type, siteTypes, badges, stock, sold, theme] = await Promise.all([
+  const [branding, type, siteTypes, badges, stock, sold, appearance] = await Promise.all([
     getBranding(),
     getPublicVehicleType(),
     getSiteVehicleTypes(),
@@ -44,9 +46,10 @@ export default async function PublicLayout({
     // que o site mostra. Leituras em cache (as mesmas das páginas).
     getVehicleList(),
     getSoldVehicleList(),
-    // A versão do site (Gestão): Core ou Core2.
-    getSiteTheme(),
+    // A versão do site (Gestão): Core ou Core2, e a aparência dela.
+    getSiteAppearance(),
   ]);
+  const { theme, mode } = appearance;
   // Sem stock nenhum (ou a leitura falhou), não se filtra nada: um erro
   // passageiro não pode apagar a comparação de quem está a navegar.
   const stockSlugs = stock.length ? stock.map((v) => v.slug) : undefined;
@@ -61,8 +64,9 @@ export default async function PublicLayout({
       <CompareProvider available={stockSlugs && [...stockSlugs, ...sold.map((v) => v.slug)]}>
       {/* `.site`: estilos só do site público (ex.: botões); `contents` não
           cria caixa, por isso não altera o layout. */}
-      {/* `data-site-theme`: o CSS de cada tema (src/themes/<tema>.css). */}
-      <div className="site contents" data-site-theme={theme}>
+      {/* `data-site-theme`: o CSS de cada tema (src/themes/<tema>.css);
+          `data-site-mode`: escuro, claro ou o do sistema (src/themes/modes.css). */}
+      <div className="site contents" data-site-theme={theme} data-site-mode={mode}>
         {/* Entrada da 1.ª visita: a foto das motas enquanto o site carrega. */}
         <SiteIntro name={branding.companyName} label={vehiclesLabel(siteTypes)} />
         {/* Salto para conteúdo — acessibilidade por teclado. */}

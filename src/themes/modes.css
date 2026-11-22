@@ -1,0 +1,105 @@
+/*
+ * Aparência do site público: Escuro (o de sempre), Claro (o mesmo site em
+ * branco) ou Automático (segue o sistema do dispositivo). Escolhe-se em Gestão,
+ * para cada versão (Core, Core2), e chega aqui em `data-site-mode` no
+ * invólucro `.site` ("dark" | "light" | "system").
+ *
+ * As cores do site são variáveis (`ink` = fundo, `paper` = texto): no claro
+ * trocam-se. As películas brancas (`bg-white/5`, `border-white/10`…), feitas
+ * para o fundo escuro, passam a usar `--site-film`: branco no escuro (os mesmos
+ * valores do Tailwind, nada muda) e preto no claro.
+ */
+.site {
+  --site-film: 255 255 255;
+  --site-scheme: dark;
+}
+
+/* ---- Películas ------------------------------------------------------------ */
+.site .border-white\/5 { border-color: rgb(var(--site-film) / 0.05); }
+.site .border-white\/10 { border-color: rgb(var(--site-film) / 0.1); }
+.site .border-white\/15 { border-color: rgb(var(--site-film) / 0.15); }
+.site .border-white\/20 { border-color: rgb(var(--site-film) / 0.2); }
+.site .border-white\/30 { border-color: rgb(var(--site-film) / 0.3); }
+.site .border-white\/\[0\.07\] { border-color: rgb(var(--site-film) / 0.07); }
+.site .border-white\/\[0\.08\] { border-color: rgb(var(--site-film) / 0.08); }
+.site .disabled\:border-white\/5:disabled { border-color: rgb(var(--site-film) / 0.05); }
+.site .bg-white\/5 { background-color: rgb(var(--site-film) / 0.05); }
+.site .bg-white\/8 { background-color: rgb(var(--site-film) / 0.08); }
+.site .bg-white\/10 { background-color: rgb(var(--site-film) / 0.1); }
+.site .bg-white\/15 { background-color: rgb(var(--site-film) / 0.15); }
+.site .bg-white\/25 { background-color: rgb(var(--site-film) / 0.25); }
+.site .bg-white\/\[0\.03\] { background-color: rgb(var(--site-film) / 0.03); }
+.site .bg-white\/\[0\.04\] { background-color: rgb(var(--site-film) / 0.04); }
+.site .bg-white\/\[0\.05\] { background-color: rgb(var(--site-film) / 0.05); }
+.site .bg-white\/\[0\.06\] { background-color: rgb(var(--site-film) / 0.06); }
+.site .divide-white\/5 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(var(--site-film) / 0.05); }
+.site .divide-white\/10 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(var(--site-film) / 0.1); }
+.site .ring-white\/40 { --tw-ring-color: rgb(var(--site-film) / 0.4); }
+/* Os controlos de globals.css (`.field`, `.btn-ghost`, `.card`) têm as películas por dentro. */
+.site .field,
+.site .card { border-color: rgb(var(--site-film) / 0.1); }
+.site .btn-ghost { border-color: rgb(var(--site-film) / 0.15); }
+
+/* O «hover» só com rato, como no Tailwind (future.hoverOnlyWhenSupported). */
+@media (hover: hover) and (pointer: fine) {
+  .site .hover\:bg-white\/5:hover { background-color: rgb(var(--site-film) / 0.05); }
+  .site .hover\:bg-white\/10:hover { background-color: rgb(var(--site-film) / 0.1); }
+  .site .hover\:bg-white\/20:hover { background-color: rgb(var(--site-film) / 0.2); }
+  .site .hover\:bg-white\/25:hover { background-color: rgb(var(--site-film) / 0.25); }
+  .site .hover\:bg-white\/\[0\.04\]:hover,
+  .site .btn-ghost:hover { background-color: rgb(var(--site-film) / 0.04); }
+  .site .hover\:border-white\/20:hover { border-color: rgb(var(--site-film) / 0.2); }
+  .site .hover\:border-white\/25:hover { border-color: rgb(var(--site-film) / 0.25); }
+  .site .hover\:border-white\/30:hover { border-color: rgb(var(--site-film) / 0.3); }
+  .site .hover\:border-white\/40:hover,
+  .site .btn-ghost:hover { border-color: rgb(var(--site-film) / 0.4); }
+  .site .hover\:border-white\/50:hover { border-color: rgb(var(--site-film) / 0.5); }
+  .site .hover\:border-white\/60:hover { border-color: rgb(var(--site-film) / 0.6); }
+  .site .hover\:ring-white\/30:hover { --tw-ring-color: rgb(var(--site-film) / 0.3); }
+}
+
+/* ---- Claro (e Automático com o sistema em claro) ----------------------------- */
+.site[data-site-mode="light"] {
+  --ink: 255 255 255;
+  --ink-soft: 246 246 247;
+  --ink-muted: 236 236 238;
+  --paper: 20 20 22;
+  --site-film: 0 0 0;
+  --site-scheme: light;
+  color-scheme: light;
+  color: rgb(var(--paper));
+}
+html:has(.site[data-site-mode="light"]) body {
+  background-color: #ffffff;
+  color: #141416;
+}
+/* Texto escuro na cor de destaque, como no escuro (aí `ink` é preto). */
+.site[data-site-mode="light"] .bg-accent.text-ink { color: #0a0a0a; }
+/* Sombras de texto pensadas para fotos escuras (ex.: rodapé). */
+.site[data-site-mode="light"] [class*="[text-shadow:"] { text-shadow: none; }
+/* Os tons «300» das mensagens são para fundo escuro; no claro escurecem-se. */
+.site[data-site-mode="light"] :is(.text-red-200, .text-red-300, .text-red-400, .text-rose-300) { color: #b91c1c; }
+.site[data-site-mode="light"] :is(.text-amber-200, .text-amber-300, .text-orange-300) { color: #a16207; }
+.site[data-site-mode="light"] :is(.text-emerald-200, .text-emerald-300) { color: #047857; }
+
+@media (prefers-color-scheme: light) {
+  .site[data-site-mode="system"] {
+    --ink: 255 255 255;
+    --ink-soft: 246 246 247;
+    --ink-muted: 236 236 238;
+    --paper: 20 20 22;
+    --site-film: 0 0 0;
+    --site-scheme: light;
+    color-scheme: light;
+    color: rgb(var(--paper));
+  }
+  html:has(.site[data-site-mode="system"]) body {
+    background-color: #ffffff;
+    color: #141416;
+  }
+  .site[data-site-mode="system"] .bg-accent.text-ink { color: #0a0a0a; }
+  .site[data-site-mode="system"] [class*="[text-shadow:"] { text-shadow: none; }
+  .site[data-site-mode="system"] :is(.text-red-200, .text-red-300, .text-red-400, .text-rose-300) { color: #b91c1c; }
+  .site[data-site-mode="system"] :is(.text-amber-200, .text-amber-300, .text-orange-300) { color: #a16207; }
+  .site[data-site-mode="system"] :is(.text-emerald-200, .text-emerald-300) { color: #047857; }
+}
