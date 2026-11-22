@@ -54,7 +54,7 @@ test("themes: Core and Core2, every home section, and the saved theme falls back
   // O CSS do Core2 fica todo debaixo do atributo do tema.
   const css = readFileSync("src/themes/core2.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   for (const rule of css.split("}").map((r) => r.trim()).filter(Boolean))
-    assert.match(rule, /^(?:\[data-site-theme="core2"\]|html:has\(\[data-site-theme="core2"\]\) body )/, `regra fora do tema: ${rule.slice(0, 60)}`);
+    assert.match(rule, /^\[data-site-theme="core2"\]/, `regra fora do tema: ${rule.slice(0, 60)}`);
 });
 
 test("the public layout marks the theme and the home page follows the theme's section order", () => {
@@ -115,7 +115,7 @@ test("the Gestão page is guarded by requireOwner, which sends anyone else to th
   assert.equal((await requireOwner()).is_owner, true);
 });
 
-// ---- Core2: as maquetes (menu, rodapé, página inicial e stock) -----------------
+// ---- Core2: página do Stock (as maquetes) ---------------------------------------
 
 const stockVehicle = (slug, make, type, body, extra = {}) => ({ slug, make, model: "X", year: 2020, mileage: 10000, price: 10000, fuel: "Gasolina", transmission: "Manual", body, power: 0, displacement: 0, color: "Preto", doors: 0, seats: 0, featured: false, tagline: "", description: "", images: [], highlights: [], vehicleType: type, ...extra });
 const stockFixture = () => [
@@ -175,7 +175,7 @@ test("Core2 stock: Tipo (Motas, Moto 4, Carros), brands, categories, cc, price, 
   assert.deepEqual(S.applyCore2(all, S.emptyCore2(), "price-asc").map((v) => v.slug), ["pcx", "tenere", "yfz", "gs", "bmw-320"]);
 });
 
-test("Core2 stock: everything goes to the address and back; old links and the menu links open filtered", () => {
+test("Core2 stock: everything goes to the address and back; old links and the top's links open filtered", () => {
   const S = loader()("src/themes/core2/stock.ts");
   const U = loader()("src/themes/core2/ui.ts");
   const all = stockFixture();
@@ -200,8 +200,8 @@ test("Core2 stock: everything goes to the address and back; old links and the me
     assert.deepEqual(roundTrip({ ...S.emptyCore2(), kinds: k }).back.filters.kinds, k, k.join("+"));
   // As três caixas é o mesmo que nenhuma (não vai para o endereço).
   assert.equal(S.core2ToQuery({ ...S.emptyCore2(), kinds: ["motas", "moto4", "carros"] }, "year-desc", kinds), "");
-  // Os links do menu e da página inicial do Core2.
-  const link = (href) => read(href.split("?")[1]).filters.kinds;
+  // Os links do topo do Stock (o «#lista» não vai ao servidor).
+  const link = (href) => read(href.split("?")[1].split("#")[0]).filters.kinds;
   assert.deepEqual([link(U.STOCK_LINKS.motas), link(U.STOCK_LINKS.moto4), link(U.STOCK_LINKS.carros)], [["motas"], ["moto4"], ["carros"]]);
   // Links antigos: ?tipo=motas são todas as motas (como no Core e nas páginas de SEO).
   assert.deepEqual(read("tipo=motas&marca=Yamaha&preco_max=8000").filters.kinds, ["motas", "moto4"]);
@@ -249,31 +249,22 @@ test("Core2 stock: active filters as tags with «×», and the card's data line,
   assert.equal(line({ ...gs, power: 0 }), "59.400 km • 1.170 cc • Trail");
 });
 
-test("Core2 texts and links: numbers with dots, the call notice, the menu, the category cards and the hero", () => {
+test("Core2 stock texts and links: numbers with dots, the top's links, category cards and hero", () => {
   const U = loader()("src/themes/core2/ui.ts");
   assert.deepEqual([0, 950, 1301, 12900, 1234567].map(U.dots), ["0", "950", "1.301", "12.900", "1.234.567"]);
   assert.equal(U.euros(9950), "9.950 €");
   assert.equal(U.priceText({ price: 12900 }), "12.900 €");
   assert.equal(U.priceText({ price: 0 }), "Sob consulta");
   assert.equal(U.priceText({ price: 5000, priceOnRequest: true }), "Sob consulta");
-  // O aviso do custo da chamada, junto ao número.
-  assert.equal(U.callNotice("+351 253 000 000"), "(chamada para rede fixa nacional)");
-  assert.equal(U.callNotice("916 100 742"), "(chamada para rede móvel nacional)");
-  assert.equal(U.callNotice("00351 912 345 678"), "(chamada para rede móvel nacional)");
-  assert.equal(U.callNotice("+34 600 000 000"), null);
-  assert.equal(U.callNotice("800 200 200"), null);
-  // O menu: Motas · Moto 4 · Carros · Vender · Contactos (só os tipos que o site vende).
-  const labels = (list) => list.map((l) => l.label);
-  assert.deepEqual(labels(U.navLinks(["car", "motorcycle"], true)), ["Motas", "Moto 4", "Carros", "Vender", "Contactos"]);
-  assert.deepEqual(U.navLinks(["car", "motorcycle"], true).map((l) => l.href), [U.STOCK_LINKS.motas, U.STOCK_LINKS.moto4, U.STOCK_LINKS.carros, "/vender", "/contactos"]);
-  assert.deepEqual(labels(U.navLinks(["motorcycle"], false)), ["Motas", "Vender", "Contactos"]);
-  assert.deepEqual(labels(U.navLinks(["car"], false)), ["Carros", "Vender", "Contactos"]);
-  // Os cartões das categorias: «Automóveis» no computador, «Carros» no telemóvel.
+  // Os links do topo filtram a lista e saltam para ela.
+  assert.deepEqual(Object.values(U.STOCK_LINKS), ["/inventario?tipo=motas&moto4=0#lista", "/inventario?tipo=moto4#lista", "/inventario?tipo=carros#lista"]);
+  // Os cartões das categorias: «Automóveis» no computador, «Carros» no telemóvel; a Moto 4 só com alguma em stock.
   assert.deepEqual(U.categoryCards(["car", "motorcycle"], true).map((c) => [c.label, c.short, c.photo]), [
     ["Motas", "Motas", "/media/core2/motas.jpg"],
     ["Moto 4", "Moto 4", "/media/core2/moto4.jpg"],
     ["Automóveis", "Carros", "/media/core2/carros.jpg"],
   ]);
+  assert.deepEqual(U.categoryCards(["motorcycle"], false).map((c) => c.key), ["motas"]);
   // O topo: o texto da maqueta (a frase segue o que o site vende).
   assert.deepEqual(U.heroTexts(["car", "motorcycle"], true), {
     title: "A sua próxima aventura começa aqui.",
@@ -281,95 +272,36 @@ test("Core2 texts and links: numbers with dots, the call notice, the menu, the c
   });
   assert.match(U.heroTexts(["motorcycle"], true).subtitle, /^Motas e moto 4 selecionadas, /);
   assert.match(U.heroTexts(["car"], false).subtitle, /^Automóveis selecionados, /);
-  // Últimas entradas: as que entraram há menos tempo; duas linhas de dados.
-  assert.deepEqual(U.latestFirst(stockFixture()).map((v) => v.slug), ["yfz", "pcx", "bmw-320", "tenere", "gs"]);
-  const [car, , , yfz] = stockFixture();
-  assert.deepEqual(U.latestLines(yfz), ["Moto 4 • 450 cc", "4.000 km • Excelente estado"]);
-  assert.deepEqual(U.latestLines(car), ["Berlina • Diesel", "10.000 km • Automática"]);
-  // Redes sociais: o Facebook sai do link do Messenger das Definições.
-  assert.deepEqual(U.socialLinks({ company: { messenger: "https://m.me/supermotas" } }), [{ network: "facebook", href: "https://www.facebook.com/supermotas", label: "Facebook" }]);
-  assert.deepEqual(U.socialLinks({ company: { messenger: "" } }), []);
-  assert.deepEqual(U.socialLinks({ company: { messenger: "https://example.com/x" } }), []);
 });
 
-test("Core2 menu and footer: logo, Motas · Moto 4 · Carros · Vender · Contactos, «Ver stock»; address, phone with notice, e-mail, social", () => {
+test("Core2 stock top: title, buttons and the shop photo, then the category cards, on the site's black background", () => {
   const React = require("react");
   const { renderToStaticMarkup } = require("react-dom/server");
-  const U = loader()("src/themes/core2/ui.ts");
-  const branding = {
-    companyName: "Supermotas",
-    logoUrl: "https://cdn.example/logo.png",
-    company: {
-      phone: "+351 253 000 000",
-      phoneHref: "tel:+351253000000",
-      email: "geral@supermotas.pt",
-      messenger: "https://m.me/supermotas",
-      address: { street: "Rua Principal, nº 123", postalCode: "4750-000", city: "Barcelos", country: "Portugal" },
-    },
-  };
-  const { Core2Header } = loader(nextMocks(React, { "next/navigation": { usePathname: () => "/vender" } }))("src/components/themes/core2/Core2Header.tsx");
-  const header = renderToStaticMarkup(React.createElement(Core2Header, { branding, links: U.navLinks(["car", "motorcycle"], true) }));
-  assert.match(header, /<img src="https:\/\/cdn\.example\/logo\.png" alt="Supermotas"/);
-  assert.deepEqual([...header.matchAll(/<li><a href="[^"]*"[^>]*>([^<]+)<\/a><\/li>/g)].map((m) => m[1]), ["Motas", "Moto 4", "Carros", "Vender", "Contactos"]);
-  assert.match(header, /href="\/inventario\?tipo=motas&amp;moto4=0"/);
-  assert.match(header, /href="\/vender" aria-current="page"/);
-  assert.match(header, /<a href="\/inventario"[^>]*bg-accent[^>]*>.*Ver stock<\/a>/);
-  assert.match(header, /aria-expanded="false" aria-controls="core2-menu" aria-label="Abrir menu" class="[^"]*lg:hidden"/);
-  assert.match(header, /bg-white/);
-  // Sem logótipo nas Definições: o nome.
-  assert.match(renderToStaticMarkup(React.createElement(Core2Header, { branding: { ...branding, logoUrl: null }, links: [] })), />Supermotas</);
-
-  const { Core2Footer } = loader(nextMocks(React, { "@/components/site/ManageCookiesButton": { ManageCookiesButton: () => React.createElement("button", null, "Gerir cookies") } }))("src/components/themes/core2/Core2Footer.tsx");
-  const footer = renderToStaticMarkup(React.createElement(Core2Footer, { branding, placeName: "Penafiel / Cabeça Santa" }));
-  for (const text of [">Morada<", "Rua Principal, nº 123", "4750-000 Barcelos, Portugal", ">Telefone<", "+351 253 000 000", "(chamada para rede fixa nacional)", ">E-mail<", "geral@supermotas.pt", ">Siga-nos<", "Penafiel / Cabeça Santa"])
-    assert.ok(footer.includes(text), text);
-  assert.match(footer, /href="https:\/\/www\.facebook\.com\/supermotas"/);
-  assert.match(footer, /href="tel:\+351253000000"/);
-  assert.match(footer, /href="mailto:geral@supermotas\.pt"/);
-  // O Livro de Reclamações é obrigatório: fica numa linha pequena por baixo.
-  assert.match(footer, /href="https:\/\/www\.livroreclamacoes\.pt\/Inicio\/"/);
-  // Sem redes nas Definições, não há «Siga-nos».
-  const plain = renderToStaticMarkup(React.createElement(Core2Footer, { branding: { ...branding, company: { ...branding.company, messenger: "" } } }));
-  assert.doesNotMatch(plain, /Siga-nos/);
-  assert.match(plain, />Morada</, "sem nome do ponto de venda, «Morada»");
-});
-
-test("Core2 home page: hero, category cards, latest entries from the stock and the benefits strip", () => {
-  const React = require("react");
-  const { renderToStaticMarkup } = require("react-dom/server");
-  const U = loader()("src/themes/core2/ui.ts");
-  const { Core2Home } = loader(nextMocks(React))("src/components/themes/core2/Core2Home.tsx");
-  const render = (props) => flat(renderToStaticMarkup(React.createElement(Core2Home, props)));
-  const html = render({ vehicles: withPhotos(stockFixture()), siteTypes: ["car", "motorcycle"] });
-  // O topo: título, traço, frase, os dois botões e a foto da loja.
+  const { Core2StockTop } = loader(nextMocks(React))("src/components/themes/core2/Core2StockTop.tsx");
+  const render = (props) => renderToStaticMarkup(React.createElement(Core2StockTop, props));
+  const html = render({ siteTypes: ["car", "motorcycle"], hasMoto4: true });
+  // O topo: título (o h1 da página), traço, frase, os dois botões e a foto da loja.
   assert.match(html, /<h1[^>]*core2-serif[^>]*>A sua próxima aventura começa aqui\.<\/h1>/);
   assert.ok(html.includes("Motas, moto 4 e automóveis selecionados, com qualidade, confiança e o acompanhamento de uma equipa especializada."));
   assert.match(html, /src="\/media\/core2\/inicio\.jpg"/);
-  assert.match(html, /href="\/inventario\?tipo=motas&amp;moto4=0"[^>]*>Ver motas/);
-  assert.match(html, /href="\/inventario\?tipo=carros"[^>]*>Ver carros/);
-  // As categorias: Motas, Moto 4 e Automóveis (no telemóvel «Carros»), cada uma com a sua foto e o seu link.
-  for (const [href, photo] of [[U.STOCK_LINKS.motas, "motas"], [U.STOCK_LINKS.moto4, "moto4"], [U.STOCK_LINKS.carros, "carros"]]) {
-    assert.ok(html.includes(`href="${href.replace("&", "&amp;")}"`), href);
+  assert.match(html, /href="\/inventario\?tipo=motas&amp;moto4=0#lista"[^>]*>Ver motas/);
+  assert.match(html, /href="\/inventario\?tipo=carros#lista"[^>]*>Ver carros/);
+  // A foto desvanece para o fundo preto (não para branco).
+  assert.match(html, /from-ink/);
+  assert.doesNotMatch(html, /to-white|from-white|bg-white(?!\/)/);
+  // Os cartões das categorias, cada um com a sua foto e o seu link.
+  for (const [href, photo] of [["/inventario?tipo=motas&amp;moto4=0#lista", "motas"], ["/inventario?tipo=moto4#lista", "moto4"], ["/inventario?tipo=carros#lista", "carros"]]) {
+    assert.ok(html.includes(`href="${href}"`), href);
     assert.ok(html.includes(`src="/media/core2/${photo}.jpg"`), photo);
   }
   assert.match(html, /<span class="md:hidden">Carros<\/span><span class="hidden md:inline">Automóveis<\/span>/);
-  // Últimas entradas: os separadores, «Ver todo o stock» e as 3 mais recentes, com os dados do backoffice.
-  assert.match(html, /<h2[^>]*>Últimas entradas<\/h2>/);
-  assert.deepEqual([...html.matchAll(/aria-pressed="(?:true|false)"[^>]*>([^<]+)</g)].map((m) => m[1]), ["Todos", "Motas", "Moto 4", "Automóveis"]);
-  assert.match(html, /href="\/inventario"[^>]*>Ver todo o stock/);
-  assert.deepEqual([...html.matchAll(/href="\/viaturas\/([^"]+)"/g)].map((m) => m[1]), ["yfz", "pcx", "bmw-320"]);
-  assert.match(html, /Moto 4 • 450 cc<br\/>4\.000 km • Excelente estado/);
-  assert.match(html, /core2-serif[^"]*text-accent[^"]*">9\.950 €</);
-  // As vantagens.
-  for (const t of ["Aceitamos retomas", "Entregas nacionais", "Opções de pagamento"]) assert.ok(html.includes(`>${t}<`), t);
   // Site só de motas, sem Moto 4: só o cartão das Motas, sem «Ver carros», e a frase certa.
-  const motos = render({ vehicles: withPhotos(stockFixture().filter((v) => v.vehicleType === "motorcycle" && v.body !== "Moto 4")), siteTypes: ["motorcycle"] });
+  const motos = render({ siteTypes: ["motorcycle"], hasMoto4: false });
   assert.doesNotMatch(motos, /Ver carros|moto4\.jpg|carros\.jpg/);
   assert.ok(motos.includes("Motas selecionadas, com qualidade"));
-  assert.doesNotMatch(motos, /aria-pressed/, "sem tipos à escolha, sem separadores");
 });
 
-test("Core2 stock page: filter column, active filters bar and cards exactly as in the mockup, with the stock's own data", () => {
+test("Core2 stock list: filter column, active filters bar and cards as in the mockup, dark, with whole photos", () => {
   const React = require("react");
   const { renderToStaticMarkup } = require("react-dom/server");
   const render = (qs, props) => {
@@ -383,6 +315,10 @@ test("Core2 stock page: filter column, active filters bar and cards exactly as i
 
   // Com filtros no endereço (?tipo=motas&moto4=0&marca=BMW): só a BMW GS.
   const html = render("tipo=motas&moto4=0&marca=BMW&ordem=price-asc", both);
+  // O salto do topo (#lista) e o fundo preto do site.
+  assert.match(html, /<div id="lista" class="core2-stock /);
+  assert.doesNotMatch(html, /bg-white(?!\/)|neutral-/);
+  assert.doesNotMatch(html, /<h1/, "o h1 é o título do topo");
   // A coluna: «Filtros», quantos resultados, as secções, «Ordenar por» e os dois botões.
   assert.match(html, /<h2[^>]*core2-serif[^>]*>.*Filtros<\/h2>/);
   assert.match(html, /1 resultado</);
@@ -404,10 +340,13 @@ test("Core2 stock page: filter column, active filters bar and cards exactly as i
   assert.match(html, /Ordenar por:/);
   assert.match(html, /<option value="year-desc">Mais recentes<\/option><option value="price-asc" selected="">Preço mais baixo<\/option>/);
   assert.doesNotMatch(html, /Relevância/);
-  // O cartão: foto, nome, ano numa pastilha, a linha de dados, o preço com ponto e «Ver detalhes» para a ficha.
+  // O cartão: foto inteira (com a mesma foto desfocada por trás), nome, ano, dados, preço e «Ver detalhes».
   assert.equal((html.match(/href="\/viaturas\//g) ?? []).length, 1);
   assert.match(html, /href="\/viaturas\/gs"/);
-  assert.match(html, /src="https:\/\/cdn\.example\/gs\.jpg"/);
+  assert.match(html, /aspect-\[2\/1\]/);
+  assert.match(html, /<img aria-hidden="true" src="https:\/\/cdn\.example\/gs\.jpg" alt=""[^>]*blur-xl/);
+  assert.match(html, /<img src="https:\/\/cdn\.example\/gs\.jpg" alt="BMW X"[^>]*object-contain/);
+  assert.doesNotMatch(html, /alt="BMW X"[^>]*object-cover/, "a foto já não é cortada");
   assert.match(html, /<h3[^>]*>BMW X<\/h3><span[^>]*>2015<\/span>/);
   assert.match(html, /59\.400 km • 1\.170 cc • Trail • 125 cv/);
   assert.match(html, /core2-serif[^"]*text-accent">11\.900 €</);
@@ -416,8 +355,7 @@ test("Core2 stock page: filter column, active filters bar and cards exactly as i
   assert.match(html, /grid gap-5 sm:grid-cols-2 min-\[1380px\]:grid-cols-3/);
   assert.match(html, /<aside aria-label="Filtros" class="hidden lg:block">/);
   assert.match(html, /aria-haspopup="dialog"[^>]*lg:hidden/);
-  // Fundo branco e nada por baixo da grelha (sem alerta nem pesquisas populares).
-  assert.match(html, /class="core2-stock bg-white/);
+  // Nada por baixo da grelha (sem alerta nem pesquisas populares).
   assert.doesNotMatch(html, /id="alerta"|Pesquisas populares/);
 
   // Sem filtros: tudo, por «Mais recentes» (o ano mais recente primeiro), sem «Filtros activos».
@@ -437,11 +375,11 @@ test("Core2 stock page: filter column, active filters bar and cards exactly as i
   assert.deepEqual(carSections, ["Marca", "Carroçaria", "Preço máximo", "Ano", "Quilómetros"]);
 });
 
-test("the pages use the Core2 versions only with the Core2 theme; with Core everything stays as it was", async () => {
+test("only the stock page changes with Core2 (top + list); the layout, the home page and the rest stay as in Core", async () => {
   const all = stockFixture().map((v) => ({ ...v, description: "Texto longo", extras: ["ABS"] }));
   let theme = "core2";
-  // Stock.
   const Core2Stock = () => null;
+  const Core2StockTop = () => null;
   const InventoryClient = () => null;
   const SeoLinks = () => null;
   const stockPage = loader({
@@ -449,70 +387,49 @@ test("the pages use the Core2 versions only with the Core2 theme; with Core ever
     "@/lib/queries": { getBranding: async () => ({ companyName: "Stand" }), getVehicles: async () => all },
     "@/lib/olx/search": { inventoryWithOlx: async (vehicles) => ({ vehicles, fields: [] }) },
     "@/lib/site-theme-query": { getSiteTheme: async () => theme },
+    "@/themes/core2/fonts": { core2Serif: { variable: "font-core2-var" } },
     "@/components/themes/core2/Core2Stock": { Core2Stock },
+    "@/components/themes/core2/Core2StockTop": { Core2StockTop },
     "@/components/inventory/InventoryClient": { InventoryClient },
     "@/components/seo/SeoLinks": { SeoLinks },
     "next/image": { __esModule: true, default: () => null },
   })("src/app/(public)/inventario/page.tsx");
+  // Core2: o topo (foto e categorias) e, por baixo, a lista; a letra serifada só aqui.
   const el = await stockPage.default({ searchParams: Promise.resolve({ tipo: "motas" }) });
-  assert.equal(el.type, Core2Stock);
-  assert.equal(el.key, JSON.stringify({ tipo: "motas" }), "outra pesquisa no endereço começa de novo");
-  assert.deepEqual(el.props.siteTypes, ["car", "motorcycle"]);
-  assert.deepEqual(el.props.vehicles.map((v) => v.slug), all.map((v) => v.slug));
-  assert.ok(el.props.vehicles.every((v) => v.description === "" && v.extras === undefined), "a versão leve, como no Core");
-  assert.equal(el.props.vehicles.find((v) => v.slug === "yfz").tagline, "Excelente estado", "com a frase curta do anúncio");
-  assert.equal(el.props.below, undefined, "nada por baixo da grelha");
+  assert.equal(el.type, "div");
+  assert.equal(el.props.className, "font-core2-var");
+  const [top, list] = el.props.children;
+  assert.equal(top.type, Core2StockTop);
+  assert.deepEqual(top.props, { siteTypes: ["car", "motorcycle"], hasMoto4: true });
+  assert.equal(list.type, Core2Stock);
+  assert.equal(list.key, JSON.stringify({ tipo: "motas" }), "outra pesquisa no endereço começa de novo");
+  assert.deepEqual(list.props.vehicles.map((v) => v.slug), all.map((v) => v.slug));
+  assert.ok(list.props.vehicles.every((v) => v.description === "" && v.extras === undefined), "a versão leve, como no Core");
+  assert.equal(list.props.vehicles.find((v) => v.slug === "yfz").tagline, "Excelente estado", "com a frase curta do anúncio");
+  // Core: o stock de sempre, com as pesquisas populares.
   theme = "core";
   const core = await stockPage.default({ searchParams: Promise.resolve({}) });
   assert.equal(core.type, "div");
   assert.ok([core.props.children].flat(3).some((x) => x?.type === InventoryClient), "o Core continua com o stock de sempre");
   assert.ok([core.props.children].flat(3).some((x) => x?.type === SeoLinks), "e com as pesquisas populares");
 
-  // Página inicial: os componentes do Core são substituídos por nada (só interessa qual página sai).
-  theme = "core2";
-  const homeFile = "src/app/(public)/(home)/page.tsx";
-  const Core2Home = () => null;
-  const stubs = Object.fromEntries(
-    [...readFileSync(homeFile, "utf8").matchAll(/from "(@\/components\/[^"]+)"/g)].map((m) => [m[1], new Proxy({}, { get: (_, k) => (k === "__esModule" ? false : () => null) })]),
-  );
-  const home = loader({
-    ...stubs,
-    "@/components/themes/core2/Core2Home": { Core2Home },
-    "@/lib/vehicle-context": { getPublicVehicleType: async () => "motorcycle", getSiteVehicleTypes: async () => ["car", "motorcycle"] },
-    "@/lib/site-theme-query": { getSiteTheme: async () => theme },
-    "@/lib/showroom-queries": { getShowroomContent: async () => ({ services: [], faqs: [], locations: [], google: {} }) },
-    "@/lib/queries": { getVehicles: async () => all, getVehicleList: async () => all, getHomeContent: async () => { throw new Error("o Core2 não lê o conteúdo do Core"); } },
-  })(homeFile);
-  const page = await home.default();
-  assert.equal(page.type, Core2Home);
-  assert.deepEqual(page.props.siteTypes, ["car", "motorcycle"]);
-  assert.ok(page.props.vehicles.every((v) => v.description === ""));
-  assert.equal(page.props.vehicles.find((v) => v.slug === "yfz").tagline, "Excelente estado");
-  assert.match(readFileSync(homeFile, "utf8"), /getTheme\(theme\)\.homeSections\.map/, "o Core continua com as secções do tema");
-
-  // Menu, rodapé e letra: os do Core2 só com o Core2; o grão é só do Core.
+  // O resto do site é o do Core também no Core2: o mesmo menu, rodapé e página inicial.
   const layout = readFileSync("src/app/(public)/layout.tsx", "utf8");
-  assert.match(layout, /core2 \? \(\s*<Core2Header /);
   assert.match(layout, /<Header branding=\{branding\} stockSlugs=\{stockSlugs\} \/>/);
-  assert.match(layout, /core2 \? \(\s*<Core2Footer /);
-  assert.match(layout, /<Footer branding=\{branding\}/);
-  assert.match(layout, /core2 \? ` \$\{core2Serif\.variable\}` : ""/);
-  assert.match(layout, /\{!core2 && <GrainOverlay \/>\}/);
-
-  // Os componentes do Core2 só se usam nestas três páginas.
-  const users = (name) => execFileSync("git", ["grep", "-l", "--untracked", "-F", `from "@/components/themes/core2/${name}"`, "--", "src"], { encoding: "utf8" }).trim().split("\n");
-  assert.deepEqual(users("Core2Stock"), ["src/app/(public)/inventario/page.tsx"]);
-  assert.deepEqual(users("Core2Home"), ["src/app/(public)/(home)/page.tsx"]);
-  assert.deepEqual(users("Core2Header"), ["src/app/(public)/layout.tsx"]);
-  assert.deepEqual(users("Core2Footer"), ["src/app/(public)/layout.tsx"]);
+  assert.match(layout, /<GrainOverlay \/>/);
+  assert.doesNotMatch(layout, /components\/themes\/core2|themes\/core2\/|core2Serif/);
+  assert.doesNotMatch(readFileSync("src/app/(public)/(home)/page.tsx", "utf8"), /components\/themes\/core2|themes\/core2\//);
+  // Os componentes do Core2 só se usam na página do Stock.
+  const users = execFileSync("git", ["grep", "-l", "--untracked", "-F", "@/components/themes/core2/", "--", "src"], { encoding: "utf8" }).trim().split("\n");
+  assert.deepEqual(users.filter((f) => !f.startsWith("src/components/themes/core2/")), ["src/app/(public)/inventario/page.tsx"]);
 });
 
-test("Core2 is light like the mockups (variables, white films turned dark, serif) and the photos come with the theme", () => {
+test("Core2 keeps the site's black background (no palette changes), the stock's fields are dark, and the photos come with the theme", () => {
   const css = readFileSync("src/themes/core2.css", "utf8");
-  assert.match(css, /\[data-site-theme="core2"\] \{[^}]*color-scheme: light;[^}]*--ink: 255 255 255;[^}]*--paper: 26 26 26;/);
-  assert.match(css, /html:has\(\[data-site-theme="core2"\]\) body \{[^}]*background-color: #ffffff;/);
-  assert.match(css, /\[data-site-theme="core2"\] \.border-white\\\/10 \{ border-color: rgb\(0 0 0/);
-  assert.match(css, /\[data-site-theme="core2"\] \.core2-serif \{[^}]*var\(--font-core2-serif\)/);
+  const rules = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(rules, /--ink:|--paper:|--background:|color-scheme: light|html:has|\.border-white|\.bg-white/);
+  assert.match(rules, /\[data-site-theme="core2"\] \.core2-stock \{\s*color-scheme: dark;/);
+  assert.match(rules, /\[data-site-theme="core2"\] \.core2-serif \{[^}]*var\(--font-core2-serif\)/);
   assert.match(readFileSync("src/themes/core2/fonts.ts", "utf8"), /DM_Serif_Display\([\s\S]*preload: false[\s\S]*--font-core2-serif/);
   for (const name of ["inicio", "motas", "moto4", "carros"]) {
     const jpg = readFileSync(`public/media/core2/${name}.jpg`);

@@ -6,16 +6,15 @@ import type { ThemeConfig } from "./types";
  * aqui; tamanhos de letra, posição das imagens e o resto do aspeto em
  * `core2.css` (sempre debaixo de `[data-site-theme="core2"]`).
  *
- * As maquetes da Supermotas: fundo claro, com menu, rodapé, página inicial e
- * stock próprios (src/components/themes/core2/). As outras páginas são as do
- * Core, em claro. As secções de `homeSections` só contam no Core (a página
- * inicial do Core2 é a das maquetes).
+ * Igual ao Core, menos a página do Stock, que é a das maquetes da Supermotas
+ * (src/components/themes/core2/): o topo com a foto e as categorias, a coluna
+ * dos filtros e a grelha de cartões, no fundo preto do site.
  */
 export const core2: ThemeConfig = {
   ...core,
   id: "core2",
   label: "Core2",
-  description: "Fundo claro, como as maquetes: menu, página inicial, stock e rodapé próprios.",
+  description: "Igual ao Core, com a página do Stock das maquetes (topo com foto, filtros e cartões).",
   texts: { ...core.texts },
   homeSections: [...core.homeSections],
 };

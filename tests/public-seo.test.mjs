@@ -488,7 +488,8 @@ const metaStubs = {
   '@/lib/olx/search': { inventoryWithOlx: async (vehicles) => ({ vehicles, fields: [] }) },
   '@/lib/site-theme-query': { getSiteTheme: async () => 'core' },
   '@/components/themes/core2/Core2Stock': { Core2Stock: () => null },
-  '@/components/themes/core2/Core2Home': { Core2Home: () => null },
+  '@/components/themes/core2/Core2StockTop': { Core2StockTop: () => null },
+  '@/themes/core2/fonts': { core2Serif: { variable: 'font-core2-var' } },
   __id: 'meta',
 };
 

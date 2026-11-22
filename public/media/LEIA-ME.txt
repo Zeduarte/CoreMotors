@@ -64,9 +64,9 @@ comum/  (igual nos carros e nas motas)
 
 core2/  (só com o tema Core2 — Gestão → Versão do site)
 ------
-  inicio.jpg       Foto da loja no topo da página inicial. Larga (~2,75:1); a
-                   parte da esquerda desvanece para o título.
-  motas.jpg        Cartão «Motas» da página inicial. Larga (~2,8:1); o lado
+  inicio.jpg       Foto da loja no topo do Stock (/inventario). Larga (~2,75:1);
+                   a parte da esquerda desvanece para o título.
+  motas.jpg        Cartão «Motas» do topo do Stock. Larga (~2,8:1); o lado
   moto4.jpg        Cartão «Moto 4».             esquerdo fica por baixo do nome,
   carros.jpg       Cartão «Automóveis».         por isso a viatura vai à direita.
   Por agora são recortes das maquetes; podem trocar-se por fotos verdadeiras

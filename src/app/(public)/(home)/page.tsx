@@ -22,7 +22,6 @@ import {
   getTestimonials,
   getBranding,
   getVehicleList,
-  getVehicles,
   getSoldVehicleList,
 } from "@/lib/queries";
 import { existingMedia, getHeroMedia } from "@/lib/hero-media";
@@ -32,8 +31,6 @@ import { brandOptions, sameBrand } from "@/lib/brand-name";
 import { Fragment } from "react";
 import { getSiteTheme } from "@/lib/site-theme-query";
 import { getTheme, type HomeSection } from "@/themes/index";
-import { Core2Home } from "@/components/themes/core2/Core2Home";
-import { toListVehicle } from "@/lib/vehicle-list";
 
 // O canónico da página inicial (sem query strings) e o seu `og:url`. O título
 // e a descrição vêm da layout raiz.
@@ -51,14 +48,6 @@ export default async function HomePage() {
   // Um só site: carros e motas juntos. O tipo principal (carros, salvo num
   // site só de motas) dá o topo, as fotos e os textos.
   const [type, siteTypes, theme] = await Promise.all([getPublicVehicleType(), getSiteVehicleTypes(), getSiteTheme()]);
-
-  // Tema Core2: a página das maquetes (topo, categorias, últimas entradas e
-  // vantagens). A versão leve das viaturas, com a frase curta do anúncio (os
-  // cartões mostram-na).
-  if (theme === "core2") {
-    const vehicles = (await getVehicles()).map((v) => ({ ...toListVehicle(v), tagline: v.tagline }));
-    return <Core2Home vehicles={vehicles} siteTypes={siteTypes} />;
-  }
   const [showroom, content, testimonials, branding, allVehicles, sold] =
     await Promise.all([
       getShowroomContent(),

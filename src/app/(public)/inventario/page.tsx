@@ -11,6 +11,9 @@ import { filtersFromQuery, sortFromQuery } from "@/lib/vehicles";
 import { InventoryClient } from "@/components/inventory/InventoryClient";
 import { SeoLinks } from "@/components/seo/SeoLinks";
 import { Core2Stock } from "@/components/themes/core2/Core2Stock";
+import { Core2StockTop } from "@/components/themes/core2/Core2StockTop";
+import { core2Serif } from "@/themes/core2/fonts";
+import { kindOf } from "@/themes/core2/stock";
 import { getSiteTheme } from "@/lib/site-theme-query";
 import { toListVehicle } from "@/lib/vehicle-list";
 
@@ -86,14 +89,20 @@ export default async function InventoryPage({
         : null;
   const all = await getVehicles();
 
-  // Tema Core2: a página da maqueta (coluna de filtros, filtros ativos e a
-  // grelha de cartões), sem mais nada por baixo. Sem os campos do OLX (não têm
-  // caixa nesta coluna); com a frase curta do anúncio (os cartões mostram-na).
+  // Tema Core2: a página das maquetes — em cima a foto da loja e os cartões
+  // das categorias, por baixo a coluna dos filtros e a grelha de cartões. Sem
+  // os campos do OLX (não têm caixa nesta coluna); com a frase curta do
+  // anúncio (os cartões mostram-na). A letra serifada é só desta página.
   if (theme === "core2") {
     const stock = all
       .filter((v) => siteTypes.includes(v.vehicleType ?? "car"))
       .map((v) => ({ ...toListVehicle(v), tagline: v.tagline }));
-    return <Core2Stock key={JSON.stringify(sp)} vehicles={stock} siteTypes={siteTypes} />;
+    return (
+      <div className={core2Serif.variable}>
+        <Core2StockTop siteTypes={siteTypes} hasMoto4={stock.some((v) => kindOf(v) === "moto4")} />
+        <Core2Stock key={JSON.stringify(sp)} vehicles={stock} siteTypes={siteTypes} />
+      </div>
+    );
   }
 
   // Stock leve para os cartões, com os valores dos campos do OLX pesquisáveis.

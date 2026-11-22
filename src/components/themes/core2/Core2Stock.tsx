@@ -40,7 +40,8 @@ import {
 import { Core2Icon } from "./icons";
 
 /**
- * Página do Stock do tema Core2 (como na maqueta):
+ * A lista do Stock do tema Core2 (como na maqueta, no fundo preto do site;
+ * o topo com a foto e as categorias é o `Core2StockTop`, por cima):
  *
  * - à esquerda, o cartão «Filtros» com as secções que abrem e fecham (Tipo,
  *   Marca, Categoria, Preço máximo, Ano, Quilómetros, Cilindrada), «Ordenar
@@ -118,9 +119,9 @@ export function Core2Stock({ vehicles, siteTypes }: { vehicles: Vehicle[]; siteT
   );
 
   return (
-    <div className="core2-stock bg-white pb-20 pt-6 text-neutral-900 md:pt-8">
+    // `#lista`: os botões e as categorias do topo saltam para aqui.
+    <div id="lista" className="core2-stock scroll-mt-20 pb-24 pt-8 text-paper md:pt-10">
       <div className="container-px">
-        <h1 className="sr-only">Stock</h1>
         <div className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)] xl:gap-7">
           {/* Coluna dos filtros (no telemóvel, no painel do botão «Filtros»). */}
           <aside aria-label="Filtros" className="hidden lg:block">
@@ -129,12 +130,12 @@ export function Core2Stock({ vehicles, siteTypes }: { vehicles: Vehicle[]; siteT
 
           <div className="min-w-0">
             {/* Barra de cima: filtros activos · quantos · ordenar. */}
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 md:px-6">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl border border-white/10 bg-ink-soft px-4 py-3 md:px-6">
               <button
                 type="button"
                 onClick={openSheet}
                 aria-haspopup="dialog"
-                className="inline-flex items-center gap-2 rounded-md border border-neutral-300 bg-white px-4 py-2 text-[0.95rem] font-semibold lg:hidden"
+                className="inline-flex items-center gap-2 rounded-md border border-white/20 bg-ink px-4 py-2 text-[0.95rem] font-semibold lg:hidden"
               >
                 <Core2Icon name="sliders" className="h-5 w-5 text-accent" /> Filtros
                 {chips.length > 0 && (
@@ -152,7 +153,7 @@ export function Core2Stock({ vehicles, siteTypes }: { vehicles: Vehicle[]; siteT
                       type="button"
                       onClick={() => removeChip(c.key)}
                       aria-label={`Tirar o filtro ${c.label}`}
-                      className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-accent bg-[color-mix(in_srgb,var(--accent)_6%,white)] px-3.5 py-1 text-[0.95rem] font-medium text-accent transition-colors hover:bg-[color-mix(in_srgb,var(--accent)_14%,white)]"
+                      className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-accent bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-3.5 py-1 text-[0.95rem] font-medium text-accent transition-colors hover:bg-[color-mix(in_srgb,var(--accent)_22%,transparent)]"
                     >
                       {c.label} <span aria-hidden className="text-lg leading-none">×</span>
                     </button>
@@ -160,25 +161,25 @@ export function Core2Stock({ vehicles, siteTypes }: { vehicles: Vehicle[]; siteT
                 </div>
               )}
               <div className={`flex flex-wrap items-center gap-x-5 gap-y-2 ${chips.length ? "" : "flex-1 justify-end"}`}>
-                <span aria-hidden className="hidden h-7 w-px bg-neutral-300 md:block" />
-                <p className="text-[1rem] text-neutral-800" aria-live="polite">
+                <span aria-hidden className="hidden h-7 w-px bg-white/15 md:block" />
+                <p className="text-[1rem] text-paper/85" aria-live="polite">
                   {results.length} {results.length === 1 ? "veículo encontrado" : "veículos encontrados"}
                 </p>
-                <span aria-hidden className="hidden h-7 w-px bg-neutral-300 md:block" />
+                <span aria-hidden className="hidden h-7 w-px bg-white/15 md:block" />
                 <label className="flex items-center gap-3 text-[0.95rem]">
-                  <span className="whitespace-nowrap text-neutral-800">Ordenar por:</span>
+                  <span className="whitespace-nowrap text-paper/85">Ordenar por:</span>
                   <SortSelect value={applied.sort} onChange={sortNow} />
                 </label>
               </div>
             </div>
 
             {results.length === 0 ? (
-              <div className="mt-6 rounded-xl border border-neutral-200 p-10 text-center">
-                <p className="text-neutral-700">Nenhuma viatura corresponde aos filtros. Experimente alargar os critérios.</p>
+              <div className="mt-6 rounded-xl border border-white/10 bg-ink-soft p-10 text-center">
+                <p className="text-paper/70">Nenhuma viatura corresponde aos filtros. Experimente alargar os critérios.</p>
                 <button
                   type="button"
                   onClick={clear}
-                  className="mt-5 inline-flex items-center gap-2 rounded-md border border-neutral-800 px-5 py-2.5 text-[0.95rem] font-semibold"
+                  className="mt-5 inline-flex items-center gap-2 rounded-md border border-white/30 px-5 py-2.5 text-[0.95rem] font-semibold transition-colors hover:border-accent"
                 >
                   <Core2Icon name="reset" className="h-4 w-4" /> Limpar filtros
                 </button>
@@ -242,12 +243,12 @@ function FilterPanel({
   const showCc = f.cc.length > 0 || pool.some((v) => v.vehicleType === "motorcycle" && v.displacement > 0);
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white shadow-[0_2px_12px_-6px_rgb(0_0_0/0.12)]">
+    <div className="rounded-xl border border-white/10 bg-ink-soft">
       <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-5">
         <h2 className="core2-serif flex items-center gap-3 text-[2rem] leading-none">
           <Core2Icon name="sliders" className="h-7 w-7 text-accent" strokeWidth={2.2} /> Filtros
         </h2>
-        <span className="text-[0.95rem] text-neutral-700" aria-live="polite">
+        <span className="text-[0.95rem] text-paper/70" aria-live="polite">
           {count} {count === 1 ? "resultado" : "resultados"}
         </span>
       </div>
@@ -306,7 +307,7 @@ function FilterPanel({
         {years.length > 0 && (
           <Section title="Ano">
             <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2.5 text-[0.95rem]">
-              <span className="text-neutral-800">De</span>
+              <span className="text-paper/85">De</span>
               <select
                 aria-label="Ano — de"
                 className="core2-select"
@@ -322,7 +323,7 @@ function FilterPanel({
                     </option>
                   ))}
               </select>
-              <span className="text-neutral-800">Até</span>
+              <span className="text-paper/85">Até</span>
               <select
                 aria-label="Ano — até"
                 className="core2-select"
@@ -363,22 +364,22 @@ function FilterPanel({
             />
           </Section>
         )}
-        <div className="flex items-center justify-between gap-3 border-t border-neutral-200 py-4">
+        <div className="flex items-center justify-between gap-3 border-t border-white/10 py-4">
           <span className="text-[1.15rem] font-semibold">Ordenar por</span>
           <SortSelect value={state.sort} onChange={(sort) => onChange({ ...state, sort })} />
         </div>
       </div>
 
       <div
-        className={`grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-3 border-t border-neutral-200 p-5 ${
-          sticky ? "sticky bottom-0 rounded-b-xl bg-white" : ""
+        className={`grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-3 border-t border-white/10 p-5 ${
+          sticky ? "sticky bottom-0 rounded-b-xl bg-ink-soft" : ""
         }`}
       >
         <button
           type="button"
           onClick={onApply}
           className={`inline-flex items-center justify-center gap-2.5 rounded-md bg-accent px-4 py-3.5 text-[1.05rem] font-semibold text-white transition-[filter,box-shadow] hover:brightness-110 ${
-            dirty ? "shadow-[0_0_0_3px_rgb(0_0_0/0.08)]" : ""
+            dirty ? "shadow-[0_0_0_3px_rgb(255_255_255/0.14)]" : ""
           }`}
         >
           <Core2Icon name="search" className="h-5 w-5" strokeWidth={2.4} /> Aplicar filtros
@@ -386,7 +387,7 @@ function FilterPanel({
         <button
           type="button"
           onClick={onClear}
-          className="inline-flex items-center justify-center gap-2.5 rounded-md border border-neutral-800 bg-white px-4 py-3.5 text-[1.05rem] font-semibold text-neutral-900 transition-colors hover:bg-neutral-50"
+          className="inline-flex items-center justify-center gap-2.5 rounded-md border border-white/30 bg-transparent px-4 py-3.5 text-[1.05rem] font-semibold text-paper transition-colors hover:bg-white/5"
         >
           <Core2Icon name="reset" className="h-5 w-5" /> Limpar
         </button>
@@ -400,7 +401,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   const [open, setOpen] = useState(true);
   const id = useId();
   return (
-    <section className="border-t border-neutral-200 py-4">
+    <section className="border-t border-white/10 py-4">
       <h3>
         <button
           type="button"
@@ -410,7 +411,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
           className="flex w-full items-center justify-between gap-3 text-left text-[1.15rem] font-semibold"
         >
           {title}
-          <Core2Icon name="chevron" className={`h-5 w-5 text-neutral-700 transition-transform ${open ? "" : "rotate-180"}`} />
+          <Core2Icon name="chevron" className={`h-5 w-5 text-paper/70 transition-transform ${open ? "" : "rotate-180"}`} />
         </button>
       </h3>
       <div id={id} hidden={!open} className="mt-3">
@@ -444,7 +445,7 @@ function CheckGrid({
           <label
             key={o.value}
             title={o.title}
-            className="mb-2.5 flex min-w-0 cursor-pointer break-inside-avoid items-center gap-3 text-[1rem] leading-tight text-neutral-800"
+            className="mb-2.5 flex min-w-0 cursor-pointer break-inside-avoid items-center gap-3 text-[1rem] leading-tight text-paper/85"
           >
             <input type="checkbox" className="core2-check" checked={checked(o.value)} onChange={() => onToggle(o.value)} />
             <span className="min-w-0 break-words">{o.label}</span>
@@ -504,11 +505,11 @@ function Slider({
           className="core2-range min-w-0 flex-1"
           style={{ "--fill": fill } as React.CSSProperties}
         />
-        <output className="min-w-[7rem] rounded-md border border-neutral-300 bg-white px-3 py-2 text-right text-[0.95rem] font-medium tabular-nums text-neutral-900">
+        <output className="min-w-[7rem] rounded-md border border-white/15 bg-ink px-3 py-2 text-right text-[0.95rem] font-medium tabular-nums text-paper">
           {text}
         </output>
       </div>
-      <div className="mt-2 flex justify-between pr-[8rem] text-[0.85rem] text-neutral-700">
+      <div className="mt-2 flex justify-between pr-[8rem] text-[0.85rem] text-paper/70">
         <span>{minLabel}</span>
         <span>{maxLabel}</span>
       </div>
@@ -559,7 +560,7 @@ function FilterSheet({ onClose, children }: { onClose: () => void; children: Rea
       role="dialog"
       aria-modal="true"
       aria-label="Filtros"
-      className="fixed inset-0 z-[70] overflow-y-auto bg-neutral-100 p-3 lg:hidden"
+      className="fixed inset-0 z-[70] overflow-y-auto bg-ink p-3 lg:hidden"
       onKeyDown={(e) => {
         if (e.key === "Escape") onClose();
         else trapTab(ref.current, e);
@@ -571,7 +572,7 @@ function FilterSheet({ onClose, children }: { onClose: () => void; children: Rea
           data-close
           onClick={onClose}
           aria-label="Fechar os filtros"
-          className="grid h-10 w-10 place-items-center rounded-full border border-neutral-300 bg-white text-neutral-800"
+          className="grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-ink-soft text-paper"
         >
           <Core2Icon name="close" className="h-5 w-5" />
         </button>
@@ -603,18 +604,30 @@ function StockCard({ vehicle: v, priority }: { vehicle: Vehicle; priority: boole
       onFocus={prefetch}
       // A foto à vista vai já para o esqueleto da ficha (ver loading.tsx).
       onClick={(e) => setVehiclePreview(v.slug, e.currentTarget.querySelector("img")?.currentSrc)}
-      className="group flex h-full flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-[0_2px_10px_-4px_rgb(0_0_0/0.12)] transition-shadow hover:shadow-[0_10px_24px_-10px_rgb(0_0_0/0.28)]"
+      className="group flex h-full flex-col overflow-hidden rounded-lg border border-white/10 bg-ink-soft transition-[border-color,transform] duration-300 hover:-translate-y-0.5 hover:border-white/25"
     >
-      <div className="relative aspect-[2/1] overflow-hidden bg-neutral-100">
+      {/* A foto inteira (encolhe para caber no formato da maqueta); por trás,
+          a mesma foto desfocada, em vez de faixas vazias dos lados. */}
+      <div className="relative aspect-[2/1] overflow-hidden bg-ink-muted">
         {cover && (
-          <FadeImage
-            src={cover.src}
-            alt={cover.alt || `${v.make} ${v.model}`}
-            fill
-            priority={priority}
-            sizes="(max-width: 640px) 100vw, (max-width: 1380px) 50vw, 33vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-          />
+          <>
+            <FadeImage
+              aria-hidden
+              src={cover.src}
+              alt=""
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1380px) 50vw, 33vw"
+              className="scale-110 object-cover opacity-45 blur-xl"
+            />
+            <FadeImage
+              src={cover.src}
+              alt={cover.alt || `${v.make} ${v.model}`}
+              fill
+              priority={priority}
+              sizes="(max-width: 640px) 100vw, (max-width: 1380px) 50vw, 33vw"
+              className="object-contain transition-transform duration-500 group-hover:scale-[1.03]"
+            />
+          </>
         )}
         {v.status === "reserved" && (
           <span className="absolute left-3 top-3 rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-white">Reservado</span>
@@ -626,15 +639,15 @@ function StockCard({ vehicle: v, priority }: { vehicle: Vehicle; priority: boole
             {v.make} {v.model}
           </h3>
           {v.year ? (
-            <span className="mt-0.5 shrink-0 rounded-md border border-neutral-200 bg-neutral-100 px-2.5 py-0.5 text-[0.85rem] font-medium tabular-nums text-neutral-800">
+            <span className="mt-0.5 shrink-0 rounded-md border border-white/15 bg-white/5 px-2.5 py-0.5 text-[0.85rem] font-medium tabular-nums text-paper/85">
               {v.year}
             </span>
           ) : null}
         </div>
-        <p className="mt-2 line-clamp-2 text-[0.9rem] text-neutral-600">{cardFacts(v).join(" • ")}</p>
+        <p className="mt-2 line-clamp-2 text-[0.9rem] text-paper/65">{cardFacts(v).join(" • ")}</p>
         <div className="mt-auto flex items-center justify-between gap-3 pt-4">
           <span className="core2-serif text-[2rem] leading-none text-accent">{priceText(v)}</span>
-          <span className="inline-flex shrink-0 items-center gap-2 rounded-md border border-neutral-300 bg-white px-4 py-2 text-[0.95rem] font-semibold text-neutral-900 transition-colors group-hover:border-accent group-hover:text-accent">
+          <span className="inline-flex shrink-0 items-center gap-2 rounded-md border border-white/20 px-4 py-2 text-[0.95rem] font-semibold text-paper transition-colors group-hover:border-accent group-hover:text-accent">
             Ver detalhes <Core2Icon name="arrow" className="h-4 w-4" strokeWidth={2.4} />
           </span>
         </div>
