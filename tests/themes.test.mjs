@@ -191,6 +191,14 @@ test("appearance CSS: dark keeps Tailwind's values, light (and Automático with 
     assert.match(readFileSync(file, "utf8"), /className=\{?[`"]site-dark |"site-dark /, `${file}: zona com foto marcada`);
   // O cartão de cima do stock do Core fica na cor da página (no claro, branco).
   assert.doesNotMatch(readFileSync("src/components/inventory/InventoryClient.tsx", "utf8"), /site-dark/);
+  // E a foto por trás dos filtros fica mais viva no claro (no escuro, a de sempre).
+  const stockPage = readFileSync("src/app/(public)/inventario/page.tsx", "utf8");
+  assert.match(stockPage, /className="stock-photo object-cover object-center opacity-60"/);
+  assert.match(stockPage, /className="stock-veil absolute inset-0 /);
+  assert.match(css, /\.site\[data-site-mode="light"\] \.stock-photo \{ opacity: 0\.9; \}/);
+  assert.match(css, /\.site\[data-site-mode="system"\] \.stock-photo \{ opacity: 0\.9; \}/);
+  assert.match(css, /@media \(min-width: 768px\) \{\s*\.site\[data-site-mode="light"\] \.stock-veil \{\s*background-image: linear-gradient\(to right, rgb\(var\(--ink-soft\)\) 30%/);
+  assert.match(css, /@media \(prefers-color-scheme: light\) and \(min-width: 768px\) \{\s*\.site\[data-site-mode="system"\] \.stock-veil/);
   // A foto do topo e o rodapé desvanecem para o branco do site (só no claro; no escuro não aparecem).
   assert.match(css, /\.site \{[^}]*--site-page: var\(--ink\);/);
   assert.match(css, /\.site \.site-fade \{ display: none; \}/);
