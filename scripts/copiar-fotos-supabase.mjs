@@ -114,7 +114,10 @@ export function describeKey(raw) {
     kind = `JWT antiga (${role})`;
     if (role !== "service_role") notes.push(`é a chave ${role}: é precisa a service_role (ou a secret)`);
   } else notes.push("não parece uma chave do Supabase (devia começar por sb_secret_)");
-  return { key, kind, length: key.length, ref, notes };
+  // O mesmo início que o painel do Supabase mostra (ex.: sb_secret_Ab12••••),
+  // para se saber qual das chaves é. O resto nunca aparece.
+  const shown = key.startsWith("sb_") ? `${key.slice(0, key.indexOf("_", 3) + 5)}…` : null;
+  return { key, kind, length: key.length, ref, shown, notes };
 }
 
 /** Confirma que o projeto aceita a chave, antes de copiar. */
@@ -191,7 +194,12 @@ async function main() {
   const fromKey = describeKey(process.env.ORIGEM_SECRET_KEY);
   const toKey = describeKey(process.env.DESTINO_SECRET_KEY);
   for (const [name, info] of [["SUPABASE_ORIGEM_SECRET_KEY", fromKey], ["SUPABASE_DESTINO_SECRET_KEY", toKey]]) {
-    console.log(`${name}: ${info.kind}, ${info.length} caracteres${info.ref ? `, do projeto ${info.ref}` : ""}${info.notes.length ? ` — ${info.notes.join("; ")}` : ""}`);
+    console.log(`${name}: ${info.shown ?? info.kind}, ${info.length} caracteres${info.ref ? `, do projeto ${info.ref}` : ""}${info.notes.length ? ` — ${info.notes.join("; ")}` : ""}`);
+  }
+  if (fromKey.key && fromKey.key === toKey.key) {
+    throw new Error(
+      "SUPABASE_ORIGEM_SECRET_KEY e SUPABASE_DESTINO_SECRET_KEY têm a mesma chave. A do DESTINO tem de ser copiada do projeto novo, com a conta nova (Project Settings → API Keys → Secret keys).",
+    );
   }
 
   const { createClient } = await import("@supabase/supabase-js");
