@@ -2,7 +2,7 @@
 // contra um Storage falso em memória.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { copyStorage, listAll, projectUrlFromDbUrl } from "../scripts/copiar-fotos-supabase.mjs";
+import { checkAccess, copyStorage, describeKey, listAll, projectUrlFromDbUrl } from "../scripts/copiar-fotos-supabase.mjs";
 
 /** Um Storage falso: { bucket: { public, files: Map<path, {body, mimetype, cacheControl}> } }. */
 function fakeStorage(buckets) {
@@ -111,4 +111,48 @@ test("um ficheiro que falha aparece no resumo, os outros copiam-se", async () =>
   assert.equal(s.copied, 1);
   assert.deepEqual(s.failed.map((f) => f.path), ["v1/mau.jpg"]);
   assert.match(s.failed[0].error, /timeout/);
+});
+
+const jwt = (payload) => `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.assinatura`;
+
+test("descreve a chave sem a mostrar e aponta os enganos ao copiar", () => {
+  const secret = describeKey("sb_secret_AbCdEf123456\n");
+  assert.equal(secret.kind, "secret (sb_secret_…)");
+  assert.equal(secret.key, "sb_secret_AbCdEf123456");
+  assert.match(secret.notes.join(), /espaços ou uma mudança de linha/);
+
+  assert.match(describeKey("sb_secret_abcd••••••••").notes.join(), /bolinhas/);
+  assert.match(describeKey("sb_publishable_xyz").notes.join(), /publishable/);
+  assert.match(describeKey("qbuykqielccfyodtlama").notes.join(), /não parece uma chave/);
+
+  const anon = describeKey(jwt({ role: "anon", ref: "abcdefghijklmnopqrst" }));
+  assert.equal(anon.kind, "JWT antiga (anon)");
+  assert.equal(anon.ref, "abcdefghijklmnopqrst");
+  assert.match(anon.notes.join(), /service_role/);
+  assert.deepEqual(describeKey(jwt({ role: "service_role", ref: "x" })).notes, []);
+
+  // O resultado (fora `key`) nunca traz a chave.
+  const { key, ...shown } = describeKey("sb_secret_MuitoSecreta999");
+  assert.ok(key && !JSON.stringify(shown).includes("MuitoSecreta"));
+});
+
+test("antes de copiar, diz qual chave o projeto recusa e porquê", async () => {
+  const ok = { storage: { listBuckets: async () => ({ data: [], error: null }) } };
+  const recusa = { storage: { listBuckets: async () => ({ data: null, error: { message: "Invalid Compact JWS" } }) } };
+  await checkAccess(ok, "ORIGEM", "aaa", describeKey("sb_secret_x"));
+  await assert.rejects(
+    checkAccess(recusa, "DESTINO", "ebceqwjfvqoahrfljbfl", describeKey(jwt({ role: "service_role", ref: "qbuykqielccfyodtlama" }))),
+    (e) => /ebceqwjfvqoahrfljbfl não aceita a chave de DESTINO/.test(e.message) && /do projeto qbuykqielccfyodtlama/.test(e.message),
+  );
+  await assert.rejects(checkAccess(recusa, "DESTINO", "x", describeKey("sb_secret_ab••••")), /bolinhas/);
+});
+
+test("um erro ao ver o bucket no destino (que não seja «não existe») não tenta criá-lo", async () => {
+  const origem = fakeStorage({ "car-media": { public: true, files: new Map([["v1/a.jpg", file("A")]]) } });
+  const destino = fakeStorage({});
+  destino.client.storage.getBucket = async () => ({ data: null, error: { message: "Invalid Compact JWS" } });
+  let created = false;
+  destino.client.storage.createBucket = async () => ((created = true), { data: null, error: null });
+  await assert.rejects(copyStorage(origem.client, destino.client, { log: () => {} }), /Não consegui ver o bucket «car-media» no destino: Invalid Compact JWS/);
+  assert.equal(created, false);
 });
