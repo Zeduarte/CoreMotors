@@ -46,14 +46,12 @@ function StockHeader({ photo, type }: { photo: VehicleType; type: VehicleType | 
           fill
           priority
           sizes="(max-width: 768px) 100vw, 1100px"
-          // `stock-photo` / `stock-veil`: no modo claro, a foto mais viva e o véu
-          // mais leve (src/themes/modes.css); no escuro fica como está.
-          className="stock-photo object-cover object-center opacity-60"
+          className="object-cover object-center opacity-60"
         />
       </div>
       <div
         aria-hidden
-        className="stock-veil absolute inset-0 bg-gradient-to-t from-ink-soft via-ink-soft/90 to-ink-soft/60 md:bg-gradient-to-r md:from-ink-soft md:from-35% md:via-ink-soft/75 md:via-55% md:to-ink-soft/20"
+        className="absolute inset-0 bg-gradient-to-t from-ink-soft via-ink-soft/90 to-ink-soft/60 md:bg-gradient-to-r md:from-ink-soft md:from-35% md:via-ink-soft/75 md:via-55% md:to-ink-soft/20"
       />
       <h1 className="sr-only">
         {type === "car"
