@@ -88,10 +88,52 @@ async function copyFile(src, dst, file) {
   });
 }
 
+/**
+ * Que tipo de chave é, sem a mostrar: prefixo, tamanho e enganos comuns ao
+ * copiar (texto escondido com «•», a publishable em vez da secret, a anon…).
+ */
+export function describeKey(raw) {
+  const value = String(raw ?? "");
+  const key = value.trim();
+  const notes = [];
+  if (key !== value) notes.push("tinha espaços ou uma mudança de linha no início ou no fim (ignorados)");
+  if (/[^\x21-\x7e]/.test(key)) notes.push("tem bolinhas «•» ou outros caracteres estranhos: foi copiado o texto escondido; use o botão de copiar");
+  let kind = "desconhecida";
+  let ref = null;
+  if (key.startsWith("sb_secret_")) kind = "secret (sb_secret_…)";
+  else if (key.startsWith("sb_publishable_")) {
+    kind = "publishable (sb_publishable_…)";
+    notes.push("é a chave publishable: é precisa a secret (Secret keys)");
+  } else if (/^eyJ[\w-]*\.[\w-]+\.[\w-]+$/.test(key)) {
+    let role = "?";
+    try {
+      const payload = JSON.parse(Buffer.from(key.split(".")[1], "base64url").toString("utf8"));
+      role = payload.role ?? "?";
+      ref = payload.ref ?? null;
+    } catch {}
+    kind = `JWT antiga (${role})`;
+    if (role !== "service_role") notes.push(`é a chave ${role}: é precisa a service_role (ou a secret)`);
+  } else notes.push("não parece uma chave do Supabase (devia começar por sb_secret_)");
+  return { key, kind, length: key.length, ref, notes };
+}
+
+/** Confirma que o projeto aceita a chave, antes de copiar. */
+export async function checkAccess(client, label, ref, info) {
+  const { error } = await client.storage.listBuckets();
+  if (!error) return;
+  const extra = info.notes.length ? ` Atenção: ${info.notes.join("; ")}.` : "";
+  const other = info.ref && info.ref !== ref ? ` É uma chave do projeto ${info.ref}, não do ${ref}.` : "";
+  throw new Error(
+    `O projeto ${ref} não aceita a chave de ${label} (${info.kind}, ${info.length} caracteres): ${String(error.message).replace(/\.+$/, "")}.${other}${extra}` +
+      ` Copie a secret key desse projeto (Project Settings → API Keys → Secret keys → botão de copiar) e atualize o segredo.`,
+  );
+}
+
 /** Garante que o bucket existe no destino, com as mesmas regras (público/privado, limites). */
 async function ensureBucket(to, b) {
-  const { data } = await to.storage.getBucket(b.id);
+  const { data, error: missing } = await to.storage.getBucket(b.id);
   if (data) return false;
+  if (missing && !/not.?found/i.test(missing.message ?? "")) throw new Error(`Não consegui ver o bucket «${b.id}» no destino: ${missing.message}`);
   const { error } = await to.storage.createBucket(b.id, {
     public: Boolean(b.public),
     fileSizeLimit: b.file_size_limit ?? undefined,
@@ -144,12 +186,23 @@ async function main() {
   const toUrl = projectUrlFromDbUrl(process.env.DESTINO_DB_URL);
   if (fromUrl === toUrl) throw new Error("A origem e o destino são o mesmo projeto.");
 
+  const fromRef = new URL(fromUrl).hostname.split(".")[0];
+  const toRef = new URL(toUrl).hostname.split(".")[0];
+  const fromKey = describeKey(process.env.ORIGEM_SECRET_KEY);
+  const toKey = describeKey(process.env.DESTINO_SECRET_KEY);
+  for (const [name, info] of [["SUPABASE_ORIGEM_SECRET_KEY", fromKey], ["SUPABASE_DESTINO_SECRET_KEY", toKey]]) {
+    console.log(`${name}: ${info.kind}, ${info.length} caracteres${info.ref ? `, do projeto ${info.ref}` : ""}${info.notes.length ? ` — ${info.notes.join("; ")}` : ""}`);
+  }
+
   const { createClient } = await import("@supabase/supabase-js");
   const opts = { auth: { persistSession: false, autoRefreshToken: false } };
-  const from = createClient(fromUrl, process.env.ORIGEM_SECRET_KEY, opts);
-  const to = createClient(toUrl, process.env.DESTINO_SECRET_KEY, opts);
+  const from = createClient(fromUrl, fromKey.key, opts);
+  const to = createClient(toUrl, toKey.key, opts);
 
   console.log(`Fotos: ${fromUrl} → ${toUrl}`);
+  await checkAccess(from, "ORIGEM (SUPABASE_ORIGEM_SECRET_KEY)", fromRef, fromKey);
+  await checkAccess(to, "DESTINO (SUPABASE_DESTINO_SECRET_KEY)", toRef, toKey);
+  console.log("As duas chaves são aceites ✔");
   const summary = await copyStorage(from, to);
 
   const mb = (n) => (n / 1024 / 1024).toFixed(1);
