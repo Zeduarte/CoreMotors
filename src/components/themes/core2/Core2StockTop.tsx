@@ -1,21 +1,18 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { VehicleType } from "@/lib/vehicle-categories";
-import { STOCK_LINKS, categoryCards, heroTexts } from "@/themes/core2/ui";
+import { categoryCards, heroTexts } from "@/themes/core2/ui";
 import { Core2Icon } from "./icons";
 
 /**
- * O topo do Stock do Core2 (como na maqueta, no fundo preto do site): o título
- * com o traço laranja, a frase, os botões «Ver motas» e «Ver carros» e a foto
- * da loja, a desvanecer para o título; por baixo, os cartões das categorias
- * (Motas, Moto 4, Automóveis). Os botões e os cartões filtram a lista de
- * baixo e saltam para ela (`#lista`).
+ * O topo do Stock do Core2 (como na maqueta): o título com o traço laranja, a
+ * frase e a foto da loja, a desvanecer para o título; por baixo, os cartões
+ * das categorias (Motas, Moto 4, Automóveis), que filtram a lista de baixo e
+ * saltam para ela (`#lista`).
  */
 export function Core2StockTop({ siteTypes, hasMoto4 }: { siteTypes: VehicleType[]; hasMoto4: boolean }) {
   const hero = heroTexts(siteTypes, hasMoto4);
   const cards = categoryCards(siteTypes, hasMoto4);
-  const moto = siteTypes.includes("motorcycle");
-  const car = siteTypes.includes("car");
 
   return (
     <div className="text-paper">
@@ -37,24 +34,6 @@ export function Core2StockTop({ siteTypes, hasMoto4 }: { siteTypes: VehicleType[
           <h1 className="core2-serif max-w-[36rem] text-[2.55rem] leading-[1.04] md:text-[3.45rem]">{hero.title}</h1>
           <span aria-hidden className="mt-3 block h-1 w-14 rounded-full bg-accent md:mt-4 md:w-16" />
           <p className="mt-4 max-w-[30rem] text-[1.05rem] leading-snug text-paper/75 md:text-[1.2rem]">{hero.subtitle}</p>
-          <div className="mt-6 flex flex-wrap gap-3 md:gap-5">
-            {moto && (
-              <Link
-                href={STOCK_LINKS.motas}
-                className="inline-flex items-center gap-3 rounded-md bg-accent px-6 py-2.5 text-[1.1rem] font-semibold text-white shadow-sm transition-[filter] hover:brightness-110 md:px-8 md:py-3"
-              >
-                Ver motas <Core2Icon name="arrow" className="h-5 w-5" strokeWidth={2.4} />
-              </Link>
-            )}
-            {car && (
-              <Link
-                href={STOCK_LINKS.carros}
-                className="inline-flex items-center gap-3 rounded-md border-2 border-paper px-6 py-2 text-[1.1rem] font-semibold text-paper transition-colors hover:bg-paper hover:text-ink md:px-8 md:py-2.5"
-              >
-                Ver carros <Core2Icon name="arrow" className="h-5 w-5" strokeWidth={2.4} />
-              </Link>
-            )}
-          </div>
         </div>
       </section>
 

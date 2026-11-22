@@ -12,12 +12,17 @@
  * As zonas com foto ou vídeo por trás do texto (topo da página inicial,
  * faixas, rodapé, a foto dos cartões…) têm a classe `site-dark`: no claro
  * ficam como no escuro, senão as camadas que escurecem a foto passavam a
- * brancas e a foto ficava lavada.
+ * brancas e a foto ficava lavada. Onde a zona encosta ao resto da página (o
+ * fundo do topo, o cimo do rodapé), `site-fade` faz a passagem para o branco.
  */
 .site {
   --site-film: 255 255 255;
   --site-scheme: dark;
+  /* O fundo da página (o de fora das zonas escuras), para as fotos desvanecerem para ele. */
+  --site-page: var(--ink);
 }
+/* As passagens das fotos para o resto do site (`site-fade`) só contam no claro. */
+.site .site-fade { display: none; }
 
 /* ---- Películas ------------------------------------------------------------ */
 .site .border-white\/5 { border-color: rgb(var(--site-film) / 0.05); }
@@ -84,6 +89,7 @@ html:has(.site[data-site-mode="light"]) body {
 .site[data-site-mode="light"] :is(.text-red-200, .text-red-300, .text-red-400, .text-rose-300):not(.site-dark *) { color: #b91c1c; }
 .site[data-site-mode="light"] :is(.text-amber-200, .text-amber-300, .text-orange-300):not(.site-dark *) { color: #a16207; }
 .site[data-site-mode="light"] :is(.text-emerald-200, .text-emerald-300):not(.site-dark *) { color: #047857; }
+.site[data-site-mode="light"] .site-fade { display: block; }
 /* As zonas com foto por trás ficam como no escuro. */
 .site[data-site-mode="light"] .site-dark {
   --ink: 10 10 10;
@@ -115,6 +121,7 @@ html:has(.site[data-site-mode="light"]) body {
   .site[data-site-mode="system"] :is(.text-red-200, .text-red-300, .text-red-400, .text-rose-300):not(.site-dark *) { color: #b91c1c; }
   .site[data-site-mode="system"] :is(.text-amber-200, .text-amber-300, .text-orange-300):not(.site-dark *) { color: #a16207; }
   .site[data-site-mode="system"] :is(.text-emerald-200, .text-emerald-300):not(.site-dark *) { color: #047857; }
+  .site[data-site-mode="system"] .site-fade { display: block; }
   .site[data-site-mode="system"] .site-dark {
     --ink: 10 10 10;
     --ink-soft: 17 17 18;

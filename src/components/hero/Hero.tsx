@@ -153,6 +153,12 @@ export function Hero({
               : "from-ink/80 via-ink/30 to-ink"
           }`}
         />
+        {/* No modo claro, a foto desvanece em baixo para o branco do site (no
+            escuro não aparece: a vinheta já acaba no fundo). */}
+        <div
+          aria-hidden
+          className="site-fade pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-[rgb(var(--site-page))]"
+        />
 
         {/* Conteúdo */}
         <div

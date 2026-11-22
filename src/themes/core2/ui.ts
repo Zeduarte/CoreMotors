@@ -1,8 +1,10 @@
+import type { Vehicle } from "@/types/vehicle";
 import type { VehicleType } from "@/lib/vehicle-categories";
 
 /**
  * Tema Core2, página do Stock (as maquetes da Supermotas): textos fixos, links
- * e formatos do topo e dos filtros. Sem interface, para se poder testar.
+ * e formatos do topo, dos filtros e dos cartões do telemóvel. Sem interface,
+ * para se poder testar.
  */
 
 /** Milhares com ponto, como nas maquetes («12.900»). Igual no servidor e no browser. */
@@ -13,6 +15,29 @@ export function dots(n: number): string {
 
 export function euros(n: number): string {
   return `${dots(n)} €`;
+}
+
+/** O preço dos cartões do telemóvel: «9.950 €», ou «Sob consulta». */
+export function priceText(v: Pick<Vehicle, "price" | "priceOnRequest">): string {
+  return v.priceOnRequest || !(v.price > 0) ? "Sob consulta" : euros(v.price);
+}
+
+/**
+ * As duas linhas de dados dos cartões do telemóvel (como na maqueta): a
+ * categoria e a cilindrada (nos carros, o combustível); os km e a frase curta
+ * do anúncio (sem frase, a potência; nos carros, a caixa).
+ */
+export function rowLines(
+  v: Pick<Vehicle, "vehicleType" | "body" | "displacement" | "fuel" | "mileage" | "tagline" | "power" | "transmission">,
+): [string, string] {
+  const moto = v.vehicleType === "motorcycle";
+  const first = [v.body, moto ? (v.displacement ? `${dots(v.displacement)} cc` : null) : v.fuel];
+  const second = [
+    `${dots(v.mileage || 0)} km`,
+    v.tagline?.trim() || (moto ? (v.power ? `${dots(v.power)} cv` : null) : v.transmission),
+  ];
+  const join = (xs: (string | null | undefined)[]) => xs.filter(Boolean).join(" • ");
+  return [join(first), join(second)];
 }
 
 /**

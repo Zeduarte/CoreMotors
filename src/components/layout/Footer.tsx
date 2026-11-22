@@ -46,6 +46,12 @@ export function Footer({
         aria-hidden
         className="absolute inset-0 bg-gradient-to-t from-ink/90 via-ink/70 to-ink/55"
       />
+      {/* No modo claro, o branco do site entra a desvanecer por cima da foto
+          (no escuro não aparece). */}
+      <div
+        aria-hidden
+        className="site-fade pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-t from-transparent to-[rgb(var(--site-page))]"
+      />
 
       <div className="relative z-10 container-px grid gap-12 py-16 [text-shadow:0_1px_4px_rgba(0,0,0,0.7)] md:grid-cols-4 md:py-20">
         <div className="md:col-span-2">
