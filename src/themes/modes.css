@@ -133,3 +133,29 @@ html:has(.site[data-site-mode="light"]) body {
     color: rgb(var(--paper));
   }
 }
+
+/*
+ * Só no Core 1: o topo do stock (foto por trás dos filtros). No claro, a foto
+ * mais viva e o véu mais leve à direita; à esquerda, onde estão os filtros,
+ * fica liso. No escuro nada muda.
+ */
+.site[data-site-theme="core"][data-site-mode="light"] .stock-photo { opacity: 0.9; }
+.site[data-site-theme="core"][data-site-mode="light"] .stock-veil {
+  background-image: linear-gradient(to top, rgb(var(--ink-soft)) 0%, rgb(var(--ink-soft) / 0.8) 45%, rgb(var(--ink-soft) / 0.35) 100%);
+}
+@media (min-width: 768px) {
+  .site[data-site-theme="core"][data-site-mode="light"] .stock-veil {
+    background-image: linear-gradient(to right, rgb(var(--ink-soft)) 30%, rgb(var(--ink-soft) / 0.6) 52%, rgb(var(--ink-soft) / 0.1) 100%);
+  }
+}
+@media (prefers-color-scheme: light) {
+  .site[data-site-theme="core"][data-site-mode="system"] .stock-photo { opacity: 0.9; }
+  .site[data-site-theme="core"][data-site-mode="system"] .stock-veil {
+    background-image: linear-gradient(to top, rgb(var(--ink-soft)) 0%, rgb(var(--ink-soft) / 0.8) 45%, rgb(var(--ink-soft) / 0.35) 100%);
+  }
+}
+@media (prefers-color-scheme: light) and (min-width: 768px) {
+  .site[data-site-theme="core"][data-site-mode="system"] .stock-veil {
+    background-image: linear-gradient(to right, rgb(var(--ink-soft)) 30%, rgb(var(--ink-soft) / 0.6) 52%, rgb(var(--ink-soft) / 0.1) 100%);
+  }
+}
