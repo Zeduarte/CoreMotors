@@ -136,26 +136,29 @@ html:has(.site[data-site-mode="light"]) body {
 
 /*
  * Só no Core 1: o topo do stock (foto por trás dos filtros). No claro, a foto
- * mais viva e o véu mais leve à direita; à esquerda, onde estão os filtros,
- * fica liso. No escuro nada muda.
+ * inteira (sem a transparência do escuro) e a passagem do branco para a foto
+ * como no topo do Core2: no computador a foto começa a 35% do cartão, e o véu
+ * fica liso até um pouco depois (sem linha na borda da foto), a meio a 48% e
+ * limpo a partir de 62% — as mesmas proporções do Core2 (6%, 20% e 42% da
+ * foto). No escuro nada muda.
  */
-.site[data-site-theme="core"][data-site-mode="light"] .stock-photo { opacity: 0.9; }
+.site[data-site-theme="core"][data-site-mode="light"] .stock-photo { opacity: 1; }
 .site[data-site-theme="core"][data-site-mode="light"] .stock-veil {
-  background-image: linear-gradient(to top, rgb(var(--ink-soft)) 0%, rgb(var(--ink-soft) / 0.8) 45%, rgb(var(--ink-soft) / 0.35) 100%);
+  background-image: linear-gradient(to top, rgb(var(--ink-soft)) 0%, rgb(var(--ink-soft) / 0.75) 40%, rgb(var(--ink-soft) / 0.15) 100%);
 }
 @media (min-width: 768px) {
   .site[data-site-theme="core"][data-site-mode="light"] .stock-veil {
-    background-image: linear-gradient(to right, rgb(var(--ink-soft)) 30%, rgb(var(--ink-soft) / 0.6) 52%, rgb(var(--ink-soft) / 0.1) 100%);
+    background-image: linear-gradient(to right, rgb(var(--ink-soft)) 39%, rgb(var(--ink-soft) / 0.45) 48%, rgb(var(--ink-soft) / 0) 62%);
   }
 }
 @media (prefers-color-scheme: light) {
-  .site[data-site-theme="core"][data-site-mode="system"] .stock-photo { opacity: 0.9; }
+  .site[data-site-theme="core"][data-site-mode="system"] .stock-photo { opacity: 1; }
   .site[data-site-theme="core"][data-site-mode="system"] .stock-veil {
-    background-image: linear-gradient(to top, rgb(var(--ink-soft)) 0%, rgb(var(--ink-soft) / 0.8) 45%, rgb(var(--ink-soft) / 0.35) 100%);
+    background-image: linear-gradient(to top, rgb(var(--ink-soft)) 0%, rgb(var(--ink-soft) / 0.75) 40%, rgb(var(--ink-soft) / 0.15) 100%);
   }
 }
 @media (prefers-color-scheme: light) and (min-width: 768px) {
   .site[data-site-theme="core"][data-site-mode="system"] .stock-veil {
-    background-image: linear-gradient(to right, rgb(var(--ink-soft)) 30%, rgb(var(--ink-soft) / 0.6) 52%, rgb(var(--ink-soft) / 0.1) 100%);
+    background-image: linear-gradient(to right, rgb(var(--ink-soft)) 39%, rgb(var(--ink-soft) / 0.45) 48%, rgb(var(--ink-soft) / 0) 62%);
   }
 }

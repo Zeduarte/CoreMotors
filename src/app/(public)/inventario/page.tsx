@@ -46,8 +46,9 @@ function StockHeader({ photo, type }: { photo: VehicleType; type: VehicleType | 
           fill
           priority
           sizes="(max-width: 768px) 100vw, 1100px"
-          // `stock-photo` / `stock-veil`: no Core 1 em modo claro, a foto mais viva
-          // e o véu mais leve (src/themes/modes.css); no escuro fica como está.
+          // `stock-photo` / `stock-veil`: no Core 1 em modo claro, a foto inteira
+          // e a passagem do branco para ela como no Core2 (src/themes/modes.css);
+          // no escuro fica como está.
           className="stock-photo object-cover object-center opacity-60"
         />
       </div>

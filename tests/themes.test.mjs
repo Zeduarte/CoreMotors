@@ -191,13 +191,21 @@ test("appearance CSS: dark keeps Tailwind's values, light (and Automático with 
     assert.match(readFileSync(file, "utf8"), /className=\{?[`"]site-dark |"site-dark /, `${file}: zona com foto marcada`);
   // O cartão de cima do stock do Core fica na cor da página (no claro, branco).
   assert.doesNotMatch(readFileSync("src/components/inventory/InventoryClient.tsx", "utf8"), /site-dark/);
-  // E, só no Core 1, a foto por trás dos filtros fica mais viva no claro (no escuro, a de sempre).
+  // E, só no Core 1, a foto por trás dos filtros fica inteira no claro, com a passagem do branco como no Core2 (no escuro, a de sempre).
   const stockPage = readFileSync("src/app/(public)/inventario/page.tsx", "utf8");
   assert.match(stockPage, /className="stock-photo object-cover object-center opacity-60"/);
   assert.match(stockPage, /className="stock-veil absolute inset-0 /);
-  assert.match(css, /\.site\[data-site-theme="core"\]\[data-site-mode="light"\] \.stock-photo \{ opacity: 0\.9; \}/);
-  assert.match(css, /\.site\[data-site-theme="core"\]\[data-site-mode="system"\] \.stock-photo \{ opacity: 0\.9; \}/);
-  assert.match(css, /@media \(min-width: 768px\) \{\s*\.site\[data-site-theme="core"\]\[data-site-mode="light"\] \.stock-veil \{\s*background-image: linear-gradient\(to right, rgb\(var\(--ink-soft\)\) 30%/);
+  assert.match(css, /\.site\[data-site-theme="core"\]\[data-site-mode="light"\] \.stock-photo \{ opacity: 1; \}/);
+  assert.match(css, /\.site\[data-site-theme="core"\]\[data-site-mode="system"\] \.stock-photo \{ opacity: 1; \}/);
+  // A foto começa a 35% do cartão (md:left-[35%]): o véu fica liso para lá disso (sem linha) e desvanece como no Core2.
+  assert.match(stockPage, /className="absolute inset-0 md:left-\[35%\]"/);
+  const veil = css.match(/@media \(min-width: 768px\) \{\s*\.site\[data-site-theme="core"\]\[data-site-mode="light"\] \.stock-veil \{\s*background-image: linear-gradient\(to right, ([^;]+)\);/)?.[1];
+  assert.equal(veil, "rgb(var(--ink-soft)) 39%, rgb(var(--ink-soft) / 0.45) 48%, rgb(var(--ink-soft) / 0) 62%");
+  const solid = Number(veil.match(/\) (\d+)%/)[1]);
+  assert.ok(solid > 35, "liso até depois do início da foto");
+  // As mesmas proporções do topo do Core2 (6%, 20% e 42% da foto, que ocupa 65% do cartão).
+  assert.match(readFileSync("src/components/themes/core2/Core2StockTop.tsx", "utf8"), /from-ink from-\[6%\] via-ink\/45 via-\[20%\] to-transparent to-\[42%\]/);
+  for (const [photoPct, cardPct] of [[6, 39], [20, 48], [42, 62]]) assert.ok(Math.abs(35 + (photoPct * 65) / 100 - cardPct) < 1, `${photoPct}% da foto ≈ ${cardPct}% do cartão`);
   for (const m of css.matchAll(/[^{}]*\.stock-(?:photo|veil)[^{]*\{/g))
     assert.match(m[0].trim(), /^\.site\[data-site-theme="core"\]/, `só no Core 1: ${m[0].trim().slice(0, 60)}`);
   // A foto do topo e o rodapé desvanecem para o branco do site (só no claro; no escuro não aparecem).
