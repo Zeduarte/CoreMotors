@@ -10,6 +10,10 @@ import { inventoryWithOlx } from "@/lib/olx/search";
 import { filtersFromQuery, sortFromQuery } from "@/lib/vehicles";
 import { InventoryClient } from "@/components/inventory/InventoryClient";
 import { SeoLinks } from "@/components/seo/SeoLinks";
+import { Core2Stock } from "@/components/themes/core2/Core2Stock";
+import { getSiteTheme } from "@/lib/site-theme-query";
+import { toListVehicle } from "@/lib/vehicle-list";
+import type { Vehicle } from "@/types/vehicle";
 
 export const revalidate = 60;
 
@@ -66,7 +70,11 @@ export default async function InventoryPage({
   const sp = await searchParams;
   // Um só stock: carros e motas juntos (os tipos que o site vende). O filtro
   // «Todos · Carros · Motas» está no próprio stock (`?tipo=`).
-  const [world, siteTypes] = await Promise.all([getPublicVehicleType(), getSiteVehicleTypes()]);
+  const [world, siteTypes, theme] = await Promise.all([
+    getPublicVehicleType(),
+    getSiteVehicleTypes(),
+    getSiteTheme(),
+  ]);
   // Filtros vindos do endereço: a pesquisa rápida da página inicial, um link
   // partilhado ou o «voltar» da ficha (?tipo=motas&marca=Yamaha…).
   const fromQuery = filtersFromQuery(sp);
@@ -77,10 +85,32 @@ export default async function InventoryPage({
       : fromQuery.vehicleType && siteTypes.includes(fromQuery.vehicleType)
         ? fromQuery.vehicleType
         : null;
+  const all = await getVehicles();
+
+  // Pesquisas populares: páginas por marca, categoria e preço (Google),
+  // uma caixa por cada tipo que o site vende — com o tipo no título
+  // quando são duas («Pesquisas populares — motas»).
+  const popular = (stock: Vehicle[]) =>
+    siteTypes.map((t) => (
+      <SeoLinks
+        key={t}
+        type={t}
+        vehicles={stock.filter((v) => (v.vehicleType ?? "car") === t)}
+        showType={siteTypes.length > 1}
+        className="mt-20"
+      />
+    ));
+
+  // Tema Core2: outra página (coluna de filtros, filtros ativos e a grelha de
+  // cartões). Sem os campos do OLX (não têm caixa nesta coluna).
+  if (theme === "core2") {
+    const stock = all.filter((v) => siteTypes.includes(v.vehicleType ?? "car")).map(toListVehicle);
+    return <Core2Stock key={JSON.stringify(sp)} vehicles={stock} siteTypes={siteTypes} below={popular(stock)} />;
+  }
+
   // Stock leve para os cartões, com os valores dos campos do OLX pesquisáveis.
   // Os campos do OLX são diferentes nos carros e nas motas: calculam-se para
   // cada tipo, e o stock mostra os do tipo escolhido.
-  const all = await getVehicles();
   const perType = await Promise.all(
     siteTypes.map((t) => inventoryWithOlx(all.filter((v) => (v.vehicleType ?? "car") === t), t)),
   );
@@ -110,18 +140,7 @@ export default async function InventoryPage({
         vehicleTypes={siteTypes}
       />
 
-      {/* Pesquisas populares: páginas por marca, categoria e preço (Google),
-          uma caixa por cada tipo que o site vende — com o tipo no título
-          quando são duas («Pesquisas populares — motas»). */}
-      {siteTypes.map((t) => (
-        <SeoLinks
-          key={t}
-          type={t}
-          vehicles={vehicles.filter((v) => (v.vehicleType ?? "car") === t)}
-          showType={siteTypes.length > 1}
-          className="mt-20"
-        />
-      ))}
+      {popular(vehicles)}
     </div>
   );
 }

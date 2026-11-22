@@ -8,8 +8,73 @@
  *   [data-site-theme="core2"] h1 { font-size: … }           tamanhos de letra
  *   [data-site-theme="core2"] [data-hero-media] { order: … } posição das imagens
  *
- * Por agora vazio: o Core2 é igual ao Core.
+ * Por agora, só a página do Stock muda (ver em baixo).
  */
 [data-site-theme="core2"] {
   --theme-id: core2;
+}
+
+/*
+ * Página do Stock (`.core2-stock`, em src/components/themes/core2/Core2Stock.tsx):
+ * o fundo escuro do site, com as caixas, as listas e as barras a condizer, e a
+ * cor de destaque (Definições) nas escolhas.
+ */
+[data-site-theme="core2"] .core2-stock {
+  color-scheme: dark;
+}
+
+[data-site-theme="core2"] .core2-stock .core2-check {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+[data-site-theme="core2"] .core2-stock .core2-select {
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid rgb(255 255 255 / 0.15);
+  border-radius: 0.5rem;
+  background-color: rgb(var(--ink));
+  color: inherit;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+[data-site-theme="core2"] .core2-stock .core2-select:focus-visible {
+  border-color: var(--accent);
+}
+
+/* Barra deslizante: a parte escolhida na cor de destaque (`--fill`, do componente). */
+[data-site-theme="core2"] .core2-stock .core2-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 0.375rem;
+  border-radius: 999px;
+  cursor: pointer;
+  background: linear-gradient(
+    to right,
+    var(--accent) var(--fill, 100%),
+    rgb(255 255 255 / 0.15) var(--fill, 100%)
+  );
+}
+[data-site-theme="core2"] .core2-stock .core2-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 3px solid var(--accent);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
+}
+[data-site-theme="core2"] .core2-stock .core2-range::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 3px solid var(--accent);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
 }
