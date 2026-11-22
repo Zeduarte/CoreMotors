@@ -142,7 +142,8 @@ export async function SeoListing({ type, slug }: { type: VehicleType; slug: stri
         </ol>
       </nav>
 
-      <header className="relative mb-10 overflow-hidden rounded-3xl border border-white/10 bg-ink-soft">
+      {/* `site-dark`: no modo claro fica como no escuro (foto com texto por cima). */}
+      <header className="site-dark relative mb-10 overflow-hidden rounded-3xl border border-white/10 bg-ink-soft">
         <div className="absolute inset-0 md:left-[35%]">
           <Image
             src={asset(mediaFor(type).entrada)}

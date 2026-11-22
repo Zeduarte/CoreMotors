@@ -165,6 +165,30 @@ test("appearance CSS: dark keeps Tailwind's values, light (and Automático with 
   assert.match(css, /@media \(prefers-color-scheme: light\) \{\s*\.site\[data-site-mode="system"\] \{/);
   assert.equal(block('.site[data-site-mode="system"]'), light, "o Automático em claro é igual ao Claro");
   assert.match(css, /html:has\(\.site\[data-site-mode="light"\]\) body \{\s*background-color: #ffffff;/);
+  // As zonas com foto por trás do texto ficam como no escuro (as cores de sempre, de globals.css), também no Automático.
+  const zone = block('.site[data-site-mode="light"] .site-dark');
+  const globals = readFileSync("src/app/globals.css", "utf8");
+  for (const v of ["--ink", "--ink-soft", "--ink-muted", "--paper"]) {
+    const original = globals.match(new RegExp(`${v}: ([0-9 ]+);`))[1];
+    assert.ok(zone.includes(`${v}: ${original};`), `${v} como no escuro`);
+  }
+  assert.match(zone, /--site-film: 255 255 255;.*color-scheme: dark;/);
+  assert.equal(block('.site[data-site-mode="system"] .site-dark'), zone);
+  assert.doesNotMatch(css, /text-shadow: none/, "as sombras do texto ficam (são para as fotos)");
+  for (const file of [
+    "src/components/hero/Hero.tsx",
+    "src/components/home/ContactCTA.tsx",
+    "src/components/home/SellCTA.tsx",
+    "src/components/home/PinnedTrust.tsx",
+    "src/components/quiz/CarQuiz.tsx",
+    "src/components/seo/SeoListing.tsx",
+    "src/components/layout/Footer.tsx",
+    "src/app/(public)/sobre/page.tsx",
+    "src/app/(public)/contactos/page.tsx",
+    "src/components/vehicle/VehicleCard.tsx",
+    "src/components/inventory/InventoryClient.tsx",
+  ])
+    assert.match(readFileSync(file, "utf8"), /className=\{?[`"]site-dark |"site-dark /, `${file}: zona com foto marcada`);
   // A layout põe a aparência no invólucro do site.
   const layout = readFileSync("src/app/(public)/layout.tsx", "utf8");
   assert.match(layout, /data-site-theme=\{theme\} data-site-mode=\{mode\}/);

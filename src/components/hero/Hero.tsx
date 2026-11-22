@@ -71,7 +71,8 @@ export function Hero({
       ref={sectionRef}
       // `-mt-16`: o topo sobe para trás da barra (que flutua num retângulo), e a
       // imagem chega ao cimo do ecrã à volta dela.
-      className={`relative -mt-16 ${
+      // `site-dark`: no modo claro fica como no escuro (a foto não fica lavada).
+      className={`site-dark relative -mt-16 ${
         isVideo
           ? // No telemóvel menos "pista" de scroll no vídeo: a secção seguinte
             // aparece mais cedo.

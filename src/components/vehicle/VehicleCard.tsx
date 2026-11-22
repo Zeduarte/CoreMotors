@@ -93,7 +93,8 @@ export function VehicleCard({
         >
         <div
           data-vt-card={vehicle.slug}
-          className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-ink-muted"
+          // `site-dark`: no modo claro, o ano, o favorito e as setas por cima da foto ficam escuros.
+          className="site-dark relative aspect-[4/3] overflow-hidden rounded-2xl bg-ink-muted"
         >
           <div className="absolute inset-0 transition-transform duration-700 ease-premium group-focus-within:scale-105 group-hover:scale-105">
             {/* Fade cruzado entre fotos: a anterior desvanece enquanto a nova

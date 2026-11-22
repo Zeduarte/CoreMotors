@@ -31,7 +31,8 @@ export function Footer({
   siteTypes?: VehicleType[];
 }) {
   return (
-    <footer className="relative overflow-hidden border-t border-white/10 bg-ink">
+    // `site-dark`: no modo claro fica como no escuro (foto de fundo com texto por cima).
+    <footer className="site-dark relative overflow-hidden border-t border-white/10 bg-ink">
       {/* Imagem de fundo subtil (rodape.jpg em public/media/carros|motas/) + escurecimento
           forte para manter o texto legível. Fallback: fica só o fundo escuro. */}
       {background && (

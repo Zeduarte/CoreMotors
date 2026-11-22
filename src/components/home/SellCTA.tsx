@@ -21,7 +21,8 @@ export function SellCTA({
   const what = mixed ? "uma viatura" : vehicleType === "motorcycle" ? "uma mota" : "um carro";
   return (
     <section className="container-px py-20 md:py-28">
-      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-ink-soft">
+      {/* `site-dark`: no modo claro fica como no escuro (foto com texto por cima). */}
+      <div className="site-dark relative overflow-hidden rounded-3xl border border-white/10 bg-ink-soft">
         {/* Imagem de fundo */}
         <div
           aria-hidden

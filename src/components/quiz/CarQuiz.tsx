@@ -285,7 +285,8 @@ export function CarQuiz({
           {/* Banner do quiz (em todos os passos) — imagem definível em
               quiz.jpg em public/media/carros|motas/ (fallback: fundo sólido). */}
           <div
-            className="relative mt-6 h-40 overflow-hidden rounded-2xl border border-white/10 bg-ink-soft bg-cover bg-center md:h-56"
+            // `site-dark`: no modo claro fica como no escuro (foto com texto por cima).
+            className="site-dark relative mt-6 h-40 overflow-hidden rounded-2xl border border-white/10 bg-ink-soft bg-cover bg-center md:h-56"
             style={{ backgroundImage: `url(${mediaFor(shownKind ?? primary).quiz})` }}
           >
             <div

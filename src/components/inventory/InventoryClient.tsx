@@ -251,7 +251,8 @@ export function InventoryClient({
   return (
     <div className="space-y-10">
       <div
-        className={top ? "relative overflow-hidden rounded-3xl border border-white/10 bg-ink-soft" : undefined}
+        // `site-dark`: com a foto no topo, no modo claro o cartão fica como no escuro.
+        className={top ? "site-dark relative overflow-hidden rounded-3xl border border-white/10 bg-ink-soft" : undefined}
       >
         {top}
         <Filters

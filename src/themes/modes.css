@@ -8,6 +8,11 @@
  * trocam-se. As películas brancas (`bg-white/5`, `border-white/10`…), feitas
  * para o fundo escuro, passam a usar `--site-film`: branco no escuro (os mesmos
  * valores do Tailwind, nada muda) e preto no claro.
+ *
+ * As zonas com foto ou vídeo por trás do texto (topo da página inicial,
+ * faixas, rodapé, a foto dos cartões…) têm a classe `site-dark`: no claro
+ * ficam como no escuro, senão as camadas que escurecem a foto passavam a
+ * brancas e a foto ficava lavada.
  */
 .site {
   --site-film: 255 255 255;
@@ -75,12 +80,21 @@ html:has(.site[data-site-mode="light"]) body {
 }
 /* Texto escuro na cor de destaque, como no escuro (aí `ink` é preto). */
 .site[data-site-mode="light"] .bg-accent.text-ink { color: #0a0a0a; }
-/* Sombras de texto pensadas para fotos escuras (ex.: rodapé). */
-.site[data-site-mode="light"] [class*="[text-shadow:"] { text-shadow: none; }
-/* Os tons «300» das mensagens são para fundo escuro; no claro escurecem-se. */
-.site[data-site-mode="light"] :is(.text-red-200, .text-red-300, .text-red-400, .text-rose-300) { color: #b91c1c; }
-.site[data-site-mode="light"] :is(.text-amber-200, .text-amber-300, .text-orange-300) { color: #a16207; }
-.site[data-site-mode="light"] :is(.text-emerald-200, .text-emerald-300) { color: #047857; }
+/* Os tons «300» das mensagens são para fundo escuro; no claro escurecem-se (fora das zonas escuras). */
+.site[data-site-mode="light"] :is(.text-red-200, .text-red-300, .text-red-400, .text-rose-300):not(.site-dark *) { color: #b91c1c; }
+.site[data-site-mode="light"] :is(.text-amber-200, .text-amber-300, .text-orange-300):not(.site-dark *) { color: #a16207; }
+.site[data-site-mode="light"] :is(.text-emerald-200, .text-emerald-300):not(.site-dark *) { color: #047857; }
+/* As zonas com foto por trás ficam como no escuro. */
+.site[data-site-mode="light"] .site-dark {
+  --ink: 10 10 10;
+  --ink-soft: 17 17 18;
+  --ink-muted: 24 24 27;
+  --paper: 245 245 244;
+  --site-film: 255 255 255;
+  --site-scheme: dark;
+  color-scheme: dark;
+  color: rgb(var(--paper));
+}
 
 @media (prefers-color-scheme: light) {
   .site[data-site-mode="system"] {
@@ -98,8 +112,17 @@ html:has(.site[data-site-mode="light"]) body {
     color: #141416;
   }
   .site[data-site-mode="system"] .bg-accent.text-ink { color: #0a0a0a; }
-  .site[data-site-mode="system"] [class*="[text-shadow:"] { text-shadow: none; }
-  .site[data-site-mode="system"] :is(.text-red-200, .text-red-300, .text-red-400, .text-rose-300) { color: #b91c1c; }
-  .site[data-site-mode="system"] :is(.text-amber-200, .text-amber-300, .text-orange-300) { color: #a16207; }
-  .site[data-site-mode="system"] :is(.text-emerald-200, .text-emerald-300) { color: #047857; }
+  .site[data-site-mode="system"] :is(.text-red-200, .text-red-300, .text-red-400, .text-rose-300):not(.site-dark *) { color: #b91c1c; }
+  .site[data-site-mode="system"] :is(.text-amber-200, .text-amber-300, .text-orange-300):not(.site-dark *) { color: #a16207; }
+  .site[data-site-mode="system"] :is(.text-emerald-200, .text-emerald-300):not(.site-dark *) { color: #047857; }
+  .site[data-site-mode="system"] .site-dark {
+    --ink: 10 10 10;
+    --ink-soft: 17 17 18;
+    --ink-muted: 24 24 27;
+    --paper: 245 245 244;
+    --site-film: 255 255 255;
+    --site-scheme: dark;
+    color-scheme: dark;
+    color: rgb(var(--paper));
+  }
 }

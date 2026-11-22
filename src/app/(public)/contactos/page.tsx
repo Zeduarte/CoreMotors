@@ -47,7 +47,8 @@ export default async function ContactsPage() {
           opcional: se faltar, fica o gradiente por baixo — nunca dá imagem
           partida. Basta colocar o ficheiro para aparecer automaticamente. */}
       <section className="container-px mt-12">
-        <div className="relative aspect-[21/9] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-ink-muted via-ink to-black">
+        {/* `site-dark`: no modo claro fica como no escuro (a foto não fica lavada). */}
+        <div className="site-dark relative aspect-[21/9] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-ink-muted via-ink to-black">
           <Parallax amount={0.12} className="absolute inset-0 scale-110">
             <div
               aria-hidden

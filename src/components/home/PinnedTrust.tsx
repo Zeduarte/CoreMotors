@@ -160,7 +160,8 @@ export function PinnedTrust({
 
           {/* Coluna direita — painel de média (vídeo/imagem definível) */}
           <div
-            className="relative h-[42vh] max-h-[560px] min-h-[320px] overflow-hidden rounded-3xl border border-white/10 md:h-[64vh]"
+            // `site-dark`: no modo claro fica como no escuro (vídeo com texto por cima).
+            className="site-dark relative h-[42vh] max-h-[560px] min-h-[320px] overflow-hidden rounded-3xl border border-white/10 md:h-[64vh]"
             aria-hidden
           >
             {/* Fundo animado (fallback garantido, sempre visível). */}
