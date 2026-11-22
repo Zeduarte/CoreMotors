@@ -1,15 +1,13 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import type { SortKey, Vehicle, VehicleFilters } from "@/types/vehicle";
 import type { VehicleType } from "@/lib/vehicle-categories";
 import { sameBrand } from "@/lib/brand-name";
 import { trapTab } from "@/lib/focus-trap";
-import { setVehiclePreview } from "@/lib/vehicle-preview";
-import { FadeImage } from "@/components/ui/FadeImage";
-import { dots, euros, priceText } from "@/themes/core2/ui";
+import { VehicleCard } from "@/components/vehicle/VehicleCard";
+import { dots, euros } from "@/themes/core2/ui";
 import {
   CC_BUCKETS,
   DEFAULT_SORT,
@@ -22,7 +20,6 @@ import {
   activeChips,
   applyCore2,
   bodyOptions,
-  cardFacts,
   core2FromQuery,
   core2ToQuery,
   emptyCore2,
@@ -50,7 +47,7 @@ import { Core2Icon } from "./icons";
  *   muda com «Aplicar filtros»;
  * - em cima, os filtros activos (cada um sai com o «×»), quantos veículos e a
  *   ordem;
- * - a grelha de cartões (foto, nome, ano, dados, preço e «Ver detalhes»).
+ * - a grelha com os cartões das viaturas (os mesmos do stock do Core).
  *
  * No telemóvel, a coluna abre-se com o botão «Filtros». A pesquisa fica no
  * endereço, como no stock do Core (ver `src/themes/core2/stock.ts`).
@@ -186,10 +183,10 @@ export function Core2Stock({ vehicles, siteTypes }: { vehicles: Vehicle[]; siteT
               </div>
             ) : (
               <section aria-label="Viaturas" className="mt-6">
-                <ul className="grid gap-5 sm:grid-cols-2 min-[1380px]:grid-cols-3">
+                <ul className="grid gap-x-6 gap-y-10 sm:grid-cols-2 min-[1380px]:grid-cols-3">
                   {results.map((v, i) => (
                     <li key={v.slug}>
-                      <StockCard vehicle={v} priority={i < 3} />
+                      <VehicleCard vehicle={v} priority={i < 3} />
                     </li>
                   ))}
                 </ul>
@@ -579,79 +576,5 @@ function FilterSheet({ onClose, children }: { onClose: () => void; children: Rea
       </div>
       {children}
     </div>
-  );
-}
-
-// ---- Cartão de uma viatura ------------------------------------------------------
-
-/** Foto, nome e ano, a linha de dados, o preço e «Ver detalhes» (abre a ficha). */
-function StockCard({ vehicle: v, priority }: { vehicle: Vehicle; priority: boolean }) {
-  const router = useRouter();
-  const href = `/viaturas/${v.slug}`;
-  const cover = v.images[0];
-  const prefetched = useRef(false);
-  // A ficha carrega-se quando o rato (ou o dedo) chega ao cartão, como no Core.
-  const prefetch = () => {
-    if (prefetched.current) return;
-    prefetched.current = true;
-    router.prefetch(href, { kind: "full" } as Parameters<typeof router.prefetch>[1]);
-  };
-  return (
-    <Link
-      href={href}
-      onPointerEnter={prefetch}
-      onTouchStart={prefetch}
-      onFocus={prefetch}
-      // A foto à vista vai já para o esqueleto da ficha (ver loading.tsx).
-      onClick={(e) => setVehiclePreview(v.slug, e.currentTarget.querySelector("img")?.currentSrc)}
-      className="group flex h-full flex-col overflow-hidden rounded-lg border border-white/10 bg-ink-soft transition-[border-color,transform] duration-300 hover:-translate-y-0.5 hover:border-white/25"
-    >
-      {/* A foto inteira (encolhe para caber no formato da maqueta); por trás,
-          a mesma foto desfocada, em vez de faixas vazias dos lados. */}
-      <div className="relative aspect-[2/1] overflow-hidden bg-ink-muted">
-        {cover && (
-          <>
-            <FadeImage
-              aria-hidden
-              src={cover.src}
-              alt=""
-              fill
-              sizes="(max-width: 640px) 100vw, (max-width: 1380px) 50vw, 33vw"
-              className="scale-110 object-cover opacity-45 blur-xl"
-            />
-            <FadeImage
-              src={cover.src}
-              alt={cover.alt || `${v.make} ${v.model}`}
-              fill
-              priority={priority}
-              sizes="(max-width: 640px) 100vw, (max-width: 1380px) 50vw, 33vw"
-              className="object-contain transition-transform duration-500 group-hover:scale-[1.03]"
-            />
-          </>
-        )}
-        {v.status === "reserved" && (
-          <span className="absolute left-3 top-3 rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-white">Reservado</span>
-        )}
-      </div>
-      <div className="flex flex-1 flex-col px-5 pb-5 pt-4">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="min-w-0 text-[1.4rem] font-semibold leading-tight">
-            {v.make} {v.model}
-          </h3>
-          {v.year ? (
-            <span className="mt-0.5 shrink-0 rounded-md border border-white/15 bg-white/5 px-2.5 py-0.5 text-[0.85rem] font-medium tabular-nums text-paper/85">
-              {v.year}
-            </span>
-          ) : null}
-        </div>
-        <p className="mt-2 line-clamp-2 text-[0.9rem] text-paper/65">{cardFacts(v).join(" • ")}</p>
-        <div className="mt-auto flex items-center justify-between gap-3 pt-4">
-          <span className="core2-serif text-[2rem] leading-none text-accent">{priceText(v)}</span>
-          <span className="inline-flex shrink-0 items-center gap-2 rounded-md border border-white/20 px-4 py-2 text-[0.95rem] font-semibold text-paper transition-colors group-hover:border-accent group-hover:text-accent">
-            Ver detalhes <Core2Icon name="arrow" className="h-4 w-4" strokeWidth={2.4} />
-          </span>
-        </div>
-      </div>
-    </Link>
   );
 }

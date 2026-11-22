@@ -90,13 +90,11 @@ export default async function InventoryPage({
   const all = await getVehicles();
 
   // Tema Core2: a página das maquetes — em cima a foto da loja e os cartões
-  // das categorias, por baixo a coluna dos filtros e a grelha de cartões. Sem
-  // os campos do OLX (não têm caixa nesta coluna); com a frase curta do
-  // anúncio (os cartões mostram-na). A letra serifada é só desta página.
+  // das categorias, por baixo a coluna dos filtros e a grelha com os cartões
+  // das viaturas (os do Core). Sem os campos do OLX (não têm caixa nesta
+  // coluna). A letra serifada é só desta página.
   if (theme === "core2") {
-    const stock = all
-      .filter((v) => siteTypes.includes(v.vehicleType ?? "car"))
-      .map((v) => ({ ...toListVehicle(v), tagline: v.tagline }));
+    const stock = all.filter((v) => siteTypes.includes(v.vehicleType ?? "car")).map(toListVehicle);
     return (
       <div className={core2Serif.variable}>
         <Core2StockTop siteTypes={siteTypes} hasMoto4={stock.some((v) => kindOf(v) === "moto4")} />

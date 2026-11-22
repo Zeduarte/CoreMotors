@@ -1,9 +1,8 @@
-import type { Vehicle } from "@/types/vehicle";
 import type { VehicleType } from "@/lib/vehicle-categories";
 
 /**
  * Tema Core2, página do Stock (as maquetes da Supermotas): textos fixos, links
- * e formatos do topo e dos cartões. Sem interface, para se poder testar.
+ * e formatos do topo e dos filtros. Sem interface, para se poder testar.
  */
 
 /** Milhares com ponto, como nas maquetes («12.900»). Igual no servidor e no browser. */
@@ -14,11 +13,6 @@ export function dots(n: number): string {
 
 export function euros(n: number): string {
   return `${dots(n)} €`;
-}
-
-/** O preço do cartão: «9.950 €», ou «Sob consulta». */
-export function priceText(v: Pick<Vehicle, "price" | "priceOnRequest">): string {
-  return v.priceOnRequest || !(v.price > 0) ? "Sob consulta" : euros(v.price);
 }
 
 /**

@@ -300,24 +300,3 @@ export function withoutChip(f: Core2Filters, key: string): Core2Filters {
   const current = f.base[key as BaseKey];
   return { ...f, base: { ...f.base, [key]: typeof current === "boolean" ? false : null } };
 }
-
-// ---- Cartões -----------------------------------------------------------------
-
-/**
- * A linha de dados do cartão, como na maqueta: «4.000 km • 450 cc • Moto 4 •
- * Excelente estado» (a frase curta do anúncio no fim; sem ela, a potência).
- * Nos carros: km • combustível • caixa • frase.
- */
-export function cardFacts(
-  v: Pick<Vehicle, "vehicleType" | "mileage" | "displacement" | "power" | "body" | "fuel" | "transmission" | "tagline">,
-): string[] {
-  const moto = v.vehicleType === "motorcycle";
-  const power = v.power ? `${dots(v.power)} cv` : null;
-  const out = [
-    `${dots(v.mileage || 0)} km`,
-    moto ? (v.displacement ? `${dots(v.displacement)} cc` : null) : v.fuel,
-    moto ? v.body : v.transmission,
-    v.tagline?.trim() || power,
-  ];
-  return out.filter((x): x is string => !!x).slice(0, 4);
-}
