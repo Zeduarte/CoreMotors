@@ -1,80 +1,124 @@
 /*
- * Tema Core2 — o aspeto que muda em relação ao Core.
+ * Tema Core2 — o aspeto que muda em relação ao Core (as maquetes da Supermotas).
  *
  * Tudo aqui tem de ficar debaixo de [data-site-theme="core2"] (o atributo está
  * no invólucro `.site` do site público), para não mexer no Core nem no
- * backoffice. Exemplos do que se pode mudar:
+ * backoffice. A única exceção é o fundo do <body>, que está fora do invólucro:
+ * `html:has([data-site-theme="core2"]) body`.
  *
- *   [data-site-theme="core2"] h1 { font-size: … }           tamanhos de letra
- *   [data-site-theme="core2"] [data-hero-media] { order: … } posição das imagens
- *
- * Por agora, só a página do Stock muda (ver em baixo).
+ * O Core2 tem fundo claro. O menu, o rodapé, a página inicial e o stock são
+ * componentes próprios (src/components/themes/core2/), já desenhados em claro.
+ * As outras páginas (ficha, contactos, vender…) são as do Core: as cores
+ * delas são variáveis (`ink` = fundo, `paper` = texto), que aqui passam a
+ * claras, e as películas brancas (`bg-white/5`, `border-white/10`…), feitas
+ * para o fundo escuro, passam a escuras — como no tema claro do backoffice.
  */
 [data-site-theme="core2"] {
   --theme-id: core2;
+  color-scheme: light;
+  --ink: 255 255 255;
+  --ink-soft: 255 255 255;
+  --ink-muted: 244 244 245;
+  --paper: 26 26 26;
+  --background: #ffffff;
+  --foreground: #1a1a1a;
+  color: rgb(var(--paper));
+  font-weight: 400;
 }
+html:has([data-site-theme="core2"]) body {
+  background-color: #ffffff;
+  color: #1a1a1a;
+}
+
+/* Títulos e preços em serifada (DM Serif Display, ver src/themes/core2/fonts.ts). */
+[data-site-theme="core2"] .core2-serif {
+  font-family: var(--font-core2-serif), Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+}
+
+/* Películas brancas (fundo escuro) → escuras, nas páginas que vêm do Core. */
+[data-site-theme="core2"] .border-white\/5 { border-color: rgb(0 0 0 / 0.055); }
+[data-site-theme="core2"] .border-white\/10 { border-color: rgb(0 0 0 / 0.09); }
+[data-site-theme="core2"] .border-white\/15 { border-color: rgb(0 0 0 / 0.125); }
+[data-site-theme="core2"] .border-white\/20 { border-color: rgb(0 0 0 / 0.16); }
+[data-site-theme="core2"] .border-white\/\[0\.07\] { border-color: rgb(0 0 0 / 0.069); }
+[data-site-theme="core2"] .border-white\/\[0\.08\] { border-color: rgb(0 0 0 / 0.076); }
+[data-site-theme="core2"] .bg-white\/5 { background-color: rgb(0 0 0 / 0.04); }
+[data-site-theme="core2"] .bg-white\/10 { background-color: rgb(0 0 0 / 0.07); }
+[data-site-theme="core2"] .bg-white\/15 { background-color: rgb(0 0 0 / 0.1); }
+[data-site-theme="core2"] .bg-white\/\[0\.03\] { background-color: rgb(0 0 0 / 0.03); }
+[data-site-theme="core2"] .bg-white\/\[0\.04\] { background-color: rgb(0 0 0 / 0.035); }
+[data-site-theme="core2"] .bg-white\/\[0\.05\] { background-color: rgb(0 0 0 / 0.04); }
+[data-site-theme="core2"] .divide-white\/5 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(0 0 0 / 0.055); }
+[data-site-theme="core2"] .divide-white\/10 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(0 0 0 / 0.09); }
+[data-site-theme="core2"] .hover\:bg-white\/5:hover { background-color: rgb(0 0 0 / 0.04); }
+[data-site-theme="core2"] .hover\:bg-white\/10:hover { background-color: rgb(0 0 0 / 0.07); }
+[data-site-theme="core2"] .hover\:bg-white\/\[0\.04\]:hover { background-color: rgb(0 0 0 / 0.035); }
+[data-site-theme="core2"] .hover\:border-white\/20:hover { border-color: rgb(0 0 0 / 0.16); }
+[data-site-theme="core2"] .hover\:border-white\/25:hover { border-color: rgb(0 0 0 / 0.2); }
+[data-site-theme="core2"] .hover\:border-white\/30:hover { border-color: rgb(0 0 0 / 0.23); }
+[data-site-theme="core2"] .hover\:border-white\/40:hover { border-color: rgb(0 0 0 / 0.3); }
+[data-site-theme="core2"] .hover\:border-white\/50:hover { border-color: rgb(0 0 0 / 0.35); }
+/* Os tons «300» são feitos para fundo escuro; no claro escurecem-se. */
+[data-site-theme="core2"] :is(.text-red-200, .text-red-300, .text-red-400, .text-rose-300) { color: #b91c1c; }
+[data-site-theme="core2"] :is(.text-amber-200, .text-amber-300, .text-orange-300) { color: #a16207; }
+[data-site-theme="core2"] :is(.text-emerald-200, .text-emerald-300) { color: #047857; }
+[data-site-theme="core2"] .text-sky-300 { color: #0369a1; }
 
 /*
  * Página do Stock (`.core2-stock`, em src/components/themes/core2/Core2Stock.tsx):
- * o fundo escuro do site, com as caixas, as listas e as barras a condizer, e a
- * cor de destaque (Definições) nas escolhas.
+ * as caixas, as listas e as barras como na maqueta, com a cor de destaque
+ * (Definições) nas escolhas.
  */
-[data-site-theme="core2"] .core2-stock {
-  color-scheme: dark;
-}
-
-[data-site-theme="core2"] .core2-stock .core2-check {
-  width: 1.125rem;
-  height: 1.125rem;
+[data-site-theme="core2"] .core2-check {
+  width: 1.2rem;
+  height: 1.2rem;
   flex-shrink: 0;
   cursor: pointer;
   accent-color: var(--accent);
 }
 
-[data-site-theme="core2"] .core2-stock .core2-select {
+[data-site-theme="core2"] .core2-select {
   min-width: 0;
   max-width: 100%;
-  border: 1px solid rgb(255 255 255 / 0.15);
-  border-radius: 0.5rem;
-  background-color: rgb(var(--ink));
-  color: inherit;
-  padding: 0.45rem 0.6rem;
-  font-size: 0.875rem;
+  border: 1px solid #d4d4d4;
+  border-radius: 0.375rem;
+  background-color: #fff;
+  color: #1a1a1a;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.95rem;
   cursor: pointer;
 }
-[data-site-theme="core2"] .core2-stock .core2-select:focus-visible {
+[data-site-theme="core2"] .core2-select:focus-visible {
   border-color: var(--accent);
 }
 
 /* Barra deslizante: a parte escolhida na cor de destaque (`--fill`, do componente). */
-[data-site-theme="core2"] .core2-stock .core2-range {
+[data-site-theme="core2"] .core2-range {
   -webkit-appearance: none;
   appearance: none;
   height: 0.375rem;
   border-radius: 999px;
   cursor: pointer;
-  background: linear-gradient(
-    to right,
-    var(--accent) var(--fill, 100%),
-    rgb(255 255 255 / 0.15) var(--fill, 100%)
-  );
+  background: linear-gradient(to right, var(--accent) var(--fill, 100%), #e5e5e5 var(--fill, 100%));
 }
-[data-site-theme="core2"] .core2-stock .core2-range::-webkit-slider-thumb {
+[data-site-theme="core2"] .core2-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.4rem;
+  height: 1.4rem;
   border-radius: 999px;
   background: #fff;
   border: 3px solid var(--accent);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
 }
-[data-site-theme="core2"] .core2-stock .core2-range::-moz-range-thumb {
+[data-site-theme="core2"] .core2-range::-moz-range-thumb {
   box-sizing: border-box;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.4rem;
+  height: 1.4rem;
   border-radius: 999px;
   background: #fff;
   border: 3px solid var(--accent);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
 }

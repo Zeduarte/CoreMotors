@@ -13,7 +13,6 @@ import { SeoLinks } from "@/components/seo/SeoLinks";
 import { Core2Stock } from "@/components/themes/core2/Core2Stock";
 import { getSiteTheme } from "@/lib/site-theme-query";
 import { toListVehicle } from "@/lib/vehicle-list";
-import type { Vehicle } from "@/types/vehicle";
 
 export const revalidate = 60;
 
@@ -87,25 +86,14 @@ export default async function InventoryPage({
         : null;
   const all = await getVehicles();
 
-  // Pesquisas populares: páginas por marca, categoria e preço (Google),
-  // uma caixa por cada tipo que o site vende — com o tipo no título
-  // quando são duas («Pesquisas populares — motas»).
-  const popular = (stock: Vehicle[]) =>
-    siteTypes.map((t) => (
-      <SeoLinks
-        key={t}
-        type={t}
-        vehicles={stock.filter((v) => (v.vehicleType ?? "car") === t)}
-        showType={siteTypes.length > 1}
-        className="mt-20"
-      />
-    ));
-
-  // Tema Core2: outra página (coluna de filtros, filtros ativos e a grelha de
-  // cartões). Sem os campos do OLX (não têm caixa nesta coluna).
+  // Tema Core2: a página da maqueta (coluna de filtros, filtros ativos e a
+  // grelha de cartões), sem mais nada por baixo. Sem os campos do OLX (não têm
+  // caixa nesta coluna); com a frase curta do anúncio (os cartões mostram-na).
   if (theme === "core2") {
-    const stock = all.filter((v) => siteTypes.includes(v.vehicleType ?? "car")).map(toListVehicle);
-    return <Core2Stock key={JSON.stringify(sp)} vehicles={stock} siteTypes={siteTypes} below={popular(stock)} />;
+    const stock = all
+      .filter((v) => siteTypes.includes(v.vehicleType ?? "car"))
+      .map((v) => ({ ...toListVehicle(v), tagline: v.tagline }));
+    return <Core2Stock key={JSON.stringify(sp)} vehicles={stock} siteTypes={siteTypes} />;
   }
 
   // Stock leve para os cartões, com os valores dos campos do OLX pesquisáveis.
@@ -140,7 +128,18 @@ export default async function InventoryPage({
         vehicleTypes={siteTypes}
       />
 
-      {popular(vehicles)}
+      {/* Pesquisas populares: páginas por marca, categoria e preço (Google),
+          uma caixa por cada tipo que o site vende — com o tipo no título
+          quando são duas («Pesquisas populares — motas»). */}
+      {siteTypes.map((t) => (
+        <SeoLinks
+          key={t}
+          type={t}
+          vehicles={vehicles.filter((v) => (v.vehicleType ?? "car") === t)}
+          showType={siteTypes.length > 1}
+          className="mt-20"
+        />
+      ))}
     </div>
   );
 }

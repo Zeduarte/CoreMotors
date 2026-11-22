@@ -2,7 +2,7 @@ import type { SortKey, Vehicle, VehicleFilters } from "@/types/vehicle";
 import { CAR_BODIES, MOTORCYCLE_BODIES, type VehicleType } from "@/lib/vehicle-categories";
 import { applyFilters, emptyFilters, filtersFromQuery, filtersToQuery, sortFromQuery, sortVehicles } from "@/lib/vehicles";
 import { brandOptions, canonicalBrand, sameBrand } from "@/lib/brand-name";
-import { formatKm, formatNumber, formatPrice } from "@/lib/format";
+import { dots, euros } from "./ui";
 
 /**
  * Stock do tema Core2: a lógica (sem interface), para se poder testar.
@@ -25,27 +25,33 @@ export const MOTO4 = "Moto 4";
 const KIND_ORDER: StockKind[] = ["motas", "moto4", "carros"];
 export const KIND_LABEL: Record<StockKind, string> = { motas: "Motas", moto4: "Moto 4", carros: "Carros" };
 
-/** As barras do preço e dos quilómetros: no fim («50 000 €+») é sem limite. */
+/** As barras do preço e dos quilómetros: no fim («50.000 €+») é sem limite. */
 export const PRICE_MAX = 50_000;
 export const PRICE_STEP = 500;
 export const KM_MAX = 100_000;
 export const KM_STEP = 1_000;
 
-/** Cilindrada das motas, em intervalos (caixas). Sem buracos entre eles. */
+/**
+ * Cilindrada das motas, com os nomes da maqueta. Cada caixa apanha as motas
+ * mais perto dessa classe (sem buracos entre elas): uma de 300 cc está nas
+ * «450 cc», uma de 1000 cc nas «800 cc», uma de 1170 cc nas «1200 cc+». O
+ * intervalo aparece ao passar o rato (`range`).
+ */
 export const CC_BUCKETS = [
-  { id: "125", label: "Até 125 cc", min: 0, max: 125 },
-  { id: "450", label: "126 a 450 cc", min: 126, max: 450 },
-  { id: "800", label: "451 a 800 cc", min: 451, max: 800 },
-  { id: "801", label: "Mais de 800 cc", min: 801, max: Infinity },
+  { id: "125", label: "125 cc", range: "Até 250 cc", min: 0, max: 250 },
+  { id: "450", label: "450 cc", range: "De 251 a 650 cc", min: 251, max: 650 },
+  { id: "800", label: "800 cc", range: "De 651 a 1.000 cc", min: 651, max: 1000 },
+  { id: "1200", label: "1200 cc+", range: "Mais de 1.000 cc", min: 1001, max: Infinity },
 ] as const;
 
-export const SORT_LABELS: Record<SortKey, string> = {
-  relevance: "Relevância",
-  "year-desc": "Mais recentes",
-  "price-asc": "Preço mais baixo",
-  "price-desc": "Preço mais alto",
-  "mileage-asc": "Menos quilómetros",
-};
+/** As ordens à escolha (como na maqueta, «Mais recentes» primeiro e por defeito). */
+export const DEFAULT_SORT: SortKey = "year-desc";
+export const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "year-desc", label: "Mais recentes" },
+  { key: "price-asc", label: "Preço mais baixo" },
+  { key: "price-desc", label: "Preço mais alto" },
+  { key: "mileage-asc", label: "Menos quilómetros" },
+];
 
 export interface Core2Filters {
   /** Vazio: todos os tipos. */
@@ -150,7 +156,8 @@ export function core2FromQuery(sp: Params, available: StockKind[]): Core2State {
       cc: list(sp.cc).filter((id) => CC_BUCKETS.some((b) => b.id === id)),
       base,
     },
-    sort: sortFromQuery(sp),
+    // Sem ordem (ou a «Relevância» do Core): «Mais recentes».
+    sort: SORT_OPTIONS.some((o) => o.key === sortFromQuery(sp)) ? sortFromQuery(sp) : DEFAULT_SORT,
   };
 }
 
@@ -170,7 +177,10 @@ export function core2ToQuery(f: Core2Filters, sort: SortKey, available: StockKin
   if (f.bodies.length) qs.set("categoria", f.bodies.join(","));
   if (f.cc.length) qs.set("cc", f.cc.join(","));
   const rest = new URLSearchParams(
-    filtersToQuery({ ...f.base, make: null, body: null, vehicleType: null, location: null, olx: {} }, sort),
+    filtersToQuery(
+      { ...f.base, make: null, body: null, vehicleType: null, location: null, olx: {} },
+      sort === DEFAULT_SORT ? undefined : sort,
+    ),
   );
   for (const [k, v] of rest) qs.set(k, v);
   return qs.toString();
@@ -258,20 +268,20 @@ export function activeChips(f: Core2Filters): Chip[] {
   };
   add("query", b.query ? `«${b.query}»` : null);
   add("model", b.model);
-  add("minPrice", b.minPrice != null ? `Desde ${formatPrice(b.minPrice)}` : null);
-  add("maxPrice", b.maxPrice != null ? `Até ${formatPrice(b.maxPrice)}` : null);
+  add("minPrice", b.minPrice != null ? `Desde ${euros(b.minPrice)}` : null);
+  add("maxPrice", b.maxPrice != null ? `Até ${euros(b.maxPrice)}` : null);
   add("minYear", b.minYear != null ? `Desde ${b.minYear}` : null);
   add("maxYear", b.maxYear != null ? `Até ${b.maxYear}` : null);
-  add("minMileage", b.minMileage != null ? `Desde ${formatKm(b.minMileage)}` : null);
-  add("maxMileage", b.maxMileage != null ? `Até ${formatKm(b.maxMileage)}` : null);
+  add("minMileage", b.minMileage != null ? `Desde ${dots(b.minMileage)} km` : null);
+  add("maxMileage", b.maxMileage != null ? `Até ${dots(b.maxMileage)} km` : null);
   out.push(...f.cc.map((id) => ({ key: `cc:${id}`, label: CC_BUCKETS.find((x) => x.id === id)?.label ?? id })));
   add("fuel", b.fuel);
   add("transmission", b.transmission);
   add("color", b.color);
-  add("minPower", b.minPower != null ? `Desde ${formatNumber(b.minPower)} cv` : null);
-  add("maxPower", b.maxPower != null ? `Até ${formatNumber(b.maxPower)} cv` : null);
-  add("minDisplacement", b.minDisplacement != null ? `Desde ${formatNumber(b.minDisplacement)} cc` : null);
-  add("maxDisplacement", b.maxDisplacement != null ? `Até ${formatNumber(b.maxDisplacement)} cc` : null);
+  add("minPower", b.minPower != null ? `Desde ${dots(b.minPower)} cv` : null);
+  add("maxPower", b.maxPower != null ? `Até ${dots(b.maxPower)} cv` : null);
+  add("minDisplacement", b.minDisplacement != null ? `Desde ${dots(b.minDisplacement)} cc` : null);
+  add("maxDisplacement", b.maxDisplacement != null ? `Até ${dots(b.maxDisplacement)} cc` : null);
   add("doors", b.doors != null ? `${b.doors} portas` : null);
   add("seats", b.seats != null ? `${b.seats} lugares` : null);
   for (const [key, label] of Object.entries(FLAG_LABELS) as [BaseKey, string][]) if (b[key] === true) add(key, label);
@@ -293,16 +303,21 @@ export function withoutChip(f: Core2Filters, key: string): Core2Filters {
 
 // ---- Cartões -----------------------------------------------------------------
 
-/** A linha de dados do cartão: «4 000 km • 450 cc • 50 cv • Moto 4». */
+/**
+ * A linha de dados do cartão, como na maqueta: «4.000 km • 450 cc • Moto 4 •
+ * Excelente estado» (a frase curta do anúncio no fim; sem ela, a potência).
+ * Nos carros: km • combustível • caixa • frase.
+ */
 export function cardFacts(
-  v: Pick<Vehicle, "vehicleType" | "mileage" | "displacement" | "power" | "body" | "fuel" | "transmission">,
+  v: Pick<Vehicle, "vehicleType" | "mileage" | "displacement" | "power" | "body" | "fuel" | "transmission" | "tagline">,
 ): string[] {
   const moto = v.vehicleType === "motorcycle";
+  const power = v.power ? `${dots(v.power)} cv` : null;
   const out = [
-    formatKm(v.mileage || 0),
-    moto ? (v.displacement ? `${formatNumber(v.displacement)} cc` : null) : v.fuel,
-    moto ? (v.power ? `${formatNumber(v.power)} cv` : null) : v.transmission,
-    moto ? v.body : v.power ? `${formatNumber(v.power)} cv` : null,
+    `${dots(v.mileage || 0)} km`,
+    moto ? (v.displacement ? `${dots(v.displacement)} cc` : null) : v.fuel,
+    moto ? v.body : v.transmission,
+    v.tagline?.trim() || power,
   ];
   return out.filter((x): x is string => !!x).slice(0, 4);
 }

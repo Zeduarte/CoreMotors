@@ -21,6 +21,12 @@ import { SiteIntro } from "@/components/site/SiteIntro";
 import { vehiclesLabel } from "@/lib/site-types";
 import { getSiteTheme } from "@/lib/site-theme-query";
 import { SiteThemeProvider } from "@/components/site/SiteTheme";
+import { Core2Header } from "@/components/themes/core2/Core2Header";
+import { Core2Footer } from "@/components/themes/core2/Core2Footer";
+import { core2Serif } from "@/themes/core2/fonts";
+import { navLinks } from "@/themes/core2/ui";
+import { kindOf } from "@/themes/core2/stock";
+import { getShowroomContent } from "@/lib/showroom-queries";
 // O CSS de cada tema (sempre debaixo de [data-site-theme="…"]).
 import "@/themes/core2.css";
 
@@ -35,7 +41,7 @@ export default async function PublicLayout({
   // Um só site: carros e motas juntos (os tipos de Definições → Tipo de site).
   // O tipo principal dá o aspeto (fotos e textos) — o dos carros, salvo num
   // site só de motas.
-  const [branding, type, siteTypes, badges, stock, sold, theme] = await Promise.all([
+  const [branding, type, siteTypes, badges, stock, sold, theme, showroom] = await Promise.all([
     getBranding(),
     getPublicVehicleType(),
     getSiteVehicleTypes(),
@@ -46,7 +52,11 @@ export default async function PublicLayout({
     getSoldVehicleList(),
     // A versão do site (Gestão): Core ou Core2.
     getSiteTheme(),
+    // O nome do ponto de venda principal (rodapé do Core2, no telemóvel).
+    getShowroomContent(),
   ]);
+  // Core2 (as maquetes): menu, rodapé e letra próprios, fundo claro.
+  const core2 = theme === "core2";
   // Sem stock nenhum (ou a leitura falhou), não se filtra nada: um erro
   // passageiro não pode apagar a comparação de quem está a navegar.
   const stockSlugs = stock.length ? stock.map((v) => v.slug) : undefined;
@@ -62,7 +72,7 @@ export default async function PublicLayout({
       {/* `.site`: estilos só do site público (ex.: botões); `contents` não
           cria caixa, por isso não altera o layout. */}
       {/* `data-site-theme`: o CSS de cada tema (src/themes/<tema>.css). */}
-      <div className="site contents" data-site-theme={theme}>
+      <div className={`site contents${core2 ? ` ${core2Serif.variable}` : ""}`} data-site-theme={theme}>
         {/* Entrada da 1.ª visita: a foto das motas enquanto o site carrega. */}
         <SiteIntro name={branding.companyName} label={vehiclesLabel(siteTypes)} />
         {/* Salto para conteúdo — acessibilidade por teclado. */}
@@ -79,9 +89,17 @@ export default async function PublicLayout({
           <NavigationEvents />
           <NavigationProgress />
         </Suspense>
-        <Header branding={branding} stockSlugs={stockSlugs} />
+        {core2 ? (
+          <Core2Header branding={branding} links={navLinks(siteTypes, stock.some((v) => kindOf(v) === "moto4"))} />
+        ) : (
+          <Header branding={branding} stockSlugs={stockSlugs} />
+        )}
         <main id="conteudo" className="pt-16">{children}</main>
-        <Footer branding={branding} background={existingMedia(type, OPTIONAL_MEDIA.rodape)} siteTypes={siteTypes} />
+        {core2 ? (
+          <Core2Footer branding={branding} placeName={showroom.locations[0]?.name} />
+        ) : (
+          <Footer branding={branding} background={existingMedia(type, OPTIONAL_MEDIA.rodape)} siteTypes={siteTypes} />
+        )}
         {/* Assistente virtual + canais de contacto no mesmo botão flutuante.
             Na ficha de viatura o botão dá lugar à barra fixa do fundo.
             Sem chave da Anthropic configurada, fica só o contacto humano. */}
@@ -92,7 +110,8 @@ export default async function PublicLayout({
           chatEnabled={!!process.env.ANTHROPIC_API_KEY}
         />
         <CompareBar />
-        <GrainOverlay />
+        {/* O grão é para o fundo escuro do Core. */}
+        {!core2 && <GrainOverlay />}
       </div>
       </CompareProvider>
       </ChatProvider>
