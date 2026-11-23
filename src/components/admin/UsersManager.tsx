@@ -89,7 +89,7 @@ function toShownLink(res: InviteResult): ShownLink | null {
   return { url: `${window.location.origin}${res.path}`, expiresAt: res.expiresAt };
 }
 
-function InviteLinkBox({ link, who, onClose }: { link: ShownLink; who: string; onClose: () => void }) {
+function InviteLinkBox({ link, who, self = false, onClose }: { link: ShownLink; who: string; self?: boolean; onClose: () => void }) {
   async function copy() {
     try {
       await navigator.clipboard.writeText(link.url);
@@ -102,8 +102,14 @@ function InviteLinkBox({ link, who, onClose }: { link: ShownLink; who: string; o
   return (
     <div className="mt-4 rounded-xl border border-accent/30 bg-accent/5 p-4">
       <p className="text-sm text-paper">
-        Envie este link a <strong>{who}</strong>. Serve uma única vez e é válido
-        até <strong>{formatDate(link.expiresAt)}</strong>.
+        {self ? (
+          <>Abra este link (ou envie-o para o seu telemóvel) para definir a palavra-passe nova.</>
+        ) : (
+          <>
+            Envie este link a <strong>{who}</strong>.
+          </>
+        )}{" "}
+        Serve uma única vez e é válido até <strong>{formatDate(link.expiresAt)}</strong>.
       </p>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
@@ -240,6 +246,8 @@ export function UsersManager({
             }
             assignable={roles}
             canManageAuth={canManageAuth}
+            // O dono (acesso core) gera o link para a própria conta: não tem a quem o pedir.
+            selfLink={u.id === currentUser.id && currentUser.is_owner && canManageAuth}
             pending={pending}
             onSave={(r, secs, types) =>
               startTransition(async () => {
@@ -258,7 +266,9 @@ export function UsersManager({
             }}
             onNewLink={(done) => {
               const who = u.full_name || u.username || "este utilizador";
-              const warning = u.invite
+              const warning = u.id === currentUser.id
+                ? "Gerar um link para definir uma palavra-passe nova para a sua conta? A atual continua a funcionar até o link ser usado."
+                : u.invite
                 ? `Gerar um link novo para ${who}? O anterior deixa de funcionar.`
                 : `Gerar um link para ${who} definir uma palavra-passe nova? A atual continua a funcionar até o link ser usado.`;
               if (!confirm(warning)) return;
@@ -286,6 +296,7 @@ function UserRow({
   editable,
   assignable,
   canManageAuth,
+  selfLink = false,
   pending,
   onSave,
   onDelete,
@@ -296,6 +307,7 @@ function UserRow({
   editable: boolean;
   assignable: Role[];
   canManageAuth: boolean;
+  selfLink?: boolean;
   pending: boolean;
   onSave: (role: UserRole, sections: string[], vehicleTypes: string[]) => void;
   onDelete: () => void;
@@ -396,14 +408,26 @@ function UserRow({
               )}
             </>
           ) : (
-            <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-paper/70">
-              {user.is_owner ? "Dono" : (ROLE_LABEL[user.role as Role] ?? user.role)}
-            </span>
+            <>
+              {selfLink && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => onNewLink(setLink)}
+                  className="rounded-lg border border-white/15 px-2.5 py-1.5 text-xs text-paper/70 hover:border-accent hover:text-accent"
+                >
+                  Link de acesso
+                </button>
+              )}
+              <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-paper/70">
+                {user.is_owner ? "Dono" : (ROLE_LABEL[user.role as Role] ?? user.role)}
+              </span>
+            </>
           )}
         </div>
       </div>
 
-      {link && <InviteLinkBox link={link} who={who} onClose={() => setLink(null)} />}
+      {link && <InviteLinkBox link={link} who={who} self={isSelf} onClose={() => setLink(null)} />}
 
       {editable && open && (
         <div className="mt-4 border-t border-white/10 pt-4">
