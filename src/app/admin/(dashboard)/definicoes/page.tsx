@@ -1,4 +1,5 @@
-import { getSiteSettings, getCompanySettings } from "@/lib/admin-queries";
+import { getSiteSettings, getCompanySettings, getLegalSettings } from "@/lib/admin-queries";
+import { LegalForm } from "@/components/admin/LegalForm";
 import { requireSection } from "@/lib/guard";
 import { BrandingForm } from "@/components/admin/BrandingForm";
 import { CompanyForm } from "@/components/admin/CompanyForm";
@@ -16,11 +17,12 @@ export default async function SettingsPage() {
   // as fotos (photos.ts só pede o separador); gravar é só para o administrador.
   const isAdmin = me.role === "admin";
 
-  const [settings, company, badges, siteTypes] = await Promise.all([
+  const [settings, company, badges, siteTypes, legal] = await Promise.all([
     getSiteSettings(),
     getCompanySettings(),
     getBadges(),
     getSiteVehicleTypes(),
+    getLegalSettings(),
   ]);
 
   return (
@@ -58,6 +60,15 @@ export default async function SettingsPage() {
       </div>
 
       <CompanyForm initial={company} />
+
+      <div className="mt-10 mb-6 border-t border-white/10 pt-8">
+        <h2 className="text-lg font-semibold text-paper">Identificação legal</h2>
+        <p className="mt-1 text-sm text-paper/50">
+          O nome legal e o NIF aparecem no rodapé e nas políticas; a ficha de intermediário de crédito, na página de
+          Financiamento.
+        </p>
+      </div>
+      <LegalForm initial={legal} />
 
       <div className="mt-10 mb-6 border-t border-white/10 pt-8">
         <h2 className="text-lg font-semibold text-paper">Etiquetas dos cards</h2>

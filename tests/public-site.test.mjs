@@ -525,14 +525,17 @@ test("compare: no duplicates and each vehicle can be taken out on its own", () =
   assert.match(readFileSync("src/components/inventory/CompareRemove.tsx", "utf8"), /compare\?\.remove\(slug\)/);
 });
 
-test("financiamento: link para a ficha de intermediário de crédito (Banco de Portugal), num separador novo", () => {
+test("financiamento: link para a ficha de intermediário de crédito (Banco de Portugal), num separador novo, de cada stand", () => {
+  // O PDF da Supermotas continua em public/; a 0057 aponta para ele só na base de dados dela.
   const legal = readFileSync("src/lib/legal.ts", "utf8");
-  const path = legal.match(/CREDIT_INTERMEDIARY_INFO = "([^"]+)"/)?.[1];
+  const path = legal.match(/creditInfoUrl: "([^"]+)"/)?.[1];
   assert.equal(path, "/documentos/informacao-intermediario-credito.pdf");
   assert.ok(existsSync(`public${path}`), "o PDF tem de estar em public/");
   assert.equal(readFileSync(`public${path}`).subarray(0, 5).toString(), "%PDF-");
+  assert.match(readFileSync("supabase/migrations/0057_projeto_proprio.sql", "utf8"), new RegExp(path.replace(/\//g, "\\/")));
   const page = readFileSync("src/app/(public)/servicos/[slug]/page.tsx", "utf8");
-  assert.match(page, /service\.id === "financiamento" && \(/, "só na página de Financiamento");
-  assert.match(page, /href=\{CREDIT_INTERMEDIARY_INFO\}\s+target="_blank"\s+rel="noopener noreferrer"/);
+  // Só na página de Financiamento, e só se o stand tiver a ficha nas Definições.
+  assert.match(page, /service\.id === "financiamento" && legal\.creditInfoUrl && \(/);
+  assert.match(page, /href=\{legal\.creditInfoUrl\}\s+target="_blank"\s+rel="noopener noreferrer"/);
   assert.match(page, /intermediário de crédito/);
 });

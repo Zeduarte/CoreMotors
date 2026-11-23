@@ -346,6 +346,9 @@ type SiteSettingsRow = {
   geo_lat: number | null;
   geo_lng: number | null;
   workshop_hourly_rate: number;
+  legal_name: string | null;
+  nif: string | null;
+  credit_intermediary_url: string | null;
   updated_at: string;
 };
 type SiteSettingsInsert = {
@@ -371,6 +374,9 @@ type SiteSettingsInsert = {
   geo_lat?: number | null;
   geo_lng?: number | null;
   workshop_hourly_rate?: number;
+  legal_name?: string | null;
+  nif?: string | null;
+  credit_intermediary_url?: string | null;
 };
 type SiteSettingsUpdate = Partial<SiteSettingsInsert>;
 
@@ -1213,6 +1219,7 @@ export type Database = {
     Functions: {
       // ---- 0053: nomes de utilizador e convites (só service_role) ----
       login_email: { Args: { p_username: string }; Returns: string | null };
+      setup_owner: { Args: { p_email: string; p_username?: string }; Returns: string };
       create_user_invite: {
         Args: { p_user: string; p_token_hash: string; p_created_by: string | null; p_expires_at: string };
         Returns: string;

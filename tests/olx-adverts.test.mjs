@@ -1,3 +1,5 @@
+// Estes testes simulam o Supabase Storage (db.storage): as fotos ficam lá, não no R2 (o padrão do site).
+process.env.NEXT_PUBLIC_MEDIA_STORAGE = "supabase";
 // Anúncios da conta do OLX geridos no backoffice: os que o site criou, os
 // feitos à mão no OLX e os exportados do Standvirtual (que o OLX não deixa
 // alterar). Os dados de exemplo são os da conta do stand a 13/11/2026.

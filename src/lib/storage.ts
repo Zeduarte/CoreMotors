@@ -2,7 +2,7 @@
  * Onde estão as fotos e vídeos das viaturas (e o logótipo).
  *
  * - Sempre no Cloudflare R2 (sem custo de tráfego), no endereço público
- *   `NEXT_PUBLIC_MEDIA_URL` — e, sem essa variável, em https://fotos.supermotas.com.
+ *   `NEXT_PUBLIC_MEDIA_URL` de cada site (o build do Netlify pára sem ela).
  *   As fotos já não estão no Supabase (foram copiadas e apagadas de lá), por
  *   isso faltar uma variável no Netlify não pode fazer o site voltar a ele.
  * - O Supabase (bucket `car-media`) só volta se o Netlify tiver, de propósito,
@@ -32,13 +32,15 @@ export const PHOTOS_PER_BATCH = 1;
 
 export type MediaStorage = "supabase" | "r2";
 
-/** O endereço público do bucket do R2 quando o Netlify não diz outro. */
-export const DEFAULT_MEDIA_URL = "https://fotos.supermotas.com";
-
-/** O endereço público do bucket do R2, sem barra no fim. */
+/**
+ * O endereço público do bucket do R2 deste site, sem barra no fim (vazio se
+ * faltar). Cada site tem o seu (ex.: https://fotos.supermotas.com): não há um
+ * valor por omissão, para um site novo nunca mostrar as fotos de outro. No
+ * Netlify, o build pára se faltar (scripts/check-env.mjs).
+ */
 export function r2PublicBase(): string {
   const url = (process.env.NEXT_PUBLIC_MEDIA_URL ?? "").trim().replace(/\/+$/, "");
-  return /^https?:\/\//i.test(url) ? url : DEFAULT_MEDIA_URL;
+  return /^https?:\/\//i.test(url) ? url : "";
 }
 
 /** Onde se leem e gravam as fotos: sempre o R2, salvo pedido explícito. */

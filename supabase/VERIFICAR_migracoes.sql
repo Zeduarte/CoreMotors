@@ -1,4 +1,4 @@
--- Que migrações já estão aplicadas nesta base de dados? (0001 → 0056)
+-- Que migrações já estão aplicadas nesta base de dados? (0001 → 0057)
 --
 -- Cole isto no Supabase → SQL Editor e carregue em Run. Cada linha diz se a
 -- migração está aplicada, pela presença de algo que só ela cria; a última
@@ -171,7 +171,11 @@ with m(migracao, aplicada) as (values
   ('0056_facebook_discovery',
     to_regclass('public.fb_categories') is not null
     and to_regclass('public.fb_group_joins') is not null
-    and to_regclass('public.fb_schedules') is not null)
+    and to_regclass('public.fb_schedules') is not null),
+  ('0057_projeto_proprio',
+    exists (select 1 from information_schema.columns
+            where table_schema = 'public' and table_name = 'site_settings' and column_name = 'legal_name')
+    and to_regprocedure('public.setup_owner(text,text)') is not null)
 )
 select migracao, estado from (
   select migracao, case when aplicada then 'aplicada' else 'FALTA' end as estado

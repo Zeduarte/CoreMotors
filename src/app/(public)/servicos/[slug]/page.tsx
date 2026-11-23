@@ -7,7 +7,7 @@ import { FaqSection } from "@/components/showroom/FaqSection";
 import { Locations } from "@/components/showroom/Locations";
 import { OrderCarForm } from "@/components/forms/OrderCarForm";
 import { ContactForm } from "@/components/forms/ContactForm";
-import { CREDIT_INTERMEDIARY_INFO } from "@/lib/legal";
+import { getLegal } from "@/lib/queries";
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 export default async function ServicePage({ params }: Props) {
   const { slug } = await params;
-  const content = await getShowroomContent();
+  const [content, legal] = await Promise.all([getShowroomContent(), getLegal()]);
   const service = content.services.find((s) => s.id === slug && s.enabled);
   if (!service) notFound();
   return (
@@ -36,10 +36,12 @@ export default async function ServicePage({ params }: Props) {
               {p}
             </p>
           ))}
-          {service.id === "financiamento" && (
+          {/* Obrigatório para quem é intermediário de crédito: a ficha do Banco
+              de Portugal, definida em Definições → Empresa. */}
+          {service.id === "financiamento" && legal.creditInfoUrl && (
             <p>
               <a
-                href={CREDIT_INTERMEDIARY_INFO}
+                href={legal.creditInfoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-medium text-accent underline underline-offset-4 hover:no-underline"

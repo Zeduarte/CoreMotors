@@ -23,7 +23,7 @@ export const CUSTOMER_TEMPLATES: Record<CustomerTemplate, TemplateDefinition> = 
       "Se já não está à procura, pode cancelar o alerta em {{5}} a qualquer momento.",
     example: [
       "Maria",
-      "Supermotas",
+      "Stand Exemplo",
       "Yamaha MT-07 · 2021 · 12 000 km · 6 900 €",
       "https://www.exemplo.pt/viaturas/yamaha-mt-07-2021",
       "https://www.exemplo.pt/alertas/cancelar/3f2a9c1e",
@@ -38,7 +38,7 @@ export const CUSTOMER_TEMPLATES: Record<CustomerTemplate, TemplateDefinition> = 
       "Se precisar de mudar a hora, responda a esta mensagem.",
     example: [
       "Maria",
-      "Supermotas",
+      "Stand Exemplo",
       "terça-feira, 21 de outubro, às 10:30",
       "Yamaha MT-07 · 2021",
       "Av. da Liberdade 100, 1250-096 Lisboa",
@@ -50,7 +50,7 @@ export const CUSTOMER_TEMPLATES: Record<CustomerTemplate, TemplateDefinition> = 
     body:
       "Olá {{1}}! Infelizmente não conseguimos receber a sua visita à {{2}} em {{3}}.\n\n" +
       "Entraremos em contacto consigo para combinar outra hora que lhe convenha.",
-    example: ["Maria", "Supermotas", "terça-feira, 21 de outubro, às 10:30"],
+    example: ["Maria", "Stand Exemplo", "terça-feira, 21 de outubro, às 10:30"],
   },
   visita_pedido: {
     name: "engineline_visita_pedido",
@@ -58,7 +58,7 @@ export const CUSTOMER_TEMPLATES: Record<CustomerTemplate, TemplateDefinition> = 
     body:
       "Olá {{1}}! Recebemos o seu pedido de visita à {{2}} para {{3}}.\n\n" +
       "Vamos confirmar a hora consigo em breve.",
-    example: ["Maria", "Supermotas", "terça-feira, 21 de outubro, às 10:30"],
+    example: ["Maria", "Stand Exemplo", "terça-feira, 21 de outubro, às 10:30"],
   },
 };
 

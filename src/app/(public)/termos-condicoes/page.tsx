@@ -1,8 +1,7 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { pageMetadata } from "@/components/seo/page-metadata";
 import { LegalPage } from "@/components/legal/LegalPage";
-import { getBranding } from "@/lib/queries";
-import { LEGAL_NAME, NIF } from "@/lib/legal";
+import { getBranding, getLegal } from "@/lib/queries";
 
 export function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return pageMetadata(parent, {
@@ -16,13 +15,14 @@ export function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise
 export const revalidate = 3600;
 
 export default async function TermsPage() {
-  const { companyName, company } = await getBranding();
+  const [{ companyName, company }, legal] = await Promise.all([getBranding(), getLegal()]);
+  const LEGAL_NAME = legal.legalName || companyName;
 
   return (
     <LegalPage title="Termos e Condições">
       <p>
         Estes Termos e Condições regulam a utilização do site da{" "}
-        <strong>{LEGAL_NAME}</strong> (NIF {NIF}), doravante “{companyName}”. Ao
+        <strong>{LEGAL_NAME}</strong>{legal.nif ? ` (NIF ${legal.nif})` : ""}, doravante “{companyName}”. Ao
         utilizar o site, o utilizador aceita estes termos.
       </p>
 

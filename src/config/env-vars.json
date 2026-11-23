@@ -1,0 +1,26 @@
+{
+  "_": "Variáveis de cada site (Netlify → Site configuration → Environment variables). Cada stand tem o seu Supabase, o seu R2 e o seu domínio: só estas variáveis mudam de um site para outro. Usado por scripts/check-env.mjs (pára o build no Netlify se faltar uma obrigatória) e por Gestão → Configuração deste site. Ver docs/novo-projeto.md.",
+  "vars": [
+    { "name": "NEXT_PUBLIC_SUPABASE_URL", "group": "Supabase", "required": true, "secret": false, "help": "Supabase → Project Settings → Data API → Project URL (https://<projeto>.supabase.co)." },
+    { "name": "NEXT_PUBLIC_SUPABASE_ANON_KEY", "group": "Supabase", "required": true, "secret": false, "help": "Supabase → Project Settings → API Keys → publishable (sb_publishable_…) ou anon." },
+    { "name": "SUPABASE_SERVICE_ROLE_KEY", "group": "Supabase", "required": true, "secret": true, "help": "Supabase → Project Settings → API Keys → secret (sb_secret_…) ou service_role. Utilizadores, formulários do site e manutenção." },
+    { "name": "NEXT_PUBLIC_SITE_URL", "group": "Site", "required": false, "secret": false, "help": "O domínio do site (ex.: https://supermotas.com). Sem ela usa o domínio principal do Netlify." },
+    { "name": "MAINTENANCE_SECRET", "group": "Site", "required": false, "secret": true, "help": "Texto aleatório longo. Sem ele não correm as tarefas automáticas (reservas, alertas, OLX)." },
+    { "name": "NEXT_PUBLIC_MEDIA_URL", "group": "Fotos (Cloudflare R2)", "required": "r2", "secret": false, "help": "Endereço público do bucket (ex.: https://fotos.dominio.pt), sem barra no fim." },
+    { "name": "R2_ACCOUNT_ID", "group": "Fotos (Cloudflare R2)", "required": "r2", "secret": false, "help": "Cloudflare → R2 → Account ID." },
+    { "name": "R2_ACCESS_KEY_ID", "group": "Fotos (Cloudflare R2)", "required": "r2", "secret": true, "help": "R2 → Manage API Tokens → Access Key ID (token Object Read & Write, só do bucket)." },
+    { "name": "R2_SECRET_ACCESS_KEY", "group": "Fotos (Cloudflare R2)", "required": "r2", "secret": true, "help": "R2 → Manage API Tokens → Secret Access Key." },
+    { "name": "R2_BUCKET", "group": "Fotos (Cloudflare R2)", "required": "r2", "secret": false, "help": "Nome do bucket (ex.: cliente-fotos)." },
+    { "name": "NEXT_PUBLIC_MEDIA_STORAGE", "group": "Fotos (Cloudflare R2)", "required": false, "secret": false, "help": "Deixar vazia (fotos no R2). Só «supabase» para voltar a guardar as fotos no Supabase." },
+    { "name": "TRUSTED_CLIENT_IP_HEADER", "group": "Segurança", "required": false, "secret": false, "help": "No Netlify: x-nf-client-connection-ip (limite de envios por IP nos formulários)." },
+    { "name": "SUBMISSION_HASH_SECRET", "group": "Segurança", "required": false, "secret": true, "help": "Opcional; por omissão usa a chave de serviço." },
+    { "name": "ANTHROPIC_API_KEY", "group": "Assistente e WhatsApp", "required": false, "secret": true, "help": "Assistente do site (chat) e ordens por WhatsApp. Sem ela o chat não aparece." },
+    { "name": "WHATSAPP_APP_SECRET", "group": "Assistente e WhatsApp", "required": false, "secret": true, "help": "WhatsApp Cloud API (ver .env.example)." },
+    { "name": "WHATSAPP_VERIFY_TOKEN", "group": "Assistente e WhatsApp", "required": false, "secret": true, "help": "WhatsApp Cloud API (ver .env.example)." },
+    { "name": "WHATSAPP_APP_ID", "group": "Assistente e WhatsApp", "required": false, "secret": false, "help": "Botão «Ligar número do WhatsApp» em Integrações." },
+    { "name": "WHATSAPP_CONFIG_ID", "group": "Assistente e WhatsApp", "required": false, "secret": false, "help": "Botão «Ligar número do WhatsApp» em Integrações." },
+    { "name": "OLX_CLIENT_ID", "group": "OLX", "required": false, "secret": true, "help": "Publicação automática no OLX (OLX Partner API)." },
+    { "name": "OLX_CLIENT_SECRET", "group": "OLX", "required": false, "secret": true, "help": "Publicação automática no OLX (OLX Partner API)." },
+    { "name": "GOOGLE_PLACES_API_KEY", "group": "Outros", "required": false, "secret": true, "help": "Avaliações do Google na página inicial (opcional)." }
+  ]
+}

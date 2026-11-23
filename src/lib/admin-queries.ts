@@ -336,7 +336,7 @@ export async function getSiteSettings(): Promise<{
     .eq("id", 1)
     .maybeSingle();
   return {
-    company_name: data?.company_name ?? "Supermotas",
+    company_name: data?.company_name ?? "CoreMotors",
     logo_url: data?.logo_url ?? null,
     tagline: data?.tagline ?? null,
     accent: data?.accent ?? "#E8B15A",
@@ -345,6 +345,22 @@ export async function getSiteSettings(): Promise<{
     pixel_id: data?.pixel_id ?? null,
     reservation_enabled: data?.reservation_enabled ?? false,
     deposit_amount: data?.deposit_amount ?? 500,
+  };
+}
+
+/** Identificação legal para edição (Definições). Vazio se a 0057 não estiver aplicada. */
+export async function getLegalSettings(): Promise<{ legal_name: string; nif: string; credit_intermediary_url: string; missing: boolean }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("site_settings")
+    .select("legal_name, nif, credit_intermediary_url")
+    .eq("id", 1)
+    .maybeSingle();
+  return {
+    legal_name: data?.legal_name ?? "",
+    nif: data?.nif ?? "",
+    credit_intermediary_url: data?.credit_intermediary_url ?? "",
+    missing: !!error,
   };
 }
 

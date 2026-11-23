@@ -1,8 +1,7 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { pageMetadata } from "@/components/seo/page-metadata";
 import { LegalPage } from "@/components/legal/LegalPage";
-import { getBranding } from "@/lib/queries";
-import { LEGAL_NAME, NIF } from "@/lib/legal";
+import { getBranding, getLegal } from "@/lib/queries";
 
 export function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return pageMetadata(parent, {
@@ -16,13 +15,14 @@ export function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise
 export const revalidate = 3600;
 
 export default async function PrivacyPage() {
-  const { companyName, company } = await getBranding();
+  const [{ companyName, company }, legal] = await Promise.all([getBranding(), getLegal()]);
+  const LEGAL_NAME = legal.legalName || companyName;
 
   return (
     <LegalPage title="Política de Privacidade">
       <p>
         A presente Política de Privacidade descreve como a{" "}
-        <strong>{LEGAL_NAME}</strong> (NIF {NIF}), doravante “{companyName}”,
+        <strong>{LEGAL_NAME}</strong>{legal.nif ? ` (NIF ${legal.nif})` : ""}, doravante “{companyName}”,
         recolhe e trata os dados pessoais dos utilizadores deste site, em
         conformidade com o Regulamento Geral sobre a Proteção de Dados (RGPD) e
         a legislação nacional aplicável.
