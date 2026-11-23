@@ -36,8 +36,9 @@ test("nunca devolve a palavra-passe", () => {
   assert.ok(!JSON.stringify(r).includes("Segredo"));
 });
 
-test("lê o projeto do site no netlify.toml", () => {
-  assert.equal(siteProjectRef('NEXT_PUBLIC_SUPABASE_URL = "https://hmmuhxfggwhvvvtzbdps.supabase.co"'), "hmmuhxfggwhvvvtzbdps");
-  assert.match(siteProjectRef(readFileSync("netlify.toml", "utf8")) ?? "", /^[a-z0-9]{20}$/);
+test("lê o projeto de um endereço do Supabase; o netlify.toml já não tem nenhum (cada stand tem o seu)", () => {
+  assert.equal(siteProjectRef("https://hmmuhxfggwhvvvtzbdps.supabase.co"), "hmmuhxfggwhvvvtzbdps");
+  assert.equal(siteProjectRef(readFileSync("netlify.toml", "utf8")), null);
   assert.equal(siteProjectRef("sem nada"), null);
+  assert.equal(siteProjectRef(undefined), null);
 });

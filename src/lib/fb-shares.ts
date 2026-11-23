@@ -36,6 +36,22 @@ export type ShareResultStatus = Exclude<FbShareStatus, "reset"> | "attention";
 /** Estados que impedem voltar a partilhar o mesmo anúncio no mesmo grupo. */
 export const BLOCKING_STATUSES: readonly FbShareStatus[] = ["confirmed", "pending", "uncertain", "rate_limited"];
 
+/**
+ * Partilhas em grupos por conta do Facebook, em 24 horas. Contam as que
+ * chegaram a «Publicar» (publicadas, à espera de aprovação ou por confirmar).
+ */
+export const SHARE_DAILY_LIMIT = 10;
+export const SHARE_COUNTED: readonly FbShareStatus[] = ["confirmed", "pending", "uncertain"];
+
+export function sharesInLastDay(attempts: readonly Pick<ShareAttempt, "status" | "created_at">[], now: Date): number {
+  const since = now.getTime() - 24 * 3600_000;
+  return attempts.filter((a) => SHARE_COUNTED.includes(a.status) && new Date(a.created_at).getTime() > since).length;
+}
+
+export function remainingShares(attempts: readonly Pick<ShareAttempt, "status" | "created_at">[], now: Date): number {
+  return Math.max(0, SHARE_DAILY_LIMIT - sharesInLastDay(attempts, now));
+}
+
 export const STATUS_LABEL: Record<FbShareStatus, string> = {
   confirmed: "Publicado",
   pending: "À espera de aprovação",
@@ -60,17 +76,21 @@ const MOTO = /\b(motas?|motos?|motorizadas?|motocicletas?|scooters?|quads?|motar
 const MARKET =
   /\b(market\s*place|marketplace|classificados?|anuncios?|compra\s*(e|&|\/)?\s*venda|vendas?\s*(e|&)?\s*trocas?|vendas?|usados?)\b/;
 
+// Compra e venda, mas de outras coisas («Venda de Bilhetes» passava só por ter «venda»).
+const OTHER_GOODS =
+  /\b(bilhet\w*|tickets?|reticket|imoveis|imobiliari\w*|apartamentos?|arrendamentos?|empregos?|roupas?|animais)\b/;
+const PARTS = /\b(pecas|desmanche|sucata|acessorios)\b/;
+const CLASSIC = /\b(classicos?|vintage|antigos?)\b/;
+
 /**
  * A sugestão pelo nome do grupo: o motivo para o deixar de fora, ou "" se
  * parece adequado. É só uma sugestão: o utilizador decide em cada grupo.
  */
 export function suggestExclusion(name: string, ad: Pick<ShareAd, "price" | "vehicle_type">): string {
   const n = normalizeName(name);
-  // Compra e venda, mas de outras coisas («Venda de Bilhetes» passava só por ter «venda»).
-  if (/\b(bilhet\w*|tickets?|reticket|imoveis|imobiliari\w*|apartamentos?|arrendamentos?|empregos?|roupas?|animais)\b/.test(n))
-    return "Grupo de outro tipo de artigos (bilhetes, imóveis, emprego…)";
-  if (/\b(pecas|desmanche|sucata|acessorios)\b/.test(n)) return "Grupo de peças ou acessórios";
-  if (/\b(classicos?|vintage|antigos?)\b/.test(n)) return "Grupo de clássicos";
+  if (OTHER_GOODS.test(n)) return "Grupo de outro tipo de artigos (bilhetes, imóveis, emprego…)";
+  if (PARTS.test(n)) return "Grupo de peças ou acessórios";
+  if (CLASSIC.test(n)) return "Grupo de clássicos";
   const auto = AUTO.test(n);
   const moto = MOTO.test(n);
   if (ad.vehicle_type === "car" && moto && !auto) return "Grupo de motas";
@@ -84,6 +104,50 @@ export function suggestExclusion(name: string, ad: Pick<ShareAd, "price" | "vehi
   }
   if (!auto && !moto && !MARKET.test(n)) return "Sem indicação de viaturas nem de compra e venda";
   return "";
+}
+
+/** O tipo de grupo, pelo nome: para filtrar a lista e mudar muitos de uma vez. */
+export type GroupCategory = "carros" | "motas" | "carros_motas" | "vendas" | "pecas" | "classicos" | "outros" | "sem_tipo";
+
+export const GROUP_CATEGORIES: readonly GroupCategory[] = [
+  "carros",
+  "motas",
+  "carros_motas",
+  "vendas",
+  "pecas",
+  "classicos",
+  "outros",
+  "sem_tipo",
+];
+
+export const GROUP_CATEGORY_LABEL: Record<GroupCategory, string> = {
+  carros: "Carros",
+  motas: "Motas",
+  carros_motas: "Carros e motas",
+  vendas: "Vendas em geral",
+  pecas: "Peças e acessórios",
+  classicos: "Clássicos",
+  outros: "Outros artigos",
+  sem_tipo: "Sem tipo",
+};
+
+/**
+ * Um só tipo por grupo, pela mesma leitura do nome que a sugestão usa: primeiro
+ * o que o põe de parte (outros artigos, peças, clássicos), depois as viaturas,
+ * depois a compra e venda em geral.
+ */
+export function groupCategory(name: string): GroupCategory {
+  const n = normalizeName(name);
+  if (OTHER_GOODS.test(n)) return "outros";
+  if (PARTS.test(n)) return "pecas";
+  if (CLASSIC.test(n)) return "classicos";
+  const auto = AUTO.test(n);
+  const moto = MOTO.test(n);
+  if (auto && moto) return "carros_motas";
+  if (moto) return "motas";
+  if (auto) return "carros";
+  if (MARKET.test(n)) return "vendas";
+  return "sem_tipo";
 }
 
 /** O grupo entra na fila deste anúncio? A escolha do utilizador manda; senão, a sugestão. */

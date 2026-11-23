@@ -1,3 +1,5 @@
+// Estes testes simulam o Supabase Storage (db.storage): as fotos ficam lá, não no R2 (o padrão do site).
+process.env.NEXT_PUBLIC_MEDIA_STORAGE = "supabase";
 // Sincronização com o OLX, ponta a ponta, contra um OLX simulado.
 //
 // O que isto prova: criar, atualizar, reativar e retirar anúncios; que uma

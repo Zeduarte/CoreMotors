@@ -18,6 +18,7 @@ import {
   marketingSchema,
   integrationsSchema,
   companySchema,
+  legalSchema,
   workshopSchema,
 } from "@/lib/schemas";
 import { webhookUrlProblem } from "@/lib/webhook-url";
@@ -188,6 +189,42 @@ export async function saveCompany(input: unknown): Promise<SettingsResult> {
   }
 
   // Os contactos aparecem em todo o site → invalida a cache e revalida.
+  afterCompanySaved();
+  return { ok: true };
+}
+
+/**
+ * Identificação legal: nome legal, NIF e a ficha de intermediário de crédito
+ * (rodapé, políticas e página de Financiamento). Apenas admin.
+ */
+export async function saveLegal(input: unknown): Promise<SettingsResult> {
+  if (!(await requireAdmin())) {
+    return { ok: false, error: "Sem permissão. Apenas administradores." };
+  }
+  const parsed = legalSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+  const d = parsed.data;
+  const supabase = await createClient();
+  const { error } = await supabase.from("site_settings").upsert(
+    {
+      id: 1,
+      legal_name: d.legal_name || null,
+      nif: d.nif || null,
+      credit_intermediary_url: d.credit_intermediary_url || null,
+    },
+    { onConflict: "id" },
+  );
+  if (error) {
+    console.error("saveLegal:", error.message);
+    return {
+      ok: false,
+      error: /legal_name|nif|credit_intermediary_url/.test(error.message)
+        ? "A base de dados ainda não tem estes campos. Aplique a migração 0057_projeto_proprio.sql."
+        : error.message,
+    };
+  }
   afterCompanySaved();
   return { ok: true };
 }

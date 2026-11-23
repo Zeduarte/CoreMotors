@@ -7,7 +7,9 @@
  * Por segurança a extensão só obedece a sites que o utilizador autorizou no
  * ícone dela («Autorizar este site»): até lá, `hello` responde `paired: false`.
  */
+import type { FoundGroup } from "@/lib/fb-discovery";
 import type { ScannedGroup, ShareResultStatus } from "@/lib/fb-shares";
+import type { FbJoinStatus } from "@/lib/supabase/database.types";
 
 const PAGE = "coremotors-partilhas-page";
 const EXT = "coremotors-partilhas-ext";
@@ -17,6 +19,10 @@ export interface ExtensionHello {
   paired: boolean;
   /** A conta do Facebook aberta no Chrome (null = sem sessão, ou site não autorizado). */
   fbUserId: string | null;
+  /** O nome dessa conta («Duarte Sll»), quando a extensão já o leu. Extensões antigas não o mandam. */
+  fbName?: string | null;
+  /** Os nomes das contas já vistas neste Chrome, por id. */
+  fbNames?: Record<string, string>;
 }
 
 export interface ReadGroupsResult {
@@ -31,10 +37,33 @@ export interface ShareOneResult {
   stop: boolean;
 }
 
+export interface SearchGroupsResult {
+  fbUserId: string;
+  /** Por limpar: passe por `cleanFoundGroups`. */
+  groups: unknown;
+}
+
+export interface JoinOneResult {
+  status: FbJoinStatus;
+  reason: string;
+  /** Parar as adesões (limite ou verificação do Facebook). */
+  stop: boolean;
+}
+
+export interface ScheduleForExtension {
+  id: string;
+  at: string;
+  weekdays: number[];
+  enabled: boolean;
+}
+
 type Command =
   | { type: "hello" }
   | { type: "readGroups" }
-  | { type: "share"; payload: { adUrl: string; groupName: string; groupUrl: string | null } };
+  | { type: "share"; payload: { adUrl: string; groupName: string; groupUrl: string | null } }
+  | { type: "searchGroups"; payload: { query: string; max: number } }
+  | { type: "joinGroup"; payload: { query: string; groupKey: string } }
+  | { type: "setSchedules"; payload: { accountId: string; items: ScheduleForExtension[] } };
 
 export class ExtensionError extends Error {
   constructor(
@@ -86,3 +115,20 @@ export function extensionReadGroups(): Promise<ReadGroupsResult> {
 export function extensionShare(adUrl: string, groupName: string, groupUrl: string | null): Promise<ShareOneResult> {
   return send<ShareOneResult>({ type: "share", payload: { adUrl, groupName, groupUrl } }, 4 * 60_000);
 }
+
+/** Pesquisa grupos no Facebook por uma palavra-chave e lê até `max` resultados. */
+export function extensionSearchGroups(query: string, max: number): Promise<SearchGroupsResult> {
+  return send<SearchGroupsResult>({ type: "searchGroups", payload: { query, max } }, 3 * 60_000);
+}
+
+/** Na pesquisa por `query`, carrega em «Aderir» no grupo `groupKey`. */
+export function extensionJoinGroup(query: string, groupKey: string): Promise<JoinOneResult> {
+  return send<JoinOneResult>({ type: "joinGroup", payload: { query, groupKey } }, 2 * 60_000);
+}
+
+/** Entrega à extensão os horários desta conta (ela abre a página Partilhas à hora certa). */
+export function extensionSetSchedules(accountId: string, items: ScheduleForExtension[]): Promise<{ saved: number }> {
+  return send<{ saved: number }>({ type: "setSchedules", payload: { accountId, items } }, 5000);
+}
+
+export type { FoundGroup };

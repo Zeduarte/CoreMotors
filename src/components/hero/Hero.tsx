@@ -71,7 +71,8 @@ export function Hero({
       ref={sectionRef}
       // `-mt-16`: o topo sobe para trás da barra (que flutua num retângulo), e a
       // imagem chega ao cimo do ecrã à volta dela.
-      className={`relative -mt-16 ${
+      // `site-dark`: no modo claro fica como no escuro (a foto não fica lavada).
+      className={`site-dark relative -mt-16 ${
         isVideo
           ? // No telemóvel menos "pista" de scroll no vídeo: a secção seguinte
             // aparece mais cedo.
@@ -151,6 +152,12 @@ export function Hero({
               ? "from-ink/70 via-transparent to-ink"
               : "from-ink/80 via-ink/30 to-ink"
           }`}
+        />
+        {/* No modo claro, a foto desvanece em baixo para o branco do site (no
+            escuro não aparece: a vinheta já acaba no fundo). */}
+        <div
+          aria-hidden
+          className="site-fade pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-[rgb(var(--site-page))]"
         />
 
         {/* Conteúdo */}

@@ -338,6 +338,29 @@ export const companySchema = z.object({
 });
 export type CompanyValues = z.infer<typeof companySchema>;
 
+// ---- Identificação legal (admin) — de cada stand (0057) --------------------
+export const legalSchema = z.object({
+  legal_name: z.string().trim().max(160).optional().or(z.literal("")),
+  nif: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/\s/g, ""))
+    .refine((v) => v === "" || /^\d{9}$/.test(v), { message: "O NIF tem 9 dígitos." })
+    .optional()
+    .or(z.literal("")),
+  // Um PDF publicado (endereço completo) ou um ficheiro do site (/documentos/…).
+  credit_intermediary_url: z
+    .string()
+    .trim()
+    .max(500)
+    .refine((v) => v === "" || /^https:\/\/\S+$/.test(v) || /^\/[\w./-]+$/.test(v), {
+      message: "Use um endereço completo (https://…) ou um ficheiro do site (/documentos/…).",
+    })
+    .optional()
+    .or(z.literal("")),
+});
+export type LegalValues = z.infer<typeof legalSchema>;
+
 // ---- Marketing, reservas e consentimento (admin) --------------------------
 export const marketingSchema = z.object({
   ga4_id: z

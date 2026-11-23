@@ -85,4 +85,8 @@ export const PUBLIC_SITE_SETTINGS_COLUMNS = [
   "geo_lat",
   "geo_lng",
   "messenger",
+  // 0057: identificação legal (rodapé, políticas, Financiamento).
+  "legal_name",
+  "nif",
+  "credit_intermediary_url",
 ] as const;

@@ -19,7 +19,8 @@ export function ContactCTA({
 }) {
   return (
     <section className="container-px py-24 md:py-40">
-      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-ink-soft px-6 py-20 text-center md:px-16 md:py-32">
+      {/* `site-dark`: no modo claro fica como no escuro (foto com texto por cima). */}
+      <div className="site-dark relative overflow-hidden rounded-3xl border border-white/10 bg-ink-soft px-6 py-20 text-center md:px-16 md:py-32">
         {/* Imagem de fundo (contacto.jpg em public/media/carros|motas/) + escurecimento
             para o texto se manter legível. Fallback: fundo sólido. */}
         {background && (

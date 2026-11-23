@@ -1,12 +1,13 @@
 /**
  * Onde estão as fotos e vídeos das viaturas (e o logótipo).
  *
- * - Por omissão: Supabase Storage, bucket público `car-media`.
- * - Cloudflare R2 (sem custo de tráfego): quando o Netlify tem
- *   `NEXT_PUBLIC_MEDIA_STORAGE=r2` e `NEXT_PUBLIC_MEDIA_URL` (o endereço
- *   público do bucket, ex.: https://fotos.supermotas.com). Os caminhos na base
- *   de dados são os mesmos nos dois (`<viatura>/<uuid>.jpg`): mudar de um para
- *   o outro é só copiar os ficheiros (Gestão → Fotos) e ligar a variável.
+ * - Sempre no Cloudflare R2 (sem custo de tráfego), no endereço público
+ *   `NEXT_PUBLIC_MEDIA_URL` de cada site (o build do Netlify pára sem ela).
+ *   As fotos já não estão no Supabase (foram copiadas e apagadas de lá), por
+ *   isso faltar uma variável no Netlify não pode fazer o site voltar a ele.
+ * - O Supabase (bucket `car-media`) só volta se o Netlify tiver, de propósito,
+ *   `NEXT_PUBLIC_MEDIA_STORAGE=supabase`. Os caminhos na base de dados são os
+ *   mesmos nos dois (`<viatura>/<uuid>.jpg`).
  *
  * Este ficheiro corre no browser e no servidor (só lê variáveis públicas). O
  * acesso ao R2 com as chaves está em `r2.ts` / `media-store.ts` (só servidor).
@@ -31,14 +32,20 @@ export const PHOTOS_PER_BATCH = 1;
 
 export type MediaStorage = "supabase" | "r2";
 
-/** O endereço público do bucket do R2, sem barra no fim (vazio se não houver). */
+/**
+ * O endereço público do bucket do R2 deste site, sem barra no fim (vazio se
+ * faltar). Cada site tem o seu (ex.: https://fotos.supermotas.com): não há um
+ * valor por omissão, para um site novo nunca mostrar as fotos de outro. No
+ * Netlify, o build pára se faltar (scripts/check-env.mjs).
+ */
 export function r2PublicBase(): string {
-  return (process.env.NEXT_PUBLIC_MEDIA_URL ?? "").trim().replace(/\/+$/, "");
+  const url = (process.env.NEXT_PUBLIC_MEDIA_URL ?? "").trim().replace(/\/+$/, "");
+  return /^https?:\/\//i.test(url) ? url : "";
 }
 
-/** Onde se leem e gravam as fotos agora. */
+/** Onde se leem e gravam as fotos: sempre o R2, salvo pedido explícito. */
 export function mediaStorage(): MediaStorage {
-  return process.env.NEXT_PUBLIC_MEDIA_STORAGE === "r2" && /^https?:\/\//i.test(r2PublicBase()) ? "r2" : "supabase";
+  return process.env.NEXT_PUBLIC_MEDIA_STORAGE === "supabase" ? "supabase" : "r2";
 }
 
 /** O endereço da foto no Supabase (a origem da cópia para o R2). */

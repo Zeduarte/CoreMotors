@@ -88,6 +88,8 @@ before(async () => {
       }
       if (req.method === "PUT") {
         const src = req.headers["x-amz-copy-source"];
+        // Como o R2 verdadeiro: sem tamanho (envio em «stream»), recusa.
+        if (!src && req.headers["content-length"] === undefined) return res.writeHead(411).end("MissingContentLength");
         if (src) {
           const from = decodeURIComponent(src.split("/").slice(2).join("/"));
           if (!objects.has(from)) return res.writeHead(404).end();
@@ -121,23 +123,30 @@ const r2Env = () => ({
   NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co",
 });
 
-test("photo URLs: Supabase by default, R2 only when switched on with a public address", () => {
+test("photo URLs: always R2 at this site's own address, never another site's; Supabase only when asked", () => {
   const S = loader()("src/lib/storage.ts");
+  // Sem variáveis nenhumas: R2, mas sem endereço — nunca o de outro site.
   withEnv({ NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co" }, () => {
-    assert.equal(S.mediaStorage(), "supabase");
-    assert.equal(S.publicMediaUrl("car1/a.jpg"), "https://abc.supabase.co/storage/v1/object/public/car-media/car1/a.jpg");
+    assert.equal(S.mediaStorage(), "r2");
+    assert.equal(S.r2PublicBase(), "");
+    assert.doesNotMatch(S.publicMediaUrl("car1/a.jpg"), /supermotas/);
   });
-  // Configurado mas ainda não ligado: continua no Supabase (é o passo da cópia).
-  withEnv({ ...r2Env() }, () => assert.equal(S.mediaStorage(), "supabase"));
-  withEnv({ ...r2Env(), NEXT_PUBLIC_MEDIA_STORAGE: "r2" }, () => {
+  // Com o endereço público configurado: usa esse.
+  withEnv({ ...r2Env() }, () => {
     assert.equal(S.mediaStorage(), "r2");
     assert.equal(S.publicMediaUrl("car1/a.jpg"), "https://fotos.exemplo.pt/car1/a.jpg");
     assert.equal(S.publicMediaUrl("https://images.unsplash.com/x.jpg"), "https://images.unsplash.com/x.jpg");
   });
-  // Ligado sem endereço público: não parte as fotos.
-  withEnv({ NEXT_PUBLIC_MEDIA_STORAGE: "r2", NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co" }, () =>
-    assert.equal(S.mediaStorage(), "supabase"),
+  withEnv({ ...r2Env(), NEXT_PUBLIC_MEDIA_STORAGE: "r2" }, () => assert.equal(S.mediaStorage(), "r2"));
+  // Endereço inválido: ignorado (o build do Netlify avisa antes).
+  withEnv({ NEXT_PUBLIC_MEDIA_URL: "fotos", NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co" }, () =>
+    assert.equal(S.r2PublicBase(), ""),
   );
+  // Só volta ao Supabase se for pedido de propósito.
+  withEnv({ NEXT_PUBLIC_MEDIA_STORAGE: "supabase", NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co" }, () => {
+    assert.equal(S.mediaStorage(), "supabase");
+    assert.equal(S.publicMediaUrl("car1/a.jpg"), "https://abc.supabase.co/storage/v1/object/public/car-media/car1/a.jpg");
+  });
 });
 
 test("R2: put, get, exists, copy, list (all pages), delete — signed requests", async () => {
@@ -150,6 +159,16 @@ test("R2: put, get, exists, copy, list (all pages), delete — signed requests",
     await R.r2Put("car1/b c.jpg", Buffer.from("BB"), "image/jpeg");
     await R.r2Put("car2/c.jpg", Buffer.from("C"), "image/jpeg");
     assert.match(seen[0].auth, /^AWS4-HMAC-SHA256 Credential=AKIDTEST\//);
+    // O tamanho vai sempre (o R2 recusa envios sem Content-Length).
+    assert.equal(seen[0].headers["content-length"], "3");
+    assert.equal(seen[0].headers["transfer-encoding"], undefined);
+    // Também com o que vem do Supabase (Buffer de um ArrayBuffer) e com Blob.
+    await R.r2Put("car3/x.jpg", Buffer.from(await new Blob(["x".repeat(70000)]).arrayBuffer()), "image/jpeg");
+    await R.r2Put("car3/y.jpg", new Blob(["yy"]), "image/jpeg");
+    assert.equal(objects.get("car3/x.jpg").body.length, 70000);
+    assert.equal(objects.get("car3/y.jpg").body.toString(), "yy");
+    objects.delete("car3/x.jpg");
+    objects.delete("car3/y.jpg");
     assert.equal(objects.get("car1/a.jpg").cache, "public, max-age=31536000, immutable");
     assert.equal(objects.get("car1/a.jpg").type, "image/jpeg");
     assert.equal((await R.r2Get("car1/a.jpg")).data.toString(), "AAA");
@@ -205,7 +224,7 @@ test("media store: R2 when switched on, Supabase otherwise; the backup copy neve
     },
   };
   const M = loader()("src/lib/media-store.ts");
-  await withEnv({ NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co" }, async () => {
+  await withEnv({ NEXT_PUBLIC_MEDIA_STORAGE: "supabase", NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co" }, async () => {
     const s = M.mediaStore(db);
     assert.equal(s.kind, "supabase");
     assert.equal(await s.upload("c/a.jpg", Buffer.from("x"), { contentType: "image/jpeg" }), null);
@@ -242,7 +261,7 @@ test("backoffice uploads: the server picks the path; only car folders and image/
   })("src/lib/actions/upload.ts");
   const car = "11111111-1111-4111-8111-111111111111";
   const files = [{ ext: "jpg", contentType: "image/jpeg" }, { ext: "mp4", contentType: "video/mp4" }];
-  await withEnv({ NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co" }, async () => {
+  await withEnv({ NEXT_PUBLIC_MEDIA_STORAGE: "supabase", NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co" }, async () => {
     assert.deepEqual(await U.getUploadTargets({ scope: "car", carId: car, files }), { ok: true, mode: "supabase" });
     assert.deepEqual(guards, ["carros", car]);
   });

@@ -1,3 +1,5 @@
+// Estes testes simulam o Supabase Storage (db.storage): as fotos ficam lá, não no R2 (o padrão do site).
+process.env.NEXT_PUBLIC_MEDIA_STORAGE = "supabase";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";

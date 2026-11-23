@@ -487,6 +487,9 @@ const metaStubs = {
   '@/lib/showroom-queries': { getShowroomContent: async () => ({ services: [{ id: 'garantia', enabled: true, title: 'Garantia', summary: 'Proteção.' }], faqs: [], locations: [], google: {} }) },
   '@/lib/olx/search': { inventoryWithOlx: async (vehicles) => ({ vehicles, fields: [] }) },
   '@/lib/site-theme-query': { getSiteTheme: async () => 'core' },
+  '@/components/themes/core2/Core2Stock': { Core2Stock: () => null },
+  '@/components/themes/core2/Core2StockTop': { Core2StockTop: () => null },
+  '@/themes/core2/fonts': { core2Serif: { variable: 'font-core2-var' } },
   __id: 'meta',
 };
 

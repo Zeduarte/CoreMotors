@@ -17,6 +17,7 @@ import {
   type Branding,
 } from "@/lib/branding";
 import { publicMediaUrl } from "@/lib/storage";
+import { EMPTY_LEGAL, LEGACY_LEGAL, type LegalInfo } from "@/lib/legal";
 import { toListVehicle } from "@/lib/vehicle-list";
 import { PUBLIC_CAR_SELECT } from "@/lib/public-columns";
 import { getSiteVehicleTypes } from "@/lib/site-types-query";
@@ -261,6 +262,36 @@ const fetchBranding = unstable_cache(
 
 export async function getBranding(): Promise<Branding> {
   return safely("getBranding", fetchBranding, DEFAULT_BRANDING);
+}
+
+/**
+ * Nome legal, NIF e ficha de intermediário de crédito (Definições → Empresa).
+ * Numa base de dados sem a 0057 (colunas por criar) usa os dados antigos do
+ * código — ver LEGACY_LEGAL.
+ */
+const fetchLegal = unstable_cache(
+  async (): Promise<LegalInfo> => {
+    const { data, error } = await supabasePublic
+      .from("site_settings")
+      .select("legal_name, nif, credit_intermediary_url")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error) {
+      if (error.code === "42703" || /legal_name|credit_intermediary_url|nif/.test(error.message)) return LEGACY_LEGAL;
+      throw new Error(error.message);
+    }
+    return {
+      legalName: data?.legal_name?.trim() || null,
+      nif: data?.nif?.trim() || null,
+      creditInfoUrl: data?.credit_intermediary_url?.trim() || null,
+    };
+  },
+  ["site-legal"],
+  { tags: ["branding"], revalidate: 300 },
+);
+
+export async function getLegal(): Promise<LegalInfo> {
+  return safely("getLegal", fetchLegal, EMPTY_LEGAL);
 }
 
 export interface Testimonial {

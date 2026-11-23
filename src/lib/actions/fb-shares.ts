@@ -11,6 +11,8 @@ import {
   manualGroupKey,
   normalizeName,
   parseManualGroups,
+  SHARE_COUNTED,
+  SHARE_DAILY_LIMIT,
 } from "@/lib/fb-shares";
 import type { FbShareStatus } from "@/lib/supabase/database.types";
 
@@ -201,6 +203,20 @@ export async function setGroupInclude(groupId: string, choice: "auto" | "sim" | 
   return { ok: true };
 }
 
+/** A mesma escolha para vários grupos de uma vez (ex.: todos os «Motas» filtrados). */
+export async function setGroupsInclude(groupIds: string[], choice: "auto" | "sim" | "nao"): Promise<SharesResult> {
+  await requireSection("partilhas");
+  const ids = z.array(uuid).min(1).max(2000).safeParse(groupIds);
+  if (!ids.success) return { ok: false, error: "Grupos inválidos." };
+  if (!["auto", "sim", "nao"].includes(choice)) return { ok: false, error: "Escolha inválida." };
+  const supabase = await createClient();
+  const include = choice === "auto" ? null : choice === "sim";
+  const { data, error } = await supabase.from("fb_groups").update({ include }).in("id", ids.data).select("id");
+  if (error) return dbError("setGroupsInclude", error.message, "Não foi possível gravar.");
+  revalidatePath(PATH);
+  return { ok: true, count: data.length };
+}
+
 // ---------------------------------------------------------------------------
 // Anúncios
 // ---------------------------------------------------------------------------
@@ -267,6 +283,25 @@ const attemptSchema = z.object({
     .max(5000)
     .transform((v) => v.slice(0, 1000) || null),
 });
+
+/**
+ * Quantas partilhas ainda se podem fazer nesta conta nas próximas 24 horas
+ * (máximo SHARE_DAILY_LIMIT), contadas na base de dados.
+ */
+export async function shareQuota(accountId: string): Promise<SharesResult> {
+  await requireSection("partilhas");
+  if (!uuid.safeParse(accountId).success) return { ok: false, error: "Conta inválida." };
+  const supabase = await createClient();
+  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const { count, error } = await supabase
+    .from("fb_share_attempts")
+    .select("id", { count: "exact", head: true })
+    .eq("account_id", accountId)
+    .in("status", [...SHARE_COUNTED])
+    .gt("created_at", since);
+  if (error) return dbError("shareQuota", error.message, "Não foi possível ler o limite diário.");
+  return { ok: true, count: Math.max(0, SHARE_DAILY_LIMIT - (count ?? 0)) };
+}
 
 /** Grava o resultado de uma tentativa (o que a extensão disse). */
 export async function recordShareAttempt(input: {

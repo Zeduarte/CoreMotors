@@ -287,6 +287,79 @@ test('link de acesso novo: para outros, nunca para o dono, outro admin só pelo 
   assert.equal((await users.createInviteLink('adm')).ok, true);
 });
 
+test('link de acesso para a própria conta: só o dono (acesso core), que não tem a quem o pedir', async () => {
+  state.admin = fakeAdmin({ profiles: { ...TARGETS, [OWNER.id]: { role: 'admin', is_owner: true } } });
+  state.me = OWNER;
+  const res = await users.createInviteLink(OWNER.id);
+  assert.equal(res.ok, true, res.error);
+  assert.match(res.path, /^\/admin\/convite\/[A-Za-z0-9_-]{43}$/);
+  const invite = state.admin.calls.find((c) => c[1] === 'create_user_invite');
+  assert.equal(invite[2].p_user, OWNER.id);
+  assert.equal(invite[2].p_created_by, OWNER.id);
+  // Um administrador que não é o dono continua a não poder.
+  state.me = ME;
+  state.admin = fakeAdmin({ profiles: { [ME.id]: { role: 'admin', is_owner: false } } });
+  assert.match((await users.createInviteLink(ME.id)).error, /si próprio/);
+  assert.deepEqual(state.admin.calls, []);
+});
+
+test('mudar a própria palavra-passe: confirma a atual, valida a nova, nunca a regista', async () => {
+  const calls = [];
+  let currentOk = true;
+  let updateError = null;
+  const client = {
+    auth: {
+      getUser: async () => ({ data: { user: state.me ? { email: 'core@x.example' } : null } }),
+      signInWithPassword: async (args) => {
+        calls.push(['signIn', args.email]);
+        return { error: currentOk ? null : { code: 'invalid_credentials', status: 400 } };
+      },
+      updateUser: async (args) => {
+        calls.push(['update', 'password' in args]);
+        return { error: updateError };
+      },
+    },
+  };
+  const profile = createLoader({
+    'next/cache': { revalidatePath() {} },
+    '@/lib/admin-queries': { getCurrentProfile: async () => state.me },
+    '@/lib/supabase/server': { createClient: async () => client },
+  })('src/lib/actions/profile.ts');
+  const form = (o) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(o)) f.set(k, v);
+    return f;
+  };
+  const good = { current_password: 'antiga123', new_password: 'NovaSenha2026', confirm_password: 'NovaSenha2026' };
+  state.me = OWNER;
+
+  assert.deepEqual(await profile.changeMyPassword(form(good)), { ok: true });
+  assert.deepEqual(calls, [['signIn', 'core@x.example'], ['update', true]]);
+
+  calls.length = 0;
+  currentOk = false;
+  assert.match((await profile.changeMyPassword(form(good))).error, /atual não está certa/);
+  assert.deepEqual(calls, [['signIn', 'core@x.example']], 'sem a atual certa, não grava');
+
+  calls.length = 0;
+  currentOk = true;
+  assert.match((await profile.changeMyPassword(form({ ...good, confirm_password: 'outra' }))).error, /não são iguais/);
+  assert.match((await profile.changeMyPassword(form({ ...good, new_password: 'curta', confirm_password: 'curta' }))).error, /pelo menos 8/);
+  assert.match((await profile.changeMyPassword(form({ ...good, current_password: '' }))).error, /atual/);
+  assert.match(
+    (await profile.changeMyPassword(form({ current_password: 'igual12345', new_password: 'igual12345', confirm_password: 'igual12345' }))).error,
+    /diferente/,
+  );
+  assert.deepEqual(calls, [], 'erros de formulário nem chegam ao Auth');
+
+  updateError = { code: 'weak_password', status: 422 };
+  assert.match((await profile.changeMyPassword(form(good))).error, /fraca/);
+
+  state.me = null;
+  updateError = null;
+  assert.match((await profile.changeMyPassword(form(good))).error, /Sessão expirada/);
+});
+
 test('gerir acessos: «utilizadores» nunca se concede; apagar só com permissão', async () => {
   state.me = ME;
   state.admin = fakeAdmin({ profiles: TARGETS });

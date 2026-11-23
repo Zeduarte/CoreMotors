@@ -1,3 +1,5 @@
+// Estes testes simulam o Supabase Storage (db.storage): as fotos ficam lá, não no R2 (o padrão do site).
+process.env.NEXT_PUBLIC_MEDIA_STORAGE = "supabase";
 // Ações do backoffice (viaturas, vendas e reservas, manutenção) com a base de
 // dados e o OLX simulados: o que muda o estado de uma viatura avisa o OLX, o que
 // não se pode apagar não toca no OLX, e o tipo de viatura de cada utilizador

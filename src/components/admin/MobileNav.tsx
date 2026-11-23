@@ -12,7 +12,7 @@ import type { Section } from "@/lib/permissions";
 export function MobileNav({
   user,
   sections,
-  companyName = "Supermotas",
+  companyName = "CoreMotors",
   newLeads = 0,
   isOwner = false,
 }: {

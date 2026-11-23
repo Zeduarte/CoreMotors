@@ -10,6 +10,12 @@ import { inventoryWithOlx } from "@/lib/olx/search";
 import { filtersFromQuery, sortFromQuery } from "@/lib/vehicles";
 import { InventoryClient } from "@/components/inventory/InventoryClient";
 import { SeoLinks } from "@/components/seo/SeoLinks";
+import { Core2Stock } from "@/components/themes/core2/Core2Stock";
+import { Core2StockTop } from "@/components/themes/core2/Core2StockTop";
+import { core2Serif } from "@/themes/core2/fonts";
+import { kindOf } from "@/themes/core2/stock";
+import { getSiteTheme } from "@/lib/site-theme-query";
+import { toListVehicle } from "@/lib/vehicle-list";
 
 export const revalidate = 60;
 
@@ -40,12 +46,15 @@ function StockHeader({ photo, type }: { photo: VehicleType; type: VehicleType | 
           fill
           priority
           sizes="(max-width: 768px) 100vw, 1100px"
-          className="object-cover object-center opacity-60"
+          // `stock-photo` / `stock-veil`: no Core 1 em modo claro, a foto inteira
+          // e a passagem do branco para ela como no Core2 (src/themes/modes.css);
+          // no escuro fica como está.
+          className="stock-photo object-cover object-center opacity-60"
         />
       </div>
       <div
         aria-hidden
-        className="absolute inset-0 bg-gradient-to-t from-ink-soft via-ink-soft/90 to-ink-soft/60 md:bg-gradient-to-r md:from-ink-soft md:from-35% md:via-ink-soft/75 md:via-55% md:to-ink-soft/20"
+        className="stock-veil absolute inset-0 bg-gradient-to-t from-ink-soft via-ink-soft/90 to-ink-soft/60 md:bg-gradient-to-r md:from-ink-soft md:from-35% md:via-ink-soft/75 md:via-55% md:to-ink-soft/20"
       />
       <h1 className="sr-only">
         {type === "car"
@@ -66,7 +75,11 @@ export default async function InventoryPage({
   const sp = await searchParams;
   // Um só stock: carros e motas juntos (os tipos que o site vende). O filtro
   // «Todos · Carros · Motas» está no próprio stock (`?tipo=`).
-  const [world, siteTypes] = await Promise.all([getPublicVehicleType(), getSiteVehicleTypes()]);
+  const [world, siteTypes, theme] = await Promise.all([
+    getPublicVehicleType(),
+    getSiteVehicleTypes(),
+    getSiteTheme(),
+  ]);
   // Filtros vindos do endereço: a pesquisa rápida da página inicial, um link
   // partilhado ou o «voltar» da ficha (?tipo=motas&marca=Yamaha…).
   const fromQuery = filtersFromQuery(sp);
@@ -77,10 +90,28 @@ export default async function InventoryPage({
       : fromQuery.vehicleType && siteTypes.includes(fromQuery.vehicleType)
         ? fromQuery.vehicleType
         : null;
+  const all = await getVehicles();
+
+  // Tema Core2: a página das maquetes — em cima a foto da loja e os cartões
+  // das categorias, por baixo a coluna dos filtros e a grelha com os cartões
+  // das viaturas (os do Core; no telemóvel, deitados, com a frase curta do
+  // anúncio). Sem os campos do OLX (não têm caixa nesta coluna). A letra
+  // serifada é só desta página.
+  if (theme === "core2") {
+    const stock = all
+      .filter((v) => siteTypes.includes(v.vehicleType ?? "car"))
+      .map((v) => ({ ...toListVehicle(v), tagline: v.tagline }));
+    return (
+      <div className={core2Serif.variable}>
+        <Core2StockTop siteTypes={siteTypes} hasMoto4={stock.some((v) => kindOf(v) === "moto4")} />
+        <Core2Stock key={JSON.stringify(sp)} vehicles={stock} siteTypes={siteTypes} />
+      </div>
+    );
+  }
+
   // Stock leve para os cartões, com os valores dos campos do OLX pesquisáveis.
   // Os campos do OLX são diferentes nos carros e nas motas: calculam-se para
   // cada tipo, e o stock mostra os do tipo escolhido.
-  const all = await getVehicles();
   const perType = await Promise.all(
     siteTypes.map((t) => inventoryWithOlx(all.filter((v) => (v.vehicleType ?? "car") === t), t)),
   );

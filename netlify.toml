@@ -7,18 +7,13 @@
   # O runtime do Next.js publica a partir de `.next` (não da raiz do projeto).
   publish = ".next"
 
-  # Variáveis PÚBLICAS do build. A chave "publishable/anon" é segura em código:
-  # é a mesma que já é enviada para o browser (a segurança vive na RLS).
-  # NÃO colocar aqui a SUPABASE_SERVICE_ROLE_KEY (secreta) — essa vai nas
-  # Environment Variables do Netlify, se precisares de criar utilizadores.
-  [build.environment]
-    NEXT_PUBLIC_SUPABASE_URL = "https://hmmuhxfggwhvvvtzbdps.supabase.co"
-    NEXT_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_SgrQ9eUf-AxPyVhurQU-jQ_Ff57sgw4"
-    # NEXT_PUBLIC_SITE_URL NÃO vai aqui: o que está neste ficheiro passa à
-    # frente das variáveis do painel do Netlify, e fixava o endereço antigo
-    # (supermotas.netlify.app) por cima do domínio próprio. Vem do painel
-    # (Environment variables) e, sem ele, do domínio principal que o Netlify
-    # dá ao site (`URL`) — ver next.config.mjs.
+  # As variáveis de cada stand (Supabase, R2, domínio…) vêm TODAS do painel do
+  # Netlify (Site configuration → Environment variables), nunca daqui: este
+  # ficheiro é igual em todos os sites, e o que estivesse aqui passava à frente
+  # do painel — um site novo ficava ligado à base de dados de outro stand.
+  # Lista e onde encontrar cada uma: src/config/env-vars.json e
+  # docs/novo-projeto.md. O build pára se faltar uma obrigatória
+  # (scripts/check-env.mjs).
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

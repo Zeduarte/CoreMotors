@@ -55,16 +55,30 @@ function need(): R2Config {
   return cfg;
 }
 
-async function call(url: string, init: RequestInit & { headers?: Record<string, string> } = {}) {
+/**
+ * Um pedido assinado ao R2. Assina-se sem o corpo (o S3 aceita
+ * «UNSIGNED-PAYLOAD») e o corpo vai depois, direto no `fetch`, como bytes
+ * simples: assim leva sempre o tamanho (`Content-Length`). Se fosse dentro de
+ * um `Request` já montado (como o `aws4fetch.fetch` faz), em alguns ambientes
+ * — no Netlify, por exemplo — o ficheiro seguia em «stream», sem tamanho, e o
+ * R2 recusava (411 MissingContentLength).
+ */
+async function call(url: string, init: { method?: string; body?: Buffer | Uint8Array | Blob; headers?: Record<string, string> } = {}) {
   const cfg = need();
-  return client(cfg).fetch(url, init);
+  const { body, ...rest } = init;
+  const signed = await client(cfg).sign(url, rest);
+  const bytes =
+    body == null ? undefined : body instanceof Blob ? new Uint8Array(await body.arrayBuffer()) : new Uint8Array(body);
+  const headers = new Headers(signed.headers);
+  if (bytes) headers.set("Content-Length", String(bytes.byteLength));
+  return fetch(signed.url, { method: signed.method, headers, body: bytes, cache: "no-store" });
 }
 
 export async function r2Put(path: string, body: Buffer | Uint8Array | Blob, contentType: string): Promise<void> {
   const cfg = need();
   const res = await call(objectUrl(cfg, path), {
     method: "PUT",
-    body: body as BodyInit,
+    body,
     headers: { "Content-Type": contentType || "application/octet-stream", "Cache-Control": MEDIA_CACHE_HEADER },
   });
   if (!res.ok) throw new Error(`R2 PUT ${res.status}: ${(await res.text()).slice(0, 200)}`);
