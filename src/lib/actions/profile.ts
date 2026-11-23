@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/admin-queries";
+import { passwordProblem } from "@/lib/usernames";
 
 /**
  * Dados pessoais do próprio utilizador.
@@ -85,5 +86,50 @@ export async function saveMyProfile(
 
   revalidatePath("/admin/perfil", "layout");
   revalidatePath("/admin", "layout");
+  return { ok: true };
+}
+
+/**
+ * Mudar a própria palavra-passe (Perfil → Conta). Confirma primeiro a atual
+ * (entrando de novo com ela) e só depois grava a nova. As palavras-passe nunca
+ * se registam nem se devolvem.
+ */
+export async function changeMyPassword(data: FormData): Promise<{ ok: boolean; error?: string }> {
+  const current = String(data.get("current_password") ?? "");
+  const password = String(data.get("new_password") ?? "");
+  const confirm = String(data.get("confirm_password") ?? "");
+  if (!current) return { ok: false, error: "Escreva a palavra-passe atual." };
+  const problem = passwordProblem(password, confirm);
+  if (problem) return { ok: false, error: problem };
+  if (password === current) return { ok: false, error: "A nova palavra-passe tem de ser diferente da atual." };
+
+  const db = await createClient();
+  const {
+    data: { user },
+  } = await db.auth.getUser();
+  if (!user?.email) return { ok: false, error: "Sessão expirada. Volte a entrar." };
+
+  try {
+    const { error: wrong } = await db.auth.signInWithPassword({ email: user.email, password: current });
+    if (wrong) {
+      if (wrong.status === 429) return { ok: false, error: "Demasiadas tentativas seguidas. Aguarde alguns minutos." };
+      return { ok: false, error: "A palavra-passe atual não está certa." };
+    }
+    const { error } = await db.auth.updateUser({ password });
+    if (error) {
+      console.warn(`changeMyPassword: recusada (${error.code ?? error.status ?? "sem código"})`);
+      return {
+        ok: false,
+        error:
+          error.code === "weak_password"
+            ? "Essa palavra-passe é demasiado fraca. Escolha uma mais longa, com letras e números."
+            : error.code === "same_password"
+              ? "A nova palavra-passe tem de ser diferente da atual."
+              : "Não foi possível mudar a palavra-passe. Tente outra vez.",
+      };
+    }
+  } catch {
+    return { ok: false, error: "Não foi possível contactar o serviço de autenticação. Tente outra vez." };
+  }
   return { ok: true };
 }

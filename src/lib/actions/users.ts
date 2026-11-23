@@ -193,11 +193,15 @@ export async function createUser(input: unknown): Promise<InviteResult> {
  * Gera um link de acesso novo para alguém que já existe: para quem não usou o
  * convite a tempo, ou esqueceu a palavra-passe. A palavra-passe atual continua
  * a valer até o link ser usado.
+ *
+ * Para si próprio, só o dono da conta (o acesso core): é quem não tem ninguém
+ * acima a quem pedir o link. Os outros pedem-no a um administrador.
  */
 export async function createInviteLink(id: string): Promise<InviteResult> {
   const me = await requireAdmin();
-  if (me.id === id) {
-    return { ok: false, error: "Não pode gerar um link de acesso para si próprio." };
+  const self = me.id === id;
+  if (self && !me.is_owner) {
+    return { ok: false, error: "Não pode gerar um link de acesso para si próprio. Peça-o a outro administrador." };
   }
 
   const admin = createAdminClient();
@@ -205,7 +209,7 @@ export async function createInviteLink(id: string): Promise<InviteResult> {
 
   const target = await targetOf(admin, id);
   if (!target) return { ok: false, error: "Utilizador não encontrado." };
-  const recusa = refusal(me, target);
+  const recusa = self ? null : refusal(me, target);
   if (recusa) return { ok: false, error: recusa };
 
   const invite = await issueInvite(admin, id, me.id);

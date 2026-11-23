@@ -42,7 +42,7 @@ export default async function DashboardLayout({
       .maybeSingle(),
   ]);
   const count = newLeads.count ?? 0;
-  const companyName = settings.data?.company_name ?? "Supermotas";
+  const companyName = settings.data?.company_name ?? "CoreMotors";
   const user = {
     name: profile.full_name || profile.email || "Utilizador",
     role: profile.role,

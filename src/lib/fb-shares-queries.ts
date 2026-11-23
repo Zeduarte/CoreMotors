@@ -1,7 +1,15 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { allRows } from "@/lib/pagination";
-import type { FbAccountRow, FbGroupRow, FbShareAdRow, FbShareAttemptRow } from "@/lib/supabase/database.types";
+import type {
+  FbAccountRow,
+  FbCategoryRow,
+  FbGroupJoinRow,
+  FbGroupRow,
+  FbScheduleRow,
+  FbShareAdRow,
+  FbShareAttemptRow,
+} from "@/lib/supabase/database.types";
 
 export interface ShareCarOption {
   id: string;
@@ -19,11 +27,32 @@ export interface SharesData {
   /** O histórico da conta aberta (todas as tentativas). */
   attempts: FbShareAttemptRow[];
   cars: ShareCarOption[];
+  /** As categorias (palavras-chave) do utilizador, para todas as contas. */
+  categories: FbCategoryRow[];
+  /** Os pedidos de adesão a grupos da conta aberta (os mais recentes primeiro). */
+  joins: FbGroupJoinRow[];
+  /** Os horários automáticos da conta aberta. */
+  schedules: FbScheduleRow[];
   /** As tabelas ainda não existem (migração 0052 por aplicar). */
   missingTables: boolean;
+  /** Falta a migração 0056 (procurar grupos, categorias e horários). */
+  missingDiscovery: boolean;
 }
 
-const EMPTY: Omit<SharesData, "missingTables"> = { accounts: [], account: null, groups: [], ads: [], attempts: [], cars: [] };
+const EMPTY: Omit<SharesData, "missingTables"> = {
+  accounts: [],
+  account: null,
+  groups: [],
+  ads: [],
+  attempts: [],
+  cars: [],
+  categories: [],
+  joins: [],
+  schedules: [],
+  missingDiscovery: false,
+};
+
+const isMissing = (message: string) => /does not exist|schema cache/i.test(message);
 
 /**
  * Tudo o que o separador Partilhas mostra, do utilizador com sessão: o RLS só
@@ -39,7 +68,16 @@ export async function getSharesData(accountId: string | undefined): Promise<Shar
   }
   const account = accounts.find((a) => a.id === accountId) ?? accounts[0] ?? null;
 
-  const [groups, ads, attempts, cars] = await Promise.all([
+  let missingDiscovery = false;
+  const discovery = <T,>(where: string) => ({ data, error }: { data: T[] | null; error: { message: string } | null }): T[] => {
+    if (error) {
+      if (isMissing(error.message)) missingDiscovery = true;
+      else console.error(`getSharesData ${where}:`, error.message);
+    }
+    return data ?? [];
+  };
+
+  const [groups, ads, attempts, cars, categories, joins, schedules] = await Promise.all([
     account
       ? allRows((a, b) => supabase.from("fb_groups").select("*").eq("account_id", account.id).order("id").range(a, b))
       : Promise.resolve([] as FbGroupRow[]),
@@ -66,11 +104,41 @@ export async function getSharesData(accountId: string | undefined): Promise<Shar
           vehicle_type: (c.vehicle_type ?? "car") as "car" | "motorcycle",
         })),
       ),
+    supabase.from("fb_categories").select("*").order("name").then(discovery<FbCategoryRow>("fb_categories")),
+    account
+      ? supabase
+          .from("fb_group_joins")
+          .select("*")
+          .eq("account_id", account.id)
+          .order("created_at", { ascending: false })
+          .limit(1000)
+          .then(discovery<FbGroupJoinRow>("fb_group_joins"))
+      : Promise.resolve([] as FbGroupJoinRow[]),
+    account
+      ? supabase
+          .from("fb_schedules")
+          .select("*")
+          .eq("account_id", account.id)
+          .order("at_time")
+          .then(discovery<FbScheduleRow>("fb_schedules"))
+      : Promise.resolve([] as FbScheduleRow[]),
   ]);
 
   // Na lista: primeiro os que ainda aparecem no Facebook, pela ordem dele.
   groups.sort((a, b) => (a.position ?? Infinity) - (b.position ?? Infinity) || a.name.localeCompare(b.name, "pt-PT"));
   attempts.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
 
-  return { accounts, account, groups, ads, attempts, cars, missingTables: false };
+  return {
+    accounts,
+    account,
+    groups,
+    ads,
+    attempts,
+    cars,
+    categories,
+    joins,
+    schedules,
+    missingTables: false,
+    missingDiscovery,
+  };
 }

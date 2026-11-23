@@ -3,7 +3,6 @@
 // de um erro do PostgreSQL. Nunca mostra a palavra-passe.
 //
 //   ORIGEM_DB_URL=… DESTINO_DB_URL=… node scripts/verificar-enderecos-supabase.mjs
-import { existsSync, readFileSync } from "node:fs";
 
 /** Analisa um endereço de base Supabase: projeto, servidor e enganos comuns. */
 export function checkDbUrl(raw) {
@@ -43,13 +42,17 @@ export function checkDbUrl(raw) {
   return { ref, host, port, problems };
 }
 
-/** O projeto que o site usa (NEXT_PUBLIC_SUPABASE_URL do netlify.toml), se houver. */
-export function siteProjectRef(toml) {
-  return toml.match(/NEXT_PUBLIC_SUPABASE_URL\s*=\s*"https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1] ?? null;
+/**
+ * O projeto de um endereço do Supabase (https://<projeto>.supabase.co), se houver.
+ * O site já não tem o endereço no netlify.toml (cada stand tem o seu, no painel do
+ * Netlify): para comparar, passa-se em SITE_SUPABASE_URL.
+ */
+export function siteProjectRef(text) {
+  return String(text ?? "").match(/https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1] ?? null;
 }
 
 function main() {
-  const site = existsSync("netlify.toml") ? siteProjectRef(readFileSync("netlify.toml", "utf8")) : null;
+  const site = siteProjectRef(process.env.SITE_SUPABASE_URL);
   const sides = { ORIGEM: "projeto atual", DESTINO: "projeto novo" };
   const found = {};
   let ok = true;

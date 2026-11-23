@@ -7,7 +7,7 @@ import extensionManifest from "../../../../../extension/manifest.json";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = Promise<{ conta?: string }>;
+type SearchParams = Promise<{ conta?: string; auto?: string }>;
 
 /**
  * Partilhas no Facebook: cada utilizador tem as suas contas do Facebook (um
@@ -17,7 +17,7 @@ type SearchParams = Promise<{ conta?: string }>;
  */
 export default async function PartilhasPage({ searchParams }: { searchParams: SearchParams }) {
   await requireSection("partilhas");
-  const { conta } = await searchParams;
+  const { conta, auto } = await searchParams;
   const data = await getSharesData(conta);
 
   return (
@@ -45,6 +45,11 @@ export default async function PartilhasPage({ searchParams }: { searchParams: Se
           cars={data.cars}
           extensionZip="/extensao/coremotors-partilhas.zip"
           extensionVersion={extensionManifest.version}
+          categories={data.categories}
+          joins={data.joins}
+          schedules={data.schedules}
+          missingDiscovery={data.missingDiscovery}
+          autoScheduleId={auto && /^[0-9a-f-]{36}$/i.test(auto) ? auto : null}
         />
       )}
     </>

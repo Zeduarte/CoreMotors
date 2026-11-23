@@ -46,6 +46,21 @@ test('sugestões pelo nome do grupo: peças, motas, carros, clássicos e preço 
   assert.equal(fb.isOlderVersion('lixo', '1.0.4'), false);
 });
 
+test('tipo de grupo pelo nome: carros, motas, vendas em geral, peças, outros artigos', () => {
+  assert.equal(fb.groupCategory('AUTOMÓVEIS SANTO TIRSO'), 'carros');
+  assert.equal(fb.groupCategory('Carros usados Porto'), 'carros');
+  assert.equal(fb.groupCategory('Motas e Scooters Norte'), 'motas');
+  assert.equal(fb.groupCategory('Compra e venda de carros e motas'), 'carros_motas');
+  assert.equal(fb.groupCategory('Marketplace Portugal, Compra & Venda ✔️'), 'vendas');
+  assert.equal(fb.groupCategory('Vendas e Trocas Braga'), 'vendas');
+  assert.equal(fb.groupCategory('Peças auto usadas'), 'pecas');
+  assert.equal(fb.groupCategory('Clássicos de Portugal'), 'classicos');
+  assert.equal(fb.groupCategory('Venda de Bilhetes Concertos'), 'outros');
+  assert.equal(fb.groupCategory('Amigos de Fafe'), 'sem_tipo');
+  // Todos os tipos têm nome para os filtros.
+  for (const c of fb.GROUP_CATEGORIES) assert.ok(fb.GROUP_CATEGORY_LABEL[c]);
+});
+
 test('a fila: pela ordem do Facebook, sem os excluídos, os que saíram e os já partilhados', () => {
   const groups = [
     { id: 'g3', name: 'Carros Norte', position: 3, include: null },
@@ -235,14 +250,17 @@ async function bootExtension({ origins = [], cookies = {} } = {}) {
 await test('extensão: só obedece a sites autorizados e só abre o Facebook', async () => {
   const site = 'https://coremotors.example';
   const locked = await bootExtension({ cookies: { c_user: '1000' } });
-  assert.deepEqual(await locked.send({ type: 'hello' }, site), { ok: true, result: { version: '1.0.0', paired: false, fbUserId: null } });
+  assert.deepEqual(await locked.send({ type: 'hello' }, site), {
+    ok: true,
+    result: { version: '1.0.0', paired: false, fbUserId: null, fbName: null, fbNames: {} },
+  });
   const refused = await locked.send({ type: 'share', payload: { adUrl: 'https://www.facebook.com/marketplace/item/1/', groupName: 'X' } }, site);
   assert.equal(refused.ok, false);
   assert.equal(refused.code, 'not_paired');
   assert.equal((await locked.send({ type: 'readGroups' }, site)).code, 'not_paired');
 
   const paired = await bootExtension({ origins: [site], cookies: { c_user: '1000', i_user: '2000' } });
-  assert.deepEqual((await paired.send({ type: 'hello' }, site)).result, { version: '1.0.0', paired: true, fbUserId: '2000' });
+  assert.deepEqual((await paired.send({ type: 'hello' }, site)).result, { version: '1.0.0', paired: true, fbUserId: '2000', fbName: null, fbNames: {} });
   // Outro site, mesmo com a extensão autorizada para este: recusado.
   assert.equal((await paired.send({ type: 'hello' }, 'https://evil.example')).result.paired, false);
   // Sem separador (ex.: outra extensão ou página interna): recusado.

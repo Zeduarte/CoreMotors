@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/admin-queries";
 import { ActionForm, Field } from "@/components/admin/ActionForm";
-import { saveMyProfile } from "@/lib/actions/profile";
+import { changeMyPassword, saveMyProfile } from "@/lib/actions/profile";
+import { PASSWORD_MAX, PASSWORD_MIN } from "@/lib/usernames";
 import { NotificationPreferences } from "@/components/admin/NotificationPreferences";
 
 export const dynamic = "force-dynamic";
@@ -69,15 +70,28 @@ export default async function ProfileDataPage() {
 
       <NotificationPreferences me={me} />
 
-      <section className="card space-y-2 p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-paper/50">
-          Conta
-        </h2>
-        <p className="text-sm text-paper/70">{me.email}</p>
-        <p className="text-xs text-paper/40">
-          Para mudar de email ou password, fale com um administrador.
+      <ActionForm action={changeMyPassword} label="Mudar palavra-passe" success="Palavra-passe alterada.">
+        <h2 className="text-lg font-semibold text-paper">Palavra-passe</h2>
+        <p className="text-sm text-paper/50">
+          Entra com o nome de utilizador{me.username ? <> <strong className="font-mono text-paper/80">{me.username}</strong></> : null}.
+          A nova palavra-passe vale já a partir do próximo login; esta sessão continua aberta.
         </p>
-      </section>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Palavra-passe atual">
+            <input className="field" type="password" name="current_password" autoComplete="current-password" required />
+          </Field>
+          <Field label="Nova palavra-passe">
+            <input className="field" type="password" name="new_password" autoComplete="new-password" minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX} required />
+          </Field>
+          <Field label="Repetir a nova">
+            <input className="field" type="password" name="confirm_password" autoComplete="new-password" minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX} required />
+          </Field>
+        </div>
+        <p className="text-xs text-paper/40">
+          Pelo menos {PASSWORD_MIN} caracteres. Se não se lembra da atual, peça um «Link de acesso» a um
+          administrador{me.is_owner ? " — ou gere-o em Utilizadores, na sua própria linha" : ""}.
+        </p>
+      </ActionForm>
     </div>
   );
 }

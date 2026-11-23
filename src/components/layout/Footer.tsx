@@ -3,7 +3,7 @@ import Image from "next/image";
 import { siteDescription } from "@/lib/site-types";
 import type { VehicleType } from "@/lib/vehicle-categories";
 import { DEFAULT_BRANDING, type Branding } from "@/lib/branding";
-import { LEGAL_NAME, NIF } from "@/lib/legal";
+import { EMPTY_LEGAL, legalLine, type LegalInfo } from "@/lib/legal";
 import { ManageCookiesButton } from "@/components/site/ManageCookiesButton";
 
 // Links obrigatórios do rodapé. As políticas são páginas internas do site; o
@@ -21,10 +21,13 @@ const LEGAL_LINKS: { label: string; href: string; external?: boolean }[] = [
 
 export function Footer({
   branding = DEFAULT_BRANDING,
+  legal = EMPTY_LEGAL,
   background = null,
   siteTypes = ["car", "motorcycle"],
 }: {
   branding?: Branding;
+  /** Nome legal e NIF (Definições → Empresa). */
+  legal?: LegalInfo;
   /** rodape.jpg do tipo principal do site, se existir. */
   background?: string | null;
   /** O que o site vende (para a frase de apresentação). */
@@ -144,7 +147,7 @@ export function Footer({
       <div className="relative z-10 border-t border-white/5">
         <div className="container-px flex flex-col items-center justify-between gap-3 py-6 text-xs text-paper/75 [text-shadow:0_1px_4px_rgba(0,0,0,0.7)] md:flex-row">
           <p className="text-center md:text-left">
-            {LEGAL_NAME} | NIF: {NIF} | Copyright © {new Date().getFullYear()}
+            {legalLine(legal, branding.companyName)} | Copyright © {new Date().getFullYear()}
           </p>
           <nav className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 uppercase tracking-wide">
             {LEGAL_LINKS.map((l) => (

@@ -9,7 +9,8 @@
 //  - Só obedece a sites autorizados no popup («Autorizar este site»); a origem
 //    vem do Chrome (sender.origin), não do que a página diz.
 //  - Só abre endereços do Facebook.
-//  - Do Facebook só lê o id da conta (cookies c_user/i_user), nunca a sessão.
+//  - Do Facebook só lê o id da conta (cookies c_user/i_user) e o nome dela,
+//    nunca a sessão.
 
 const FB = "https://www.facebook.com";
 const GROUPS_URL = "https://www.facebook.com/groups/joins/?nav_source=tab&ordering=viewer_added";
@@ -45,6 +46,65 @@ async function fbUserId() {
 }
 
 // ---------------------------------------------------------------------------
+// O nome da conta do Facebook
+// ---------------------------------------------------------------------------
+//
+// Para a página mostrar «Duarte Sll» em vez de um número. O Facebook põe o nome
+// da conta aberta em «CurrentUserInitialData» nas suas páginas; lê-se uma vez
+// (pedido com a sessão do próprio Chrome) e guarda-se, por id, durante 6 horas.
+// Só o nome: nada da sessão sai do Chrome.
+
+const NAME_TTL = 6 * 3600 * 1000;
+let nameFetch = null;
+
+async function cachedNames() {
+  const { fbNames } = await chrome.storage.local.get("fbNames");
+  return fbNames && typeof fbNames === "object" ? fbNames : {};
+}
+
+/** Tira o nome de uma página do Facebook, se for da conta `id`. */
+function nameFromHtml(html, id) {
+  const m = /"CurrentUserInitialData",\[\],\{[^}]*?"USER_ID":"(\d+)","NAME":"((?:[^"\\]|\\.)*)"/.exec(html || "");
+  if (!m || m[1] !== id) return null;
+  try {
+    const name = JSON.parse(`"${m[2]}"`).replace(/\s+/g, " ").trim();
+    return name ? name.slice(0, 120) : null;
+  } catch {
+    return null;
+  }
+}
+
+function refreshName(id) {
+  if (nameFetch || typeof fetch !== "function") return;
+  nameFetch = (async () => {
+    try {
+      const html = await (await fetch(`${FB}/settings`, { credentials: "include" })).text();
+      const name = nameFromHtml(html, id);
+      if (name) {
+        const names = await cachedNames();
+        names[id] = { name, at: Date.now() };
+        await chrome.storage.local.set({ fbNames: names });
+      }
+    } catch {
+      // Sem rede ou o Facebook mudou: fica o id.
+    } finally {
+      nameFetch = null;
+    }
+  })();
+}
+
+/** A conta aberta (id e nome, se já se souber) e os nomes já vistos neste Chrome. */
+async function whoIsOnFacebook() {
+  const id = await fbUserId();
+  const all = await cachedNames();
+  const fbNames = {};
+  for (const [k, v] of Object.entries(all)) if (v && typeof v.name === "string") fbNames[k] = v.name;
+  const cached = id ? all[id] : null;
+  if (id && (!cached || Date.now() - (cached.at || 0) > NAME_TTL)) refreshName(id);
+  return { fbUserId: id, fbName: cached ? cached.name : null, fbNames };
+}
+
+// ---------------------------------------------------------------------------
 // Mensagens
 // ---------------------------------------------------------------------------
 
@@ -64,14 +124,18 @@ async function handle(msg, sender) {
   const paired = !!origin && (await allowedOrigins()).includes(origin);
 
   if (msg && msg.type === "hello")
-    return { ok: true, result: { version: VERSION, paired, fbUserId: paired ? await fbUserId() : null } };
+    return { ok: true, result: { version: VERSION, paired, ...(paired ? await whoIsOnFacebook() : { fbUserId: null, fbName: null, fbNames: {} }) } };
   if (!paired) return { ok: false, code: "not_paired", error: "Este site não está autorizado na extensão." };
+  // Os horários não usam o Facebook: respondem mesmo a meio de outro pedido.
+  if (msg.type === "setSchedules") return { ok: true, result: await setSchedules(origin, msg.payload || {}) };
   if (job) return { ok: false, error: "A extensão já está a meio de outro pedido. Espere que termine." };
 
   job = msg.type;
   try {
     if (msg.type === "readGroups") return { ok: true, result: await readGroups() };
     if (msg.type === "share") return { ok: true, result: await share(msg.payload || {}) };
+    if (msg.type === "searchGroups") return { ok: true, result: await searchGroups(msg.payload || {}) };
+    if (msg.type === "joinGroup") return { ok: true, result: await joinGroup(msg.payload || {}) };
     return { ok: false, error: "Pedido desconhecido." };
   } finally {
     job = null;
@@ -215,4 +279,134 @@ async function share({ adUrl, groupName, groupUrl }) {
     };
   }
   return { status: "failed", reason: "Não submetido: o botão Publicar não apareceu.", stop: false };
+}
+
+// ---------------------------------------------------------------------------
+// Procurar grupos e aderir
+// ---------------------------------------------------------------------------
+
+function searchUrl(query) {
+  return `${FB}/search/groups/?q=${encodeURIComponent(query)}`;
+}
+
+function cleanQuery(value) {
+  const q = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+  return q.length >= 2 && q.length <= 80 ? q : null;
+}
+
+async function searchGroups({ query, max }) {
+  const q = cleanQuery(query);
+  if (!q) throw new Error("Palavra-chave inválida.");
+  const id = await fbUserId();
+  if (!id) throw new Error("Este Chrome não tem sessão no Facebook. Inicie sessão em facebook.com e tente de novo.");
+  const tabId = await openWork(searchUrl(q));
+  await sleep(2500);
+  await inject(tabId);
+  await bringToFront();
+  const r = await call(tabId, "scanSearch", [Math.max(1, Math.min(200, Number(max) || 30))]);
+  if (r.error) throw new Error(r.error);
+  return { fbUserId: id, groups: Array.isArray(r.groups) ? r.groups : [] };
+}
+
+const JOIN_STATUSES = new Set(["joined", "requested", "questions", "member", "limited", "failed"]);
+
+async function joinGroup({ query, groupKey }) {
+  const q = cleanQuery(query);
+  if (!q || typeof groupKey !== "string" || !/^[\w.-]{1,220}$/.test(groupKey))
+    return { status: "failed", reason: "Pedido inválido.", stop: false };
+  if (!(await fbUserId())) return { status: "limited", reason: "Este Chrome não tem sessão no Facebook.", stop: true };
+  const tabId = await openWork(searchUrl(q));
+  await sleep(2500);
+  await inject(tabId);
+  await bringToFront();
+  const r = await call(tabId, "joinFromSearch", [groupKey]);
+  if (r.error) return { status: "failed", reason: `Não aderiu: ${r.error}`, stop: false };
+  return {
+    status: JOIN_STATUSES.has(r.status) ? r.status : "failed",
+    reason: String(r.reason || "").slice(0, 1000),
+    stop: !!r.stop,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Horários automáticos
+// ---------------------------------------------------------------------------
+//
+// A página Partilhas manda os horários de cada conta (setSchedules). Um
+// alarme de minuto a minuto vê se algum está na hora (hora de Lisboa) e abre
+// a página Partilhas desse site com ?auto=<id>: é ela que faz o trabalho e o
+// grava. Precisa do Chrome aberto; um horário que passou com o Chrome fechado
+// ainda corre se o Chrome abrir até 2 horas depois.
+
+const LATE_MINUTES = 120;
+
+/** Dia da semana (0 = domingo), minutos do dia e data «AAAA-MM-DD», em Lisboa. */
+function lisbonNow(date) {
+  const parts = {};
+  for (const p of new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Lisbon",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    weekday: "short",
+    hourCycle: "h23",
+  }).formatToParts(date))
+    parts[p.type] = p.value;
+  const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(parts.weekday);
+  return { weekday, minutes: Number(parts.hour) * 60 + Number(parts.minute), day: `${parts.year}-${parts.month}-${parts.day}` };
+}
+
+/** O horário está na hora agora (e ainda não correu hoje)? */
+function isDue(item, now, ranOn) {
+  if (!item || !item.enabled || !Array.isArray(item.weekdays) || !item.weekdays.includes(now.weekday)) return false;
+  const m = /^(\d{2}):(\d{2})$/.exec(item.at || "");
+  if (!m) return false;
+  const at = Number(m[1]) * 60 + Number(m[2]);
+  return now.minutes >= at && now.minutes <= at + LATE_MINUTES && ranOn !== now.day;
+}
+
+function cleanSchedule(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const id = typeof raw.id === "string" && /^[0-9a-f-]{36}$/i.test(raw.id) ? raw.id : null;
+  const at = typeof raw.at === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(raw.at) ? raw.at : null;
+  const weekdays = Array.isArray(raw.weekdays) ? raw.weekdays.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6) : [];
+  if (!id || !at || !weekdays.length) return null;
+  return { id, at, weekdays, enabled: raw.enabled !== false };
+}
+
+async function setSchedules(origin, { accountId, items }) {
+  if (typeof accountId !== "string" || !/^[0-9a-f-]{36}$/i.test(accountId)) throw new Error("Conta inválida.");
+  const list = (Array.isArray(items) ? items : []).map(cleanSchedule).filter(Boolean).slice(0, 50);
+  const { schedules = {} } = await chrome.storage.local.get("schedules");
+  if (list.length) schedules[accountId] = { origin, items: list };
+  else delete schedules[accountId];
+  await chrome.storage.local.set({ schedules });
+  return { saved: list.length };
+}
+
+async function tick() {
+  if (job) return;
+  const { schedules = {}, ranOn = {} } = await chrome.storage.local.get(["schedules", "ranOn"]);
+  const origins = await allowedOrigins();
+  const now = lisbonNow(new Date());
+  for (const [accountId, entry] of Object.entries(schedules)) {
+    if (!entry || !origins.includes(entry.origin)) continue;
+    for (const item of entry.items || []) {
+      if (!isDue(item, now, ranOn[item.id])) continue;
+      ranOn[item.id] = now.day;
+      await chrome.storage.local.set({ ranOn });
+      const url = `${entry.origin}/admin/partilhas?conta=${encodeURIComponent(accountId)}&auto=${encodeURIComponent(item.id)}`;
+      await chrome.tabs.create({ url, active: true });
+      return; // um de cada vez: o próximo no minuto seguinte
+    }
+  }
+}
+
+if (chrome.alarms) {
+  chrome.alarms.create("cm-tick", { periodInMinutes: 1 });
+  chrome.alarms.onAlarm.addListener((a) => {
+    if (a.name === "cm-tick") void tick();
+  });
 }

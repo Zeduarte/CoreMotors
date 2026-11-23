@@ -522,5 +522,152 @@
     };
   }
 
-  window.__cmPartilhas = { scanGroups, shareToGroup };
+  // ---- Procurar grupos novos e aderir -----------------------------------------
+  //
+  // Na página de pesquisa de grupos (/search/groups/?q=…) cada resultado é um
+  // [role=article] no [role=feed]: nome, «Público · 12K membros · …» e um
+  // botão «Aderir» (aria-label «Join group <nome>»). Depois de aderir, o botão
+  // passa a «Visitar» (grupo público) ou «Pendente» (grupo privado).
+
+  const JOIN_BTN = /^(join|aderir|participar|entrar)( (group|ao grupo|no grupo|grupo)\b.*)?$/i;
+  const MEMBER_BTN = /^(visit|visitar|view group|ver grupo|visit group|visitar grupo)$/i;
+  const PENDING_BTN = /^(pending|pendente|cancel request|cancelar pedido|requested|pedido enviado)$/i;
+  const JOIN_LIMIT =
+    /(can'?t|cannot|can’t) join (more|any more|any) groups|joined too many groups|temporarily (blocked|restricted) from joining|you can'?t use this feature right now|n[aã]o podes aderir a (mais )?grupos|aderiste a demasiados grupos|n[aã]o podes usar esta funcionalidade|you('|’)re temporarily blocked|est[aá]s temporariamente bloquead/i;
+  const QUESTIONS = /question|pergunta|answer|respond|regras do grupo|group rules|participation questions|membership questions/i;
+  const NO_RESULTS = /no results|we didn'?t find any results|sem resultados|n[aã]o encontr[aá]mos resultados|nenhum resultado/i;
+
+  const articles = () => [...document.querySelectorAll('[role="feed"] [role="article"]')];
+
+  function groupKeyOfArticle(art) {
+    for (const a of art.querySelectorAll('a[href*="/groups/"]')) {
+      const k = groupKeyOf(a.href);
+      if (k) return k;
+    }
+    return "";
+  }
+
+  function articleButton(art) {
+    const btns = [...art.querySelectorAll('[role="button"],button')].filter(isVisible);
+    for (const b of btns) {
+      const aria = (b.getAttribute("aria-label") || "").trim();
+      const t = firstLine(b);
+      if (/^(join group|aderir ao grupo|participar no grupo|entrar no grupo)\b/i.test(aria) || JOIN_BTN.test(t)) return { el: b, state: "join" };
+      if (MEMBER_BTN.test(t) || /^(visit|visitar)\b/i.test(aria)) return { el: b, state: "member" };
+      if (PENDING_BTN.test(t) || /^(cancel request|cancelar pedido)\b/i.test(aria)) return { el: b, state: "pending" };
+    }
+    return { el: null, state: "other" };
+  }
+
+  function readArticle(art) {
+    const k = groupKeyOfArticle(art);
+    if (!k) return null;
+    const lines = text(art).split("\n").map((s) => s.trim()).filter(Boolean);
+    const name = cleanGroupName(lines[0]);
+    if (!name) return null;
+    const meta = lines[1] || "";
+    const privacy = /^(public|p[uú]blico)/i.test(meta) ? "public" : /^(private|privado)/i.test(meta) ? "private" : null;
+    const info = meta.replace(/^(public|p[uú]blico|private|privado)\s*·\s*/i, "");
+    return { key: k, name, url: `https://www.facebook.com/groups/${k}/`, privacy, info, state: articleButton(art).state };
+  }
+
+  /** Lê os resultados da pesquisa de grupos, descendo até `max` resultados ou ao fim. */
+  async function scanSearch(max) {
+    if (loggedOut()) return { error: "O Facebook pediu para iniciar sessão. Inicie sessão e tente de novo." };
+    if (needsCheck()) return { error: "O Facebook pediu uma verificação. Conclua-a na janela do Facebook e tente de novo." };
+    const ready = await waitFor(() => articles().length || NO_RESULTS.test(bodyText()), 20000);
+    if (!ready || !articles().length) return { groups: [] };
+    const limit = Math.max(1, Math.min(200, Number(max) || 30));
+    const found = new Map();
+    let stable = 0;
+    for (let round = 0; round < 40 && found.size < limit; round++) {
+      const before = found.size;
+      for (const art of articles()) {
+        const g = readArticle(art);
+        if (g && !found.has(g.key)) found.set(g.key, g);
+      }
+      const last = articles().pop();
+      if (last) last.scrollIntoView({ block: "end" });
+      await sleep(stable ? 2000 : 1200);
+      if (found.size === before) stable++;
+      else stable = 0;
+      if (stable >= 4) break;
+    }
+    return { groups: [...found.values()].slice(0, limit) };
+  }
+
+  function closeDialog(d) {
+    const btn = [...d.querySelectorAll('[role="button"],button')].find((b) =>
+      /^(close|fechar|cancel|cancelar|not now|agora n[aã]o)$/i.test((b.getAttribute("aria-label") || firstLine(b)).trim()),
+    );
+    if (btn) click(btn);
+    else document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  }
+
+  /** Carrega em «Aderir» no resultado do grupo `wantedKey` e diz o que aconteceu. */
+  async function joinFromSearch(wantedKey) {
+    const wanted = String(wantedKey || "").toLowerCase();
+    if (loggedOut()) return { status: "limited", reason: "O Facebook pediu para iniciar sessão.", stop: true };
+    if (needsCheck()) return { status: "limited", reason: "O Facebook pediu uma verificação. Conclua-a e tente mais tarde.", stop: true };
+    await waitFor(() => articles().length || NO_RESULTS.test(bodyText()), 20000);
+    let art = null;
+    for (let round = 0; round < 15 && !art; round++) {
+      art = articles().find((a) => groupKeyOfArticle(a) === wanted) || null;
+      if (art) break;
+      const last = articles().pop();
+      if (!last) break;
+      last.scrollIntoView({ block: "end" });
+      await sleep(1500);
+    }
+    if (!art) return { status: "failed", reason: "O grupo já não aparece na pesquisa do Facebook.", stop: false };
+
+    const btn = articleButton(art);
+    if (btn.state === "member") return { status: "member", reason: "Já era membro deste grupo.", stop: false };
+    if (btn.state === "pending") return { status: "member", reason: "O pedido de adesão já estava feito.", stop: false };
+    if (!btn.el) return { status: "failed", reason: "Não encontrei o botão Aderir neste grupo.", stop: false };
+
+    const oldDialogs = new Set(dialogs());
+    const limitBefore = count(JOIN_LIMIT, bodyText());
+    click(btn.el);
+
+    let questionsDialog = null;
+    const end = Date.now() + 15000;
+    while (Date.now() < end) {
+      await sleep(600);
+      if (count(JOIN_LIMIT, bodyText()) > limitBefore)
+        return {
+          status: "limited",
+          reason: "O Facebook não deixou aderir a mais grupos por agora. Pare as adesões nesta conta durante uns dias.",
+          stop: true,
+        };
+      if (needsCheck()) return { status: "limited", reason: "O Facebook pediu uma verificação depois de Aderir. Pare e verifique a conta.", stop: true };
+      const state = articleButton(art).state;
+      if (state === "member") return { status: "joined", reason: "Entrou no grupo.", stop: false };
+      if (state === "pending") return { status: "requested", reason: "Pedido enviado: fica à espera dos administradores do grupo.", stop: false };
+      const fresh = dialogs().find((d) => !oldDialogs.has(d));
+      if (fresh) {
+        const hasInputs = fresh.querySelector('textarea,input[type="text"],[contenteditable="true"],[role="radio"],[role="checkbox"]');
+        if (hasInputs || QUESTIONS.test(text(fresh))) {
+          questionsDialog = fresh;
+          break;
+        }
+      }
+    }
+
+    if (questionsDialog) {
+      // As respostas são do utilizador: não se preenchem nem se aceitam regras por ele.
+      closeDialog(questionsDialog);
+      await sleep(1500);
+      if (articleButton(art).state === "pending")
+        return {
+          status: "requested",
+          reason: "Pedido enviado, mas o grupo tem perguntas sem resposta: responda no Facebook para ser aceite.",
+          stop: false,
+        };
+      return { status: "questions", reason: "O grupo pede respostas antes de aceitar: abra o grupo no Facebook e responda.", stop: false };
+    }
+    return { status: "failed", reason: "Carreguei em Aderir, mas não vi o resultado. Veja o grupo no Facebook.", stop: false };
+  }
+
+  window.__cmPartilhas = { scanGroups, shareToGroup, scanSearch, joinFromSearch };
 })();

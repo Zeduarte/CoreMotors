@@ -123,12 +123,13 @@ const r2Env = () => ({
   NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co",
 });
 
-test("photo URLs: always R2 (default address if unset), Supabase only when asked explicitly", () => {
+test("photo URLs: always R2 at this site's own address, never another site's; Supabase only when asked", () => {
   const S = loader()("src/lib/storage.ts");
-  // Sem variáveis nenhumas: R2, no endereço por omissão.
+  // Sem variáveis nenhumas: R2, mas sem endereço — nunca o de outro site.
   withEnv({ NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co" }, () => {
     assert.equal(S.mediaStorage(), "r2");
-    assert.equal(S.publicMediaUrl("car1/a.jpg"), "https://fotos.supermotas.com/car1/a.jpg");
+    assert.equal(S.r2PublicBase(), "");
+    assert.doesNotMatch(S.publicMediaUrl("car1/a.jpg"), /supermotas/);
   });
   // Com o endereço público configurado: usa esse.
   withEnv({ ...r2Env() }, () => {
@@ -137,9 +138,9 @@ test("photo URLs: always R2 (default address if unset), Supabase only when asked
     assert.equal(S.publicMediaUrl("https://images.unsplash.com/x.jpg"), "https://images.unsplash.com/x.jpg");
   });
   withEnv({ ...r2Env(), NEXT_PUBLIC_MEDIA_STORAGE: "r2" }, () => assert.equal(S.mediaStorage(), "r2"));
-  // Endereço inválido: não parte as fotos, cai no endereço por omissão.
+  // Endereço inválido: ignorado (o build do Netlify avisa antes).
   withEnv({ NEXT_PUBLIC_MEDIA_URL: "fotos", NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co" }, () =>
-    assert.equal(S.publicMediaUrl("car1/a.jpg"), "https://fotos.supermotas.com/car1/a.jpg"),
+    assert.equal(S.r2PublicBase(), ""),
   );
   // Só volta ao Supabase se for pedido de propósito.
   withEnv({ NEXT_PUBLIC_MEDIA_STORAGE: "supabase", NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co" }, () => {
