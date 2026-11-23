@@ -88,6 +88,8 @@ before(async () => {
       }
       if (req.method === "PUT") {
         const src = req.headers["x-amz-copy-source"];
+        // Como o R2 verdadeiro: sem tamanho (envio em «stream»), recusa.
+        if (!src && req.headers["content-length"] === undefined) return res.writeHead(411).end("MissingContentLength");
         if (src) {
           const from = decodeURIComponent(src.split("/").slice(2).join("/"));
           if (!objects.has(from)) return res.writeHead(404).end();
@@ -150,6 +152,16 @@ test("R2: put, get, exists, copy, list (all pages), delete — signed requests",
     await R.r2Put("car1/b c.jpg", Buffer.from("BB"), "image/jpeg");
     await R.r2Put("car2/c.jpg", Buffer.from("C"), "image/jpeg");
     assert.match(seen[0].auth, /^AWS4-HMAC-SHA256 Credential=AKIDTEST\//);
+    // O tamanho vai sempre (o R2 recusa envios sem Content-Length).
+    assert.equal(seen[0].headers["content-length"], "3");
+    assert.equal(seen[0].headers["transfer-encoding"], undefined);
+    // Também com o que vem do Supabase (Buffer de um ArrayBuffer) e com Blob.
+    await R.r2Put("car3/x.jpg", Buffer.from(await new Blob(["x".repeat(70000)]).arrayBuffer()), "image/jpeg");
+    await R.r2Put("car3/y.jpg", new Blob(["yy"]), "image/jpeg");
+    assert.equal(objects.get("car3/x.jpg").body.length, 70000);
+    assert.equal(objects.get("car3/y.jpg").body.toString(), "yy");
+    objects.delete("car3/x.jpg");
+    objects.delete("car3/y.jpg");
     assert.equal(objects.get("car1/a.jpg").cache, "public, max-age=31536000, immutable");
     assert.equal(objects.get("car1/a.jpg").type, "image/jpeg");
     assert.equal((await R.r2Get("car1/a.jpg")).data.toString(), "AAA");
