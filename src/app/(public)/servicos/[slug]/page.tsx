@@ -7,6 +7,7 @@ import { FaqSection } from "@/components/showroom/FaqSection";
 import { Locations } from "@/components/showroom/Locations";
 import { OrderCarForm } from "@/components/forms/OrderCarForm";
 import { ContactForm } from "@/components/forms/ContactForm";
+import { CREDIT_INTERMEDIARY_INFO } from "@/lib/legal";
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
@@ -35,6 +36,18 @@ export default async function ServicePage({ params }: Props) {
               {p}
             </p>
           ))}
+          {service.id === "financiamento" && (
+            <p>
+              <a
+                href={CREDIT_INTERMEDIARY_INFO}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-accent underline underline-offset-4 hover:no-underline"
+              >
+                Informação sobre a atividade de intermediário de crédito (PDF)
+              </a>
+            </p>
+          )}
           <FaqSection
             items={content.faqs.filter((f) => f.category === service.id)}
           />
