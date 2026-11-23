@@ -7,7 +7,7 @@
 (() => {
   const PAGE = "coremotors-partilhas-page";
   const EXT = "coremotors-partilhas-ext";
-  const TYPES = new Set(["hello", "readGroups", "share"]);
+  const TYPES = new Set(["hello", "readGroups", "share", "searchGroups", "joinGroup", "setSchedules"]);
 
   window.addEventListener("message", (event) => {
     if (event.source !== window || event.origin !== location.origin) return;

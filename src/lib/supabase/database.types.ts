@@ -564,6 +564,76 @@ type FbShareAttemptInsert = {
   reason?: string | null;
 };
 
+// ---- Partilhas: procurar grupos, categorias e horários (0056) ---------------
+export type FbCategoryRow = {
+  id: string;
+  profile_id: string;
+  name: string;
+  keywords: string[];
+  created_at: string;
+  updated_at: string;
+};
+type FbCategoryInsert = { id?: string; profile_id?: string; name: string; keywords: string[] };
+
+export type FbJoinStatus = "joined" | "requested" | "questions" | "member" | "limited" | "failed";
+export type FbGroupJoinRow = {
+  id: string;
+  profile_id: string;
+  account_id: string;
+  category_id: string | null;
+  group_key: string;
+  name: string;
+  url: string | null;
+  keyword: string | null;
+  privacy: "public" | "private" | null;
+  status: FbJoinStatus;
+  reason: string | null;
+  created_at: string;
+};
+type FbGroupJoinInsert = {
+  id?: string;
+  profile_id?: string;
+  account_id: string;
+  category_id?: string | null;
+  group_key: string;
+  name: string;
+  url?: string | null;
+  keyword?: string | null;
+  privacy?: "public" | "private" | null;
+  status: FbJoinStatus;
+  reason?: string | null;
+};
+
+export type FbScheduleKind = "join" | "share";
+export type FbScheduleRow = {
+  id: string;
+  profile_id: string;
+  account_id: string;
+  kind: FbScheduleKind;
+  category_id: string | null;
+  ad_id: string | null;
+  count: number;
+  weekdays: number[];
+  at_time: string;
+  enabled: boolean;
+  last_run_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+type FbScheduleInsert = {
+  id?: string;
+  profile_id?: string;
+  account_id: string;
+  kind: FbScheduleKind;
+  category_id?: string | null;
+  ad_id?: string | null;
+  count: number;
+  weekdays: number[];
+  at_time: string;
+  enabled?: boolean;
+  last_run_at?: string | null;
+};
+
 // ---- channel_listings (estado de publicação por portal) --------------------
 export type ChannelListingStatus =
   | "pending"
@@ -1100,6 +1170,24 @@ export type Database = {
         Row: FbShareAttemptRow;
         Insert: FbShareAttemptInsert;
         Update: Partial<FbShareAttemptInsert>; // sem grant de update: o histórico não se reescreve
+        Relationships: [];
+      };
+      fb_categories: {
+        Row: FbCategoryRow;
+        Insert: FbCategoryInsert;
+        Update: Partial<FbCategoryInsert>;
+        Relationships: [];
+      };
+      fb_group_joins: {
+        Row: FbGroupJoinRow;
+        Insert: FbGroupJoinInsert;
+        Update: Partial<FbGroupJoinInsert>; // sem grant de update
+        Relationships: [];
+      };
+      fb_schedules: {
+        Row: FbScheduleRow;
+        Insert: FbScheduleInsert;
+        Update: Partial<FbScheduleInsert>;
         Relationships: [];
       };
       user_invites: {

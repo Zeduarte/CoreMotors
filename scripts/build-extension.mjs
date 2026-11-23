@@ -3,7 +3,12 @@
 // Corre antes do dev e do build (package.json); o ZIP não vai para o Git.
 //
 // ZIP escrito à mão (deflate do zlib + CRC-32): evita uma dependência só para isto.
-import { readdirSync, readFileSync, mkdirSync, writeFileSync, statSync } from "node:fs";
+//
+// Com EXTENSION_SYNC_DIR (no ambiente ou no .env.local) copia também os
+// ficheiros para essa pasta: a pasta de onde o Chrome carrega a extensão
+// («Carregar sem compactação»), para ficar sempre na versão do projeto. Depois
+// basta carregar em ↻ em chrome://extensions. `npm run extensao` faz só isto.
+import { readdirSync, readFileSync, mkdirSync, writeFileSync, statSync, existsSync, copyFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { deflateRawSync } from "node:zlib";
 
@@ -88,4 +93,34 @@ statSync(join(SRC, "manifest.json"));
 mkdirSync(OUT_DIR, { recursive: true });
 const zip = buildZip();
 writeFileSync(OUT, zip);
-console.log(`extensão: ${OUT} (${(zip.length / 1024).toFixed(1)} KB)`);
+const version = JSON.parse(readFileSync(join(SRC, "manifest.json"), "utf8")).version;
+console.log(`extensão v${version}: ${OUT} (${(zip.length / 1024).toFixed(1)} KB)`);
+
+/** A pasta do Chrome, de EXTENSION_SYNC_DIR (ambiente primeiro, depois .env.local). */
+function syncDir() {
+  if (process.env.EXTENSION_SYNC_DIR) return process.env.EXTENSION_SYNC_DIR.trim();
+  if (!existsSync(".env.local")) return null;
+  const line = readFileSync(".env.local", "utf8")
+    .split(/\r?\n/)
+    .find((l) => /^\s*EXTENSION_SYNC_DIR\s*=/.test(l));
+  return line ? line.replace(/^\s*EXTENSION_SYNC_DIR\s*=\s*/, "").replace(/^["']|["']$/g, "").trim() || null : null;
+}
+
+const dir = syncDir();
+if (dir) {
+  // Só uma pasta que já é da extensão (tem o manifest dela): nunca escreve noutro sítio por engano.
+  const manifest = join(dir, "manifest.json");
+  let ok = false;
+  try {
+    ok = JSON.parse(readFileSync(manifest, "utf8")).name === "CoreMotors Partilhas";
+  } catch {}
+  if (!ok) console.warn(`extensão: ${dir} não tem a extensão CoreMotors Partilhas; não copiei nada.`);
+  else {
+    for (const path of files(SRC)) {
+      const to = join(dir, relative(SRC, path));
+      mkdirSync(join(to, ".."), { recursive: true });
+      copyFileSync(path, to);
+    }
+    console.log(`extensão v${version} copiada para ${dir} (carregue em ↻ em chrome://extensions)`);
+  }
+}
