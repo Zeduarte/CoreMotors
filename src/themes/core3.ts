@@ -31,6 +31,7 @@ export const core3: ThemeConfig = {
     "testimonials",
     "contact",
   ],
+  fixedSections: ["c3hero", "c3categories"],
   adminNotes: [
     { text: "Menu: Motas · Moto 4 · Carros · Vender · Contactos, sem stock misturado. A Moto 4 (as viaturas da categoria «Moto 4») aparece sempre num site que venda motas. «Vender» abre «Compramos o seu veículo» (a avaliação da retoma)." },
     {

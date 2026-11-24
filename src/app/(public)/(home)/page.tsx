@@ -29,8 +29,8 @@ import { OPTIONAL_MEDIA } from "@/lib/media";
 import { bodiesFor } from "@/lib/vehicle-categories";
 import { brandOptions, sameBrand } from "@/lib/brand-name";
 import { Fragment } from "react";
-import { getSiteTheme } from "@/lib/site-theme-query";
-import { getTheme, type HomeSection } from "@/themes/index";
+import { getSiteAppearance } from "@/lib/site-theme-query";
+import { getTheme, homeSectionsFor, type HomeSection } from "@/themes/index";
 import { core2Serif } from "@/themes/core2/fonts";
 import { heroTexts } from "@/themes/core2/ui";
 import { core3Categories } from "@/themes/core3/ui";
@@ -55,16 +55,23 @@ export const revalidate = 60;
 export default async function HomePage() {
   // Um só site: carros e motas juntos. O tipo principal (carros, salvo num
   // site só de motas) dá o topo, as fotos e os textos.
-  const [type, siteTypes, theme] = await Promise.all([getPublicVehicleType(), getSiteVehicleTypes(), getSiteTheme()]);
-  const [showroom, content, testimonials, branding, allVehicles, sold] =
-    await Promise.all([
-      getShowroomContent(),
-      getHomeContent(),
-      getTestimonials(),
-      getBranding(),
-      getVehicleList(),
-      getSoldVehicleList(10),
-    ]);
+  const [type, siteTypes, { theme, layouts }, content] = await Promise.all([
+    getPublicVehicleType(),
+    getSiteVehicleTypes(),
+    getSiteAppearance(),
+    getHomeContent(),
+  ]);
+  // As secções e a ordem escolhidas em Gestão para este tema. As que estão
+  // desligadas não se desenham, e os dados só delas nem se pedem.
+  const order = homeSectionsFor(getTheme(theme), layouts[theme], content.showSegments);
+  const shown = new Set(order);
+  const [showroom, testimonials, branding, allVehicles, sold] = await Promise.all([
+    getShowroomContent(),
+    shown.has("testimonials") ? getTestimonials() : [],
+    getBranding(),
+    getVehicleList(),
+    shown.has("sold") ? getSoldVehicleList(10) : [],
+  ]);
 
   // Dados mínimos para a pesquisa rápida (marca/modelo/combustível + contagem).
   const searchItems = allVehicles.map((v) => ({
@@ -105,8 +112,8 @@ export default async function HomePage() {
   // As motas têm o seu próprio topo, editável no backoffice (Página inicial).
   const heroContent = heroType === "motorcycle" ? { ...content.hero, ...content.motoHero } : content.hero;
 
-  // Cada secção da página inicial; o tema (Core / Core2) decide a ordem e
-  // quais aparecem (src/themes).
+  // Cada secção da página inicial; quais aparecem e a ordem vêm do tema e de
+  // Gestão (`order`, em cima).
   // Core3: as categorias (Motas, Moto 4, Carros) e o texto do topo.
   const categories = core3Categories(siteTypes);
   const hero3 = heroTexts(siteTypes, categories.some((c) => c.key === "moto4"));
@@ -139,8 +146,8 @@ export default async function HomePage() {
         }
       />
     ),
-    // Opcional: Página inicial → Secções (por defeito escondida).
-    segments: content.showSegments ? <Segments segments={segments} /> : null,
+    // Por defeito escondida (Gestão → Página inicial, ou o antigo Página inicial → Secções).
+    segments: <Segments segments={segments} />,
     // A lista vem com as marcadas como destaque primeiro, depois as mais recentes.
     featured: <FeaturedVehicles vehicles={allVehicles} total={allVehicles.length} />,
     brands: <BrandMarquee brands={marqueeBrands} available={stockBrands} />,
@@ -175,7 +182,7 @@ export default async function HomePage() {
   return (
     // A serifada dos títulos do Core3 (só se descarrega nas páginas que a usam).
     <div className={theme === "core3" ? core2Serif.variable : undefined}>
-      {getTheme(theme).homeSections.map((key) => (
+      {order.map((key) => (
         <Fragment key={key}>{sections[key]}</Fragment>
       ))}
     </div>

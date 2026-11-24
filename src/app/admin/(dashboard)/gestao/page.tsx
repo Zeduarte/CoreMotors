@@ -1,7 +1,9 @@
 import { requireOwner } from "@/lib/guard";
 import { getSiteAppearance } from "@/lib/site-theme-query";
 import { SiteThemeForm } from "@/components/admin/SiteThemeForm";
-import { THEMES } from "@/themes/index";
+import { THEMES, defaultLayout, resolveLayout } from "@/themes/index";
+import { HomeLayoutForm } from "@/components/admin/HomeLayoutForm";
+import { getHomeContent } from "@/lib/queries";
 import { MediaStorageCard } from "@/components/admin/MediaStorageCard";
 import { getMediaStorageStatus } from "@/lib/actions/media-storage";
 import { SiteConfigCard } from "@/components/admin/SiteConfigCard";
@@ -16,8 +18,22 @@ export const dynamic = "force-dynamic";
  */
 export default async function GestaoPage() {
   await requireOwner();
-  const [current, media, legal] = await Promise.all([getSiteAppearance(), getMediaStorageStatus(), getLegalSettings()]);
+  const [current, media, legal, home] = await Promise.all([
+    getSiteAppearance(),
+    getMediaStorageStatus(),
+    getLegalSettings(),
+    getHomeContent(),
+  ]);
   const themes = Object.values(THEMES).map(({ id, label, description, adminNotes }) => ({ id, label, description, notes: adminNotes ?? [] }));
+  // A página inicial de cada versão (o «Que segmento procura?» de origem é o
+  // que estava escolhido em Página inicial → Secções).
+  const layouts = Object.values(THEMES).map((t) => ({
+    id: t.id,
+    label: t.label,
+    fixed: t.fixedSections ?? [],
+    items: resolveLayout(t, current.layouts[t.id], home.showSegments),
+    defaults: defaultLayout(t, home.showSegments),
+  }));
 
   return (
     <>
@@ -34,6 +50,15 @@ export default async function GestaoPage() {
         </p>
       </div>
       <SiteThemeForm initial={current.theme} initialModes={current.modes} themes={themes} />
+
+      <div className="mb-6 mt-10">
+        <h2 className="text-lg font-semibold text-paper">Página inicial</h2>
+        <p className="mt-1 text-sm text-paper/50">
+          As secções da página inicial de cada versão: ligue ou desligue cada uma e mude a ordem com as setas. Uma secção
+          desligada não é carregada (a página fica mais leve). Os textos e as fotos continuam em Página inicial.
+        </p>
+      </div>
+      <HomeLayoutForm themes={layouts} initialTheme={current.theme} />
 
       <div className="mb-6 mt-10">
         <h2 className="text-lg font-semibold text-paper">Fotos</h2>

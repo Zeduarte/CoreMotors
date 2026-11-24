@@ -57,8 +57,14 @@ export interface ThemeConfig {
   /** Uma frase em Gestão: o que distingue o tema. */
   description: string;
   texts: ThemeTexts;
-  /** A ordem das secções da página inicial (as que faltarem não aparecem). */
+  /**
+   * As secções da página inicial do tema, pela ordem de origem (as que
+   * faltarem não existem neste tema). Em Gestão escolhe-se quais aparecem e
+   * por que ordem (ver `home-layout.ts`).
+   */
   homeSections: HomeSection[];
+  /** As do cimo, que ficam sempre (o topo): não se escondem nem mudam de lugar. */
+  fixedSections?: HomeSection[];
   /** O que muda no backoffice com este tema (em Gestão, com o tema escolhido). */
   adminNotes?: ThemeNote[];
 }

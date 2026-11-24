@@ -63,6 +63,7 @@ test("themes: Core, Core2 and Core3, every home section, and the saved theme fal
     theme: "core3",
     mode: "light",
     modes: { core: "light", core2: "system", core3: "light" },
+    layouts: {},
   });
   assert.equal(T.parseSiteAppearance({ theme: "core", modes: { core: "light" } }).mode, "light", "cada versão tem a sua");
   // O CSS do Core2 fica todo debaixo do atributo do tema (o do stock, partilhado com o Core3).
@@ -77,7 +78,11 @@ test("the public layout marks the theme and the home page follows the theme's se
   assert.match(layout, /<SiteThemeProvider theme=\{theme\}>/);
   assert.match(layout, /import "@\/themes\/core2\.css"/);
   const home = readFileSync("src/app/(public)/(home)/page.tsx", "utf8");
-  assert.match(home, /getTheme\(theme\)\.homeSections\.map/);
+  assert.match(home, /const order = homeSectionsFor\(getTheme\(theme\), layouts\[theme\], content\.showSegments\)/);
+  assert.match(home, /\{order\.map\(\(key\)/);
+  // Os dados só das secções desligadas nem se pedem.
+  assert.match(home, /shown\.has\("sold"\) \? getSoldVehicleList\(10\) : \[\]/);
+  assert.match(home, /shown\.has\("testimonials"\) \? getTestimonials\(\) : \[\]/);
 });
 
 test("Gestão: only the core access (the account owner) sees it, not even an administrator", () => {
@@ -95,7 +100,14 @@ test("saving the site theme: only the owner, only known themes, and the public s
   let me = null;
   const writes = [];
   const revalidated = [];
-  const db = { from: (t) => ({ upsert: async (row, opts) => { writes.push([t, row, opts]); return { error: null }; } }) };
+  // O registo guardado (lido antes de escrever: as listas da página inicial ficam).
+  let stored = null;
+  const db = {
+    from: (t) => ({
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: stored && { content: stored }, error: null }) }) }),
+      upsert: async (row, opts) => { writes.push([t, row, opts]); stored = row.content; return { error: null }; },
+    }),
+  };
   const load = loader({
     "@/lib/admin-queries": { getCurrentProfile: async () => me },
     "@/lib/supabase/server": { createClient: async () => db },
@@ -119,6 +131,56 @@ test("saving the site theme: only the owner, only known themes, and the public s
   assert.match((await saveSiteTheme("core", { core: "light" })).error, /Escuro, Claro ou Automático/);
   assert.match((await saveSiteTheme("core", null)).error, /Escuro, Claro ou Automático/);
   assert.equal(writes.length, 3);
+
+  // A página inicial de cada tema: limpa e junta ao resto (a versão e as aparências ficam).
+  const { saveHomeLayout } = load("src/lib/actions/gestao.ts");
+  me = { id: "a", role: "admin", is_owner: false };
+  assert.match((await saveHomeLayout("core", [])).error, /acesso core/);
+  me = { id: "o", role: "admin", is_owner: true };
+  assert.match((await saveHomeLayout("outro", [])).error, /Escolha/);
+  assert.match((await saveHomeLayout("core", "x")).error, /inválida/);
+  const before = stored;
+  assert.equal((await saveHomeLayout("core2", [{ id: "sold", on: true }, { id: "hero", on: false }, { id: "c3hero" }, { id: "sold", on: false }, { id: "brands", on: false }])).ok, true);
+  assert.equal(stored.theme, before.theme);
+  assert.deepEqual(stored.modes, before.modes);
+  const core2 = stored.layouts.core2;
+  assert.deepEqual(core2.slice(0, 2), [{ id: "sold", on: true }, { id: "brands", on: false }], "sem o topo fixo, sem secções de outro tema, sem repetidas");
+  assert.equal(core2.length, 10, "as que faltam entram no fim");
+  // Guardar outro tema e depois a versão não apaga as listas.
+  await saveHomeLayout("core3", [{ id: "contact", on: true }]);
+  await saveSiteTheme("core3", { core: "dark", core2: "dark", core3: "light" });
+  assert.deepEqual(Object.keys(stored.layouts).sort(), ["core2", "core3"]);
+  assert.equal(stored.theme, "core3");
+});
+
+test("home layout per theme: the fixed top stays, the rest can be hidden and reordered, and odd saves are cleaned", () => {
+  const T = loader()("src/themes/index.ts");
+  const core = T.getTheme("core");
+  const core3 = T.getTheme("core3");
+  // Sem nada guardado: a ordem do tema, com «Que segmento procura?» como estava em Página inicial.
+  assert.deepEqual(T.homeSectionsFor(core, undefined, false), core.homeSections.filter((s) => s !== "segments"));
+  assert.deepEqual(T.homeSectionsFor(core, undefined, true), core.homeSections);
+  assert.deepEqual(T.homeSectionsFor(core3, undefined).slice(0, 4), ["c3hero", "c3categories", "featured", "c3services"]);
+  // Guardado: o topo fixo no cimo, depois as ligadas pela ordem escolhida.
+  const saved = [{ id: "contact", on: true }, { id: "featured", on: false }, { id: "stock", on: true }];
+  const order = T.homeSectionsFor(core, saved, false);
+  assert.deepEqual(order.slice(0, 3), ["hero", "contact", "stock"]);
+  assert.ok(!order.includes("featured"), "desligada não aparece");
+  assert.ok(order.includes("brands"), "as que faltam na lista guardada entram ligadas");
+  assert.ok(!order.includes("segments"), "e os segmentos como na origem (escondidos)");
+  // O topo fixo nunca sai, nem com uma lista estranha.
+  for (const raw of [null, "x", [{ id: "hero", on: false }], [{}, { id: 3 }]]) assert.equal(T.homeSectionsFor(core, raw)[0], "hero", JSON.stringify(raw));
+  assert.deepEqual(T.homeSectionsFor(core3, [{ id: "c3categories", on: false }]).slice(0, 2), ["c3hero", "c3categories"]);
+  // As secções que se escolhem não incluem as fixas; cada uma tem nome e frase.
+  for (const t of [core, T.getTheme("core2"), core3])
+    for (const id of t.homeSections) assert.ok(T.SECTION_INFO[id]?.label && T.SECTION_INFO[id]?.hint, `${t.id}: ${id}`);
+  assert.ok(!T.editableSections(core3).includes("c3hero"));
+  // As listas guardadas: só objetos com listas.
+  assert.deepEqual(T.parseLayouts({ layouts: { core: [{ id: "sold", on: false }], core2: "x" } }), { core: [{ id: "sold", on: false }] });
+  assert.deepEqual(T.parseLayouts(null), {});
+  // Gestão mostra a lista; Página inicial já não tem o interruptor dos segmentos.
+  assert.match(readFileSync("src/app/admin/(dashboard)/gestao/page.tsx", "utf8"), /<HomeLayoutForm themes=\{layouts\}/);
+  assert.doesNotMatch(readFileSync("src/components/admin/HomeContentForm.tsx", "utf8"), /register\("showSegments"\)/);
 });
 
 test("Gestão: each version (Core, Core2) has Escuro · Claro · Automático, and saving sends the version and every appearance", async () => {

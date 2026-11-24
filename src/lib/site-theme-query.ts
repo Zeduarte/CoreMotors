@@ -23,6 +23,7 @@ const FALLBACK: SiteAppearance = {
   theme: DEFAULT_THEME,
   mode: DEFAULT_MODE,
   modes: Object.fromEntries(THEME_IDS.map((id) => [id, DEFAULT_MODE])) as SiteAppearance["modes"],
+  layouts: {},
 };
 
 export async function getSiteAppearance(): Promise<SiteAppearance> {
