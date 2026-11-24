@@ -40,8 +40,14 @@ export function isNavActive(href: string, path: string): boolean {
 export function Header({
   branding = DEFAULT_BRANDING,
   stockSlugs,
+  nav: themeNav,
 }: {
   branding?: Branding;
+  /**
+   * Os itens do menu, quando o tema tem um menu seu (o Core3: Motas · Moto 4 ·
+   * Carros · Vender · Contactos). Sem isto, o menu de sempre com os nomes do tema.
+   */
+  nav?: { href: string; label: string }[];
   /**
    * As viaturas no site agora (à venda e reservadas). O contador dos
    * favoritos conta só estas, como a página /favoritos: uma viatura vendida,
@@ -52,7 +58,7 @@ export function Header({
   const pathname = usePathname();
   // O menu com os nomes do tema ativo.
   const { texts } = useSiteTheme();
-  const nav = NAV.map((item) => ({ href: item.href, label: texts[item.text] }));
+  const nav = themeNav ?? NAV.map((item) => ({ href: item.href, label: texts[item.text] }));
   const router = useRouter();
   // Numa ficha de viatura (/viaturas/slug, não sub-rotas) mostramos a seta de
   // voltar ao lado do logótipo — sempre acessível no topo fixo.

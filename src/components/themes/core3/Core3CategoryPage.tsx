@@ -28,6 +28,7 @@ export async function Core3CategoryPage({ kind }: { kind: StockKind }) {
         photo={cat.hero ?? asset(mediaFor("motorcycle").entrada)}
         title={cat.title}
         subtitle={cat.subtitle}
+        mobilePosition={cat.heroMobilePosition}
         crumbs={[{ label: "Início", href: "/" }, { label: cat.short, href: cat.href }, { label: cat.title }]}
       />
       {/* `useSearchParams` (os filtros no endereço) pede um Suspense numa página estática. */}

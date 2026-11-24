@@ -2,9 +2,7 @@ import { getPublicVehicleType, getSiteVehicleTypes } from "@/lib/vehicle-context
 import { VehicleWorld } from "@/components/site/VehicleWorld";
 import { LenisProvider } from "@/components/providers/LenisProvider";
 import { Header } from "@/components/layout/Header";
-import { Core3Header } from "@/components/themes/core3/Core3Header";
-import { core3Categories } from "@/themes/core3/ui";
-import { core2Serif } from "@/themes/core2/fonts";
+import { core3Nav } from "@/themes/core3/ui";
 import { Footer } from "@/components/layout/Footer";
 import { Suspense } from "react";
 import { ScrollProgress } from "@/components/ui/ScrollProgress";
@@ -70,7 +68,7 @@ export default async function PublicLayout({
           cria caixa, por isso não altera o layout. */}
       {/* `data-site-theme`: o CSS de cada tema (src/themes/<tema>.css);
           `data-site-mode`: escuro, claro ou o do sistema (src/themes/modes.css). */}
-      <div className={`site contents ${theme === "core3" ? core2Serif.variable : ""}`} data-site-theme={theme} data-site-mode={mode}>
+      <div className="site contents" data-site-theme={theme} data-site-mode={mode}>
         {/* Entrada da 1.ª visita: a foto das motas enquanto o site carrega. */}
         <SiteIntro name={branding.companyName} label={vehiclesLabel(siteTypes)} />
         {/* Salto para conteúdo — acessibilidade por teclado. */}
@@ -87,11 +85,8 @@ export default async function PublicLayout({
           <NavigationEvents />
           <NavigationProgress />
         </Suspense>
-        {theme === "core3" ? (
-          <Core3Header branding={branding} categories={core3Categories(siteTypes)} stockSlugs={stockSlugs} />
-        ) : (
-          <Header branding={branding} stockSlugs={stockSlugs} />
-        )}
+        {/* O cabeçalho é o do Core em todas as versões; o Core3 tem o seu menu. */}
+        <Header branding={branding} stockSlugs={stockSlugs} nav={theme === "core3" ? core3Nav(siteTypes) : undefined} />
         <main id="conteudo" className="pt-16">{children}</main>
         <Footer theme={theme} branding={branding} legal={legal} background={existingMedia(type, OPTIONAL_MEDIA.rodape)} siteTypes={siteTypes} />
         {/* Assistente virtual + canais de contacto no mesmo botão flutuante.

@@ -549,11 +549,12 @@ test("only the stock page changes with Core2 (top + list); the layout, the home 
 
   // O resto do site é o do Core também no Core2: o mesmo menu, rodapé e página inicial.
   const layout = readFileSync("src/app/(public)/layout.tsx", "utf8");
-  assert.match(layout, /<Header branding=\{branding\} stockSlugs=\{stockSlugs\} \/>/);
+  // O cabeçalho é sempre o do Core; só o Core3 lhe dá outro menu.
+  assert.match(layout, /<Header branding=\{branding\} stockSlugs=\{stockSlugs\} nav=\{theme === "core3" \? core3Nav\(siteTypes\) : undefined\} \/>/);
   assert.match(layout, /<GrainOverlay \/>/);
   assert.doesNotMatch(layout, /components\/themes\/core2/);
-  // A serifada no layout é só para o Core3 (o menu e a página inicial das maquetes).
-  assert.match(layout, /theme === "core3" \? core2Serif\.variable/);
+  // A serifada não vai para o layout: só as páginas que a usam a carregam.
+  assert.doesNotMatch(layout, /core2Serif/);
   assert.doesNotMatch(readFileSync("src/app/(public)/(home)/page.tsx", "utf8"), /components\/themes\/core2/);
   // Os componentes do Core2 só se usam na página do Stock (e no stock por tipo do Core3).
   const users = execFileSync("git", ["grep", "-l", "--untracked", "-F", "@/components/themes/core2/", "--", "src"], { encoding: "utf8" }).trim().split("\n");
@@ -626,14 +627,23 @@ test("Core3: the menu order drives the slide (Início → Motas → Moto 4 → C
   assert.equal(navDirection("/inventario", "/viaturas/bmw-320"), "forward");
 });
 
-test("Core3: the layout swaps the header, /motas and /carros become the stock pages, /moto4 exists only in Core3, Gestão explains the change", () => {
+test("Core3: the Core header with the Core3 menu, /motas and /carros become the stock pages, /moto4 exists only in Core3, Gestão explains the change", () => {
   const layout = readFileSync("src/app/(public)/layout.tsx", "utf8");
-  assert.match(layout, /theme === "core3" \? \(\s*<Core3Header/);
+  assert.doesNotMatch(layout, /Core3Header/, "o cabeçalho é o do Core");
   for (const [path, kind] of [["motas", "motas"], ["carros", "carros"]])
     assert.match(readFileSync(`src/app/(public)/${path}/(todos)/page.tsx`, "utf8"), new RegExp(`=== "core3"\\) return <Core3CategoryPage kind="${kind}" />`));
   assert.match(readFileSync("src/app/(public)/moto4/layout.tsx", "utf8"), /theme !== "core3"[\s\S]*notFound\(\)/);
   // O menu e o rodapé do Core3 só têm as categorias: sem «Ver stock» nem o stock misturado.
-  assert.doesNotMatch(readFileSync("src/components/themes/core3/Core3Header.tsx", "utf8"), /\/inventario|Ver stock/);
+  const ui = loader()("src/themes/core3/ui.ts");
+  assert.deepEqual(ui.core3Nav(["car", "motorcycle"]), [
+    { href: "/motas", label: "Motas" },
+    { href: "/moto4", label: "Moto 4" },
+    { href: "/carros", label: "Carros" },
+    { href: "/vender", label: "Vender" },
+    { href: "/contactos", label: "Contactos" },
+  ]);
+  // No telemóvel, o topo dos carros mostra a direita da foto (a loja e os carros).
+  assert.equal(ui.categoryOf("carros").heroMobilePosition, "object-right");
   assert.match(readFileSync("src/components/layout/Footer.tsx", "utf8"), /theme === "core3" \? core3Links\(siteTypes\)/);
   const home = readFileSync("src/app/(public)/(home)/page.tsx", "utf8");
   assert.match(home, /theme !== "core3" && <ServiceCards/, "os serviços do Core3 estão na faixa, não em cartões");

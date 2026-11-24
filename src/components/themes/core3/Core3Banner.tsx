@@ -13,6 +13,7 @@ export function Core3Banner({
   subtitle,
   big = false,
   crumbs,
+  mobilePosition = "object-left",
   children,
 }: {
   photo: string;
@@ -22,13 +23,15 @@ export function Core3Banner({
   big?: boolean;
   /** O caminho por cima do título; o último não é ligação. */
   crumbs?: { label: string; href?: string }[];
+  /** Que parte da foto se vê no telemóvel (classe do Tailwind); no computador, sempre a esquerda. */
+  mobilePosition?: string;
   /** Os botões por baixo da frase. */
   children?: React.ReactNode;
 }) {
   return (
     <section className="relative overflow-hidden text-paper">
       <div aria-hidden className="relative aspect-[5/2] md:absolute md:inset-y-0 md:right-0 md:aspect-auto md:w-[68%]">
-        <Image src={photo} alt="" fill priority sizes="(max-width: 768px) 100vw, 68vw" className="object-cover object-left" />
+        <Image src={photo} alt="" fill priority sizes="(max-width: 768px) 100vw, 68vw" className={`object-cover ${mobilePosition} md:object-left`} />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent from-45% to-ink md:hidden" />
         <div className="absolute inset-0 hidden bg-gradient-to-r from-ink from-[6%] via-ink/45 via-[20%] to-transparent to-[42%] md:block" />
       </div>
