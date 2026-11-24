@@ -9,7 +9,6 @@ import { DEFAULT_BRANDING, type Branding } from "@/lib/branding";
 import { useLocalList, FAVORITES_KEY } from "@/hooks/useLocalList";
 import { NAV_START_EVENT, type NavStartDetail } from "@/lib/page-transition";
 import type { Core3Category } from "@/themes/core3/ui";
-import { Core3Icon } from "./icons";
 
 
 /** A página aberta pertence a este item do menu? */
@@ -19,8 +18,8 @@ function isActive(href: string, path: string): boolean {
 
 /**
  * O menu do Core3 (como na maqueta): o logótipo (leva ao início), as páginas
- * de stock por tipo, «Vender» («Compramos o seu veículo»), «Contactos» e o botão «Ver
- * stock». O sublinhado do item aberto salta logo para o clicado, enquanto o
+ * de stock por tipo (sem stock misturado), «Vender» («Compramos o seu
+ * veículo») e «Contactos». O sublinhado do item aberto salta logo para o clicado, enquanto o
  * deslize entre páginas corre (ver `template.tsx`).
  */
 export function Core3Header({
@@ -61,8 +60,6 @@ export function Core3Header({
     setPendingPath(null);
   }, [pathname]);
 
-  const stockButton =
-    "inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-ink transition-transform active:scale-[0.97]";
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-ink-soft/90 backdrop-blur-xl [view-transition-name:site-header]">
@@ -121,10 +118,6 @@ export function Core3Header({
                 {favCount}
               </span>
             )}
-          </Link>
-          <Link href="/inventario" className={stockButton}>
-            <Core3Icon name="tag" className="h-4 w-4" />
-            Ver stock
           </Link>
           <button
             type="button"

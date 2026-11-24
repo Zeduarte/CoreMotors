@@ -1,6 +1,6 @@
-/** Os ícones do Core3 (traço, na cor do texto): a faixa de serviços e o menu. */
+/** Os ícones do Core3 (traço, na cor do texto): a faixa de serviços e as setas. */
 
-export type Core3IconName = "refresh" | "truck" | "card" | "shield" | "tag" | "pin" | "arrow";
+export type Core3IconName = "refresh" | "truck" | "card" | "shield" | "arrow";
 
 const PATHS: Record<Core3IconName, React.ReactNode> = {
   refresh: (
@@ -23,18 +23,6 @@ const PATHS: Record<Core3IconName, React.ReactNode> = {
     </>
   ),
   shield: <path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.1 7.5 9.5 4.4-1.4 7.5-4.9 7.5-9.5V6zM9 12l2.2 2.2L15.5 10" />,
-  tag: (
-    <>
-      <path d="M3 12.5V4h8.5L21 13.5 13.5 21z" />
-      <circle cx="7.5" cy="8.5" r="1.3" />
-    </>
-  ),
-  pin: (
-    <>
-      <path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z" />
-      <circle cx="12" cy="9.5" r="2.4" />
-    </>
-  ),
   arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
 };
 

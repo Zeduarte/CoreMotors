@@ -632,6 +632,9 @@ test("Core3: the layout swaps the header, /motas and /carros become the stock pa
   for (const [path, kind] of [["motas", "motas"], ["carros", "carros"]])
     assert.match(readFileSync(`src/app/(public)/${path}/(todos)/page.tsx`, "utf8"), new RegExp(`=== "core3"\\) return <Core3CategoryPage kind="${kind}" />`));
   assert.match(readFileSync("src/app/(public)/moto4/layout.tsx", "utf8"), /theme !== "core3"[\s\S]*notFound\(\)/);
+  // O menu e o rodapé do Core3 só têm as categorias: sem «Ver stock» nem o stock misturado.
+  assert.doesNotMatch(readFileSync("src/components/themes/core3/Core3Header.tsx", "utf8"), /\/inventario|Ver stock/);
+  assert.match(readFileSync("src/components/layout/Footer.tsx", "utf8"), /theme === "core3" \? core3Links\(siteTypes\)/);
   const home = readFileSync("src/app/(public)/(home)/page.tsx", "utf8");
   assert.match(home, /theme !== "core3" && <ServiceCards/, "os serviços do Core3 estão na faixa, não em cartões");
   const T = loader()("src/themes/index.ts");
