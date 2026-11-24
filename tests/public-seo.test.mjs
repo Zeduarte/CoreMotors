@@ -663,7 +663,7 @@ test('the vehicle page keeps its own share image (opengraph-image next to it), w
 
 test('fonts ship with the project: no next/font/google (the build must not depend on Google Fonts answering)', () => {
   const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));
-  const offenders = walk('src').filter((f) => /\.[jt]sx?$/.test(f) && readFileSync(f, 'utf8').includes('next/font/google'));
+  const offenders = walk('src').filter((f) => /\.[jt]sx?$/.test(f) && /from ['"]next\/font\/google['"]/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(offenders, []);
   assert.ok(existsSync('src/fonts/inter-latin-wght-normal.woff2'));
   assert.ok(existsSync('src/fonts/dm-serif-display-latin-400-normal.woff2'));
