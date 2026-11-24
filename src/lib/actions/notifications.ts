@@ -97,10 +97,29 @@ export async function saveWhatsAppNotificationSettings(data: FormData): Promise<
 export async function sendWhatsAppTestNotification(): Promise<Result> {
   const me = await requireAdmin();
   if (!me) return { ok: false, error: "Apenas administradores." };
-  const to = me.phone ? normalizeWhatsApp(me.phone) : "";
-  if (!/^\d{9,15}$/.test(to)) {
-    return { ok: false, error: "Preencha o seu telefone em «O meu perfil» para receber o teste." };
-  }
+  return sendTestTemplates(me.phone, "Preencha o seu telefone em «O meu perfil» para receber o teste.");
+}
+
+/**
+ * Utilizadores (só o dono, o acesso core): envia o mesmo teste para o
+ * telemóvel de um colaborador — para ver se o número dele está certo e se a
+ * ligação à Meta funciona.
+ */
+export async function sendWhatsAppTestToUser(userId: string): Promise<Result> {
+  const me = await requireAdmin();
+  if (!me?.is_owner) return { ok: false, error: "Só o dono da conta (acesso core) pode enviar o teste a outra pessoa." };
+  if (!z.string().uuid().safeParse(userId).success) return { ok: false, error: "Utilizador inválido." };
+  const db = createAdminClient();
+  if (!db) return { ok: false, error: "Chave de administração não configurada." };
+  const { data: user } = await db.from("profiles").select("phone, full_name").eq("id", userId).maybeSingle();
+  if (!user) return { ok: false, error: "Utilizador não encontrado." };
+  return sendTestTemplates(user.phone, `${user.full_name || "Este utilizador"} não tem telemóvel: preencha-o primeiro em «Editar dados».`);
+}
+
+/** Os cinco modelos de aviso, com valores de exemplo, para um telefone. */
+async function sendTestTemplates(phone: string | null | undefined, noPhone: string): Promise<Result> {
+  const to = phone ? normalizeWhatsApp(phone) : "";
+  if (!/^\d{9,15}$/.test(to)) return { ok: false, error: noPhone };
   const number = await whatsAppNumber(createAdminClient());
   if (!number?.accessToken) return { ok: false, error: "Ligue primeiro o número do WhatsApp da empresa." };
 

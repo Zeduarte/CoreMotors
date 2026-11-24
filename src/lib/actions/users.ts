@@ -1,6 +1,7 @@
 "use server";
 
 import { requireAdmin } from "@/lib/guard";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { newUserSchema } from "@/lib/schemas";
@@ -273,5 +274,46 @@ export async function deleteUser(id: string): Promise<UserResult> {
   if (error) return { ok: false, error: "Não foi possível apagar o utilizador. Tente novamente." };
 
   revalidatePath("/admin/utilizadores");
+  return { ok: true };
+}
+
+const detailsSchema = z.object({
+  full_name: z.string().trim().min(2, "Indique o nome.").max(80),
+  phone: z
+    .string()
+    .trim()
+    .max(30)
+    .regex(/^[+\d\s()-]*$/, "Telefone inválido: só números, espaços e +.")
+    .optional()
+    .default(""),
+});
+
+/**
+ * Utilizadores → Editar dados: o nome e o telemóvel de um colaborador. Só o
+ * dono da conta (o acesso core). O telemóvel é o que recebe os avisos por
+ * WhatsApp e identifica a pessoa quando dá ordens por WhatsApp.
+ */
+export async function updateUserDetails(id: string, input: unknown): Promise<UserResult> {
+  const me = await requireAdmin();
+  if (!me.is_owner) return { ok: false, error: "Só o dono da conta (acesso core) pode editar os dados de outra pessoa." };
+  if (!z.string().uuid().safeParse(id).success) return { ok: false, error: "Utilizador inválido." };
+  const parsed = detailsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+
+  const admin = createAdminClient();
+  if (!admin) return { ok: false, error: NO_SERVICE_KEY };
+  const { data, error } = await admin
+    .from("profiles")
+    .update({ full_name: parsed.data.full_name, phone: parsed.data.phone || null })
+    .eq("id", id)
+    .select("id");
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: "Esse telemóvel já está associado a outro utilizador." };
+    console.warn(`updateUserDetails: não gravado (${error.code ?? "sem código"})`);
+    return { ok: false, error: "Não foi possível guardar os dados." };
+  }
+  if (!data?.length) return { ok: false, error: "Utilizador não encontrado." };
+  revalidatePath("/admin/utilizadores");
+  revalidatePath("/admin", "layout");
   return { ok: true };
 }

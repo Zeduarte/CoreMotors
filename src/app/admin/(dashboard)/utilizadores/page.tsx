@@ -39,6 +39,7 @@ export default async function UsersPage() {
     // O email interno das contas novas não é contacto de ninguém.
     email: isInternalEmail(p.email) ? null : p.email,
     full_name: p.full_name,
+    phone: p.phone ?? null,
     role: p.role,
     allowed_sections: p.allowed_sections,
     allowed_vehicle_types: p.allowed_vehicle_types,
