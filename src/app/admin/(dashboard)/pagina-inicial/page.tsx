@@ -29,8 +29,16 @@ export default async function HomeContentPage() {
       <HomeContentForm initial={content} />
       <ShowroomForm
         initial={await getShowroomContent()}
-        googleConfigured={Boolean(process.env.GOOGLE_PLACES_API_KEY)}
+        googleKey={googleKeyStatus(process.env.GOOGLE_PLACES_API_KEY)}
       />
     </>
   );
+}
+
+// As chaves da Google Cloud começam por «AIza». Um Place ID («ChIJ…») posto na
+// variável por engano parecia «configurado» e as avaliações nunca apareciam.
+function googleKeyStatus(raw: string | undefined): "ok" | "missing" | "invalid" {
+  const key = (raw ?? "").trim();
+  if (!key) return "missing";
+  return key.startsWith("AIza") ? "ok" : "invalid";
 }

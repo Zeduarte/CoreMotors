@@ -21,6 +21,6 @@
     { "name": "WHATSAPP_CONFIG_ID", "group": "Assistente e WhatsApp", "required": false, "secret": false, "help": "Botão «Ligar número do WhatsApp» em Integrações." },
     { "name": "OLX_CLIENT_ID", "group": "OLX", "required": false, "secret": true, "help": "Publicação automática no OLX (OLX Partner API)." },
     { "name": "OLX_CLIENT_SECRET", "group": "OLX", "required": false, "secret": true, "help": "Publicação automática no OLX (OLX Partner API)." },
-    { "name": "GOOGLE_PLACES_API_KEY", "group": "Outros", "required": false, "secret": true, "help": "Avaliações do Google na página inicial (opcional)." }
+    { "name": "GOOGLE_PLACES_API_KEY", "group": "Outros", "required": false, "secret": true, "help": "Avaliações do Google na página inicial (opcional). Uma chave da Places API (New), começa por AIza. O Place ID não vai aqui: põe-se em Página inicial → Google." }
   ]
 }

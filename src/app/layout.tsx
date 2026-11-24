@@ -1,6 +1,6 @@
 import { THEME_INIT_SCRIPT } from "@/components/admin/theme-init";
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { site } from "@/lib/site";
@@ -9,13 +9,15 @@ import { siteDescription, vehiclesLabel } from "@/lib/site-types";
 import { SiteRuntime } from "@/components/site/SiteRuntime";
 import { BrandIdentityProvider } from "@/components/layout/BrandIdentity";
 
-// next/font: auto-host, sem pedido a terceiros, sem layout shift. Exposto
-// como CSS var e consumido pelo Tailwind (font-sans).
-const inter = Inter({
-  subsets: ["latin"],
+// A letra vem do próprio projeto (src/fonts, Inter variável 300–700, latim),
+// não do Google Fonts: com `next/font/google` o build ia buscá-la à internet
+// e falhava quando o Google não respondia. Exposta como CSS var e consumida
+// pelo Tailwind (font-sans).
+const inter = localFont({
+  src: "../fonts/inter-latin-wght-normal.woff2",
   variable: "--font-inter",
   display: "swap",
-  weight: ["300", "400", "500", "600", "700"],
+  weight: "300 700",
 });
 
 // O título e a descrição dizem o que o stand vende (Definições → Tipo de site);
