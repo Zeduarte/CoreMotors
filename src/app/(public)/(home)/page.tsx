@@ -110,7 +110,7 @@ export default async function HomePage() {
   // quais aparecem (src/themes).
   // Core3: as categorias (a Moto 4 só com alguma em stock), o texto do topo e
   // as últimas entradas de cada tipo.
-  const categories = core3Categories(siteTypes, allVehicles);
+  const categories = core3Categories(siteTypes);
   const hero3 = heroTexts(siteTypes, categories.some((c) => c.key === "moto4"));
   const sections: Record<HomeSection, React.ReactNode> = {
     c3hero: (

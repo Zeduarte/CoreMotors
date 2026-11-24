@@ -88,7 +88,7 @@ export default async function PublicLayout({
           <NavigationProgress />
         </Suspense>
         {theme === "core3" ? (
-          <Core3Header branding={branding} categories={core3Categories(siteTypes, stock)} stockSlugs={stockSlugs} />
+          <Core3Header branding={branding} categories={core3Categories(siteTypes)} stockSlugs={stockSlugs} />
         ) : (
           <Header branding={branding} stockSlugs={stockSlugs} />
         )}

@@ -593,16 +593,16 @@ test("Core2 leaves the palette to the appearance (no colours of its own), the st
   assert.match(readFileSync("src/components/themes/core2/Core2StockTop.tsx", "utf8"), /object-\[85%_60%\]/);
 });
 
-test("Core3: categories follow what the site sells (Moto 4 only with stock), latest entries per type, one page per type", () => {
+test("Core3: Motas, Moto 4 and Carros follow what the site sells, latest entries per type, one page per type", () => {
   const ui = loader()("src/themes/core3/ui.ts");
   const all = stockFixture();
-  assert.deepEqual(ui.core3Categories(["car", "motorcycle"], all).map((c) => [c.key, c.href, c.short]), [
+  assert.deepEqual(ui.core3Categories(["car", "motorcycle"]).map((c) => [c.key, c.href, c.short]), [
     ["motas", "/motas", "Motas"],
     ["moto4", "/moto4", "Moto 4"],
     ["carros", "/carros", "Carros"],
   ]);
-  assert.deepEqual(ui.core3Categories(["car", "motorcycle"], all.filter((v) => v.body !== "Moto 4")).map((c) => c.key), ["motas", "carros"], "sem Moto 4 em stock, sem página");
-  assert.deepEqual(ui.core3Categories(["car"], all).map((c) => c.key), ["carros"]);
+  assert.deepEqual(ui.core3Categories(["motorcycle"]).map((c) => c.key), ["motas", "moto4"]);
+  assert.deepEqual(ui.core3Categories(["car"]).map((c) => c.key), ["carros"]);
   // A foto do topo: os carros a da loja (maqueta), as motas e a Moto 4 a das motas do site.
   assert.equal(ui.categoryOf("carros").hero, "/media/core3/carros.jpg");
   assert.equal(ui.categoryOf("motas").hero, null);

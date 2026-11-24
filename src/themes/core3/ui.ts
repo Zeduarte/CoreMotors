@@ -59,14 +59,14 @@ export function categoryOf(key: StockKind): Core3Category {
 }
 
 /**
- * As categorias que o site mostra: as motas e os carros conforme o que se vende;
- * a Moto 4 só com alguma em stock.
+ * As categorias que o site mostra (como na maqueta: Motas, Moto 4, Carros):
+ * as motas e a Moto 4 num site que venda motas, os carros num que venda carros.
+ * A Moto 4 aparece mesmo sem stock (a página diz que não há nenhuma).
  */
-export function core3Categories(siteTypes: VehicleType[], vehicles: Pick<Vehicle, "vehicleType" | "body">[]): Core3Category[] {
+export function core3Categories(siteTypes: VehicleType[]): Core3Category[] {
   const moto = siteTypes.includes("motorcycle");
   const keys: StockKind[] = [
-    ...(moto ? (["motas"] as const) : []),
-    ...(moto && vehicles.some((v) => kindOf(v) === "moto4") ? (["moto4"] as const) : []),
+    ...(moto ? (["motas", "moto4"] as const) : []),
     ...(siteTypes.includes("car") ? (["carros"] as const) : []),
   ];
   return keys.map(categoryOf);
