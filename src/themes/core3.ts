@@ -32,7 +32,7 @@ export const core3: ThemeConfig = {
     "contact",
   ],
   adminNotes: [
-    { text: "Menu: Motas · Moto 4 · Carros · Vender · Contactos e o botão «Ver stock». A Moto 4 (as viaturas da categoria «Moto 4») aparece sempre num site que venda motas. «Vender» ainda não abre nada." },
+    { text: "Menu: Motas · Moto 4 · Carros · Vender · Contactos e o botão «Ver stock». A Moto 4 (as viaturas da categoria «Moto 4») aparece sempre num site que venda motas. «Vender» abre «Compramos o seu veículo» (a avaliação da retoma)." },
     {
       text: "Os serviços saem do menu: o Financiamento e a Garantia (se estiverem ativos) entram na faixa da página inicial, ao lado das retomas e das entregas.",
       href: "/admin/pagina-inicial#servicos",

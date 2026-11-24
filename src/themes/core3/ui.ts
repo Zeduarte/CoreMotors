@@ -92,10 +92,10 @@ export function latestPerKind<T extends Pick<Vehicle, "createdAt" | "year" | "ve
   return sorted.filter((v) => taken[kindOf(v)]++ < perKind);
 }
 
-/** A faixa de serviços: o que não depende do backoffice (as retomas e a entrega). */
+/** A faixa de serviços: o que não depende do backoffice (as retomas, que levam ao «Vender», e a entrega). */
 export const STATIC_PERKS = [
-  { id: "retomas", icon: "refresh", title: "Aceitamos retomas", text: "Valorizamos a sua mota, moto 4 ou automóvel." },
-  { id: "entregas", icon: "truck", title: "Entregas nacionais", text: "Levamos a sua nova viatura a qualquer ponto de Portugal." },
+  { id: "retomas", icon: "refresh", title: "Aceitamos retomas", text: "Valorizamos a sua mota, moto 4 ou automóvel.", href: "/vender" },
+  { id: "entregas", icon: "truck", title: "Entregas nacionais", text: "Levamos a sua nova viatura a qualquer ponto de Portugal.", href: undefined },
 ] as const;
 
 /** O ícone dos serviços do backoffice que entram na faixa (o resto não cabe). */

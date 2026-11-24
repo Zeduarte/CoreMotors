@@ -11,7 +11,6 @@ import { NAV_START_EVENT, type NavStartDetail } from "@/lib/page-transition";
 import type { Core3Category } from "@/themes/core3/ui";
 import { Core3Icon } from "./icons";
 
-type Item = { href: string; label: string } | { href: null; label: string };
 
 /** A página aberta pertence a este item do menu? */
 function isActive(href: string, path: string): boolean {
@@ -20,7 +19,7 @@ function isActive(href: string, path: string): boolean {
 
 /**
  * O menu do Core3 (como na maqueta): o logótipo (leva ao início), as páginas
- * de stock por tipo, «Vender» (ainda sem ação), «Contactos» e o botão «Ver
+ * de stock por tipo, «Vender» («Compramos o seu veículo»), «Contactos» e o botão «Ver
  * stock». O sublinhado do item aberto salta logo para o clicado, enquanto o
  * deslize entre páginas corre (ver `template.tsx`).
  */
@@ -43,10 +42,10 @@ export function Core3Header({
   const inStock = useMemo(() => (stockSlugs ? new Set(stockSlugs) : null), [stockSlugs]);
   const favCount = ready ? (inStock ? favorites.filter((s) => inStock.has(s)).length : favorites.length) : 0;
 
-  const nav: Item[] = [
+  const nav = [
     ...categories.map((c) => ({ href: c.href, label: c.short })),
-    // «Vender» fica à vista, sem ligação, até se decidir o que é.
-    { href: null, label: "Vender" },
+    // «Compramos o seu veículo» (a avaliação da retoma).
+    { href: "/vender", label: "Vender" },
     { href: "/contactos", label: "Contactos" },
   ];
 
@@ -85,29 +84,23 @@ export function Core3Header({
 
         <ul className="hidden items-center gap-8 md:flex">
           {nav.map((item) => {
-            const active = item.href !== null && isActive(item.href, activePath);
+            const active = isActive(item.href, activePath);
             return (
               <li key={item.label}>
-                {item.href ? (
-                  <Link
-                    href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    className={`relative text-sm font-medium transition-colors duration-300 ${active ? "text-paper" : "text-paper/60 hover:text-paper"}`}
-                  >
-                    {item.label}
-                    {active && (
-                      <motion.span
-                        layoutId="core3-underline"
-                        transition={{ type: "spring", stiffness: 380, damping: 34 }}
-                        className="absolute -bottom-2 left-0 h-0.5 w-full rounded-full bg-accent"
-                      />
-                    )}
-                  </Link>
-                ) : (
-                  <span aria-disabled="true" className="cursor-default text-sm font-medium text-paper/60">
-                    {item.label}
-                  </span>
-                )}
+                <Link
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={`relative text-sm font-medium transition-colors duration-300 ${active ? "text-paper" : "text-paper/60 hover:text-paper"}`}
+                >
+                  {item.label}
+                  {active && (
+                    <motion.span
+                      layoutId="core3-underline"
+                      transition={{ type: "spring", stiffness: 380, damping: 34 }}
+                      className="absolute -bottom-2 left-0 h-0.5 w-full rounded-full bg-accent"
+                    />
+                  )}
+                </Link>
               </li>
             );
           })}
@@ -158,22 +151,15 @@ export function Core3Header({
             { href: "/favoritos", label: favCount ? `Favoritos (${favCount})` : "Favoritos" },
           ].map((item) => (
             <li key={item.label}>
-              {item.href ? (
-                <Link
-                  href={item.href}
-                  prefetch={item.href === "/favoritos" ? false : undefined}
-                  aria-current={isActive(item.href, activePath) ? "page" : undefined}
-                  className={`flex items-center gap-3 rounded-lg px-2 py-3 text-lg font-medium ${isActive(item.href, activePath) ? "text-paper" : "text-paper/80"}`}
-                >
-                  <span aria-hidden className={`h-5 w-0.5 rounded-full ${isActive(item.href, activePath) ? "bg-accent" : "bg-transparent"}`} />
-                  {item.label}
-                </Link>
-              ) : (
-                <span aria-disabled="true" className="flex items-center gap-3 px-2 py-3 text-lg font-medium text-paper/50">
-                  <span aria-hidden className="h-5 w-0.5" />
-                  {item.label}
-                </span>
-              )}
+              <Link
+                href={item.href}
+                prefetch={item.href === "/favoritos" ? false : undefined}
+                aria-current={isActive(item.href, activePath) ? "page" : undefined}
+                className={`flex items-center gap-3 rounded-lg px-2 py-3 text-lg font-medium ${isActive(item.href, activePath) ? "text-paper" : "text-paper/80"}`}
+              >
+                <span aria-hidden className={`h-5 w-0.5 rounded-full ${isActive(item.href, activePath) ? "bg-accent" : "bg-transparent"}`} />
+                {item.label}
+              </Link>
             </li>
           ))}
         </ul>
