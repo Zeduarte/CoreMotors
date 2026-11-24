@@ -460,9 +460,13 @@ test('google reviews: cached server-side, no public-submission quota spent', asy
   const realFetch = globalThis.fetch;
   let calls = 0;
   globalThis.fetch = async () => { calls++; return new Response(JSON.stringify({ rating: 4.8, userRatingCount: 10 }), { status: 200 }); };
-  process.env.GOOGLE_PLACES_API_KEY = 'k';
+  process.env.GOOGLE_PLACES_API_KEY = 'AIza-test';
   try {
     for (let i = 0; i < 3; i++) assert.equal((await (await route.GET()).json()).place.rating, 4.8);
+    assert.equal(calls, 1);
+    // Um Place ID posto na variável por engano não é uma chave: nem se pergunta ao Google.
+    process.env.GOOGLE_PLACES_API_KEY = 'ChIJ_place_id';
+    assert.equal((await (await route.GET()).json()).available, false);
     assert.equal(calls, 1);
   } finally {
     globalThis.fetch = realFetch;
