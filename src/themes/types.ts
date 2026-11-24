@@ -35,10 +35,9 @@ export type HomeSection =
   | "showroom"
   | "testimonials"
   | "contact"
-  // Core 3: o topo, os cartões das categorias, as últimas entradas e a faixa de serviços.
+  // Core 3: o topo, os cartões das categorias e a faixa de serviços.
   | "c3hero"
   | "c3categories"
-  | "c3latest"
   | "c3services";
 
 /** Os textos fixos do site que cada tema pode dizer de outra forma. */

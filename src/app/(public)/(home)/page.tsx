@@ -33,10 +33,9 @@ import { getSiteTheme } from "@/lib/site-theme-query";
 import { getTheme, type HomeSection } from "@/themes/index";
 import { core2Serif } from "@/themes/core2/fonts";
 import { heroTexts } from "@/themes/core2/ui";
-import { core3Categories, latestPerKind } from "@/themes/core3/ui";
+import { core3Categories } from "@/themes/core3/ui";
 import { Core3Banner } from "@/components/themes/core3/Core3Banner";
 import { Core3Categories } from "@/components/themes/core3/Core3Categories";
-import { Core3Latest } from "@/components/themes/core3/Core3Latest";
 import { Core3Services } from "@/components/themes/core3/Core3Services";
 import { Core3Icon } from "@/components/themes/core3/icons";
 import Link from "next/link";
@@ -108,8 +107,7 @@ export default async function HomePage() {
 
   // Cada secção da página inicial; o tema (Core / Core2) decide a ordem e
   // quais aparecem (src/themes).
-  // Core3: as categorias (a Moto 4 só com alguma em stock), o texto do topo e
-  // as últimas entradas de cada tipo.
+  // Core3: as categorias (Motas, Moto 4, Carros) e o texto do topo.
   const categories = core3Categories(siteTypes);
   const hero3 = heroTexts(siteTypes, categories.some((c) => c.key === "moto4"));
   const sections: Record<HomeSection, React.ReactNode> = {
@@ -128,7 +126,6 @@ export default async function HomePage() {
       </Core3Banner>
     ),
     c3categories: <Core3Categories categories={categories} />,
-    c3latest: <Core3Latest vehicles={latestPerKind(allVehicles, 6)} categories={categories} />,
     c3services: <Core3Services services={showroom.services} />,
     hero: (
       <Hero

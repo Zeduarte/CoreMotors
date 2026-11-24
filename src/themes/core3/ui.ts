@@ -1,6 +1,5 @@
-import type { Vehicle } from "@/types/vehicle";
 import type { VehicleType } from "@/lib/vehicle-categories";
-import { kindOf, type StockKind } from "@/themes/core2/stock";
+import type { StockKind } from "@/themes/core2/stock";
 
 /**
  * Tema Core3: textos, endereços e listas das páginas (sem interface, para se
@@ -19,6 +18,12 @@ export interface Core3Category {
   label: string;
   /** A foto do cartão da página inicial. */
   photo: string;
+  /**
+   * Que parte da foto o cartão mostra (classe do Tailwind, escrita por inteiro
+   * para o Tailwind a encontrar). A viatura está à direita e um pouco abaixo do
+   * meio; na das motas sobe-se um pouco, para a mota aparecer inteira.
+   */
+  photoPosition: string;
   /** O título da página («Motas em stock»). */
   title: string;
   /** A frase por baixo do título. */
@@ -32,6 +37,7 @@ const CATEGORIES: Record<StockKind, Omit<Core3Category, "key" | "href">> = {
     short: "Motas",
     label: "Motas",
     photo: "/media/core2/motas.jpg",
+    photoPosition: "object-[85%_40%]",
     title: "Motas em stock",
     subtitle: "Encontre a mota certa com filtros simples e uma navegação clara.",
     hero: null,
@@ -40,6 +46,7 @@ const CATEGORIES: Record<StockKind, Omit<Core3Category, "key" | "href">> = {
     short: "Moto 4",
     label: "Moto 4",
     photo: "/media/core2/moto4.jpg",
+    photoPosition: "object-[85%_60%]",
     title: "Moto 4 em stock",
     subtitle: "Quads e side-by-side prontos para a aventura, com filtros simples.",
     hero: null,
@@ -48,6 +55,7 @@ const CATEGORIES: Record<StockKind, Omit<Core3Category, "key" | "href">> = {
     short: "Carros",
     label: "Automóveis",
     photo: "/media/core2/carros.jpg",
+    photoPosition: "object-[85%_60%]",
     title: "Automóveis em stock",
     subtitle: "Encontre o automóvel certo com filtros simples e uma navegação clara.",
     hero: "/media/core3/carros.jpg",
@@ -70,26 +78,6 @@ export function core3Categories(siteTypes: VehicleType[]): Core3Category[] {
     ...(siteTypes.includes("car") ? (["carros"] as const) : []),
   ];
   return keys.map(categoryOf);
-}
-
-/** As «Últimas entradas»: as mais recentes primeiro (a data de entrada, ou o ano). */
-export function latestEntries<T extends Pick<Vehicle, "createdAt" | "year">>(vehicles: T[], count: number): T[] {
-  const stamp = (v: T) => (v.createdAt ? Date.parse(v.createdAt) || 0 : 0);
-  return [...vehicles].sort((a, b) => stamp(b) - stamp(a) || (b.year || 0) - (a.year || 0)).slice(0, count);
-}
-
-/**
- * As últimas entradas de cada tipo (as `perKind` mais recentes), juntas e por
- * ordem de entrada: o separador «Todos» mostra as mais recentes de todas e
- * cada tipo as suas, sem mandar o stock inteiro para o browser.
- */
-export function latestPerKind<T extends Pick<Vehicle, "createdAt" | "year" | "vehicleType" | "body">>(
-  vehicles: T[],
-  perKind: number,
-): T[] {
-  const sorted = latestEntries(vehicles, vehicles.length);
-  const taken: Record<StockKind, number> = { motas: 0, moto4: 0, carros: 0 };
-  return sorted.filter((v) => taken[kindOf(v)]++ < perKind);
 }
 
 /** A faixa de serviços: o que não depende do backoffice (as retomas, que levam ao «Vender», e a entrega). */

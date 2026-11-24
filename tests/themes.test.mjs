@@ -40,8 +40,8 @@ test("themes: Core, Core2 and Core3, every home section, and the saved theme fal
   assert.deepEqual(Object.keys(T.THEMES), ["core", "core2", "core3"]);
   assert.equal(T.DEFAULT_THEME, "core");
   const sections = ["hero", "segments", "featured", "brands", "stock", "sell", "trust", "sold", "showroom", "testimonials", "contact"];
-  // O Core3 troca o topo, os segmentos e os destaques pelos das maquetes.
-  const core3Sections = ["c3hero", "c3categories", "c3latest", "c3services", ...sections.filter((s) => !["hero", "segments", "featured"].includes(s))];
+  // O Core3 troca o topo e os segmentos pelos das maquetes (os destaques ficam).
+  const core3Sections = ["c3hero", "c3categories", "c3services", ...sections.filter((s) => !["hero", "segments"].includes(s))];
   for (const id of ["core", "core2", "core3"]) {
     const t = T.getTheme(id);
     assert.equal(t.id, id);
@@ -560,7 +560,6 @@ test("only the stock page changes with Core2 (top + list); the layout, the home 
   assert.deepEqual(users.filter((f) => !f.startsWith("src/components/themes/core2/")).sort(), [
     "src/app/(public)/inventario/page.tsx",
     "src/components/themes/core3/Core3CategoryPage.tsx",
-    "src/components/themes/core3/Core3Latest.tsx",
   ]);
 });
 
@@ -593,9 +592,8 @@ test("Core2 leaves the palette to the appearance (no colours of its own), the st
   assert.match(readFileSync("src/components/themes/core2/Core2StockTop.tsx", "utf8"), /object-\[85%_60%\]/);
 });
 
-test("Core3: Motas, Moto 4 and Carros follow what the site sells, latest entries per type, one page per type", () => {
+test("Core3: Motas, Moto 4 and Carros follow what the site sells, the home keeps the featured vehicles, one page per type", () => {
   const ui = loader()("src/themes/core3/ui.ts");
-  const all = stockFixture();
   assert.deepEqual(ui.core3Categories(["car", "motorcycle"]).map((c) => [c.key, c.href, c.short]), [
     ["motas", "/motas", "Motas"],
     ["moto4", "/moto4", "Moto 4"],
@@ -607,10 +605,11 @@ test("Core3: Motas, Moto 4 and Carros follow what the site sells, latest entries
   assert.equal(ui.categoryOf("carros").hero, "/media/core3/carros.jpg");
   assert.equal(ui.categoryOf("motas").hero, null);
   assert.equal(ui.categoryOf("carros").title, "Automóveis em stock");
-  // Últimas entradas: as mais recentes primeiro, no máximo N de cada tipo.
-  assert.deepEqual(ui.latestEntries(all, 3).map((v) => v.slug), ["yfz", "pcx", "bmw-320"]);
-  assert.deepEqual(ui.latestPerKind(all, 1).map((v) => v.slug), ["yfz", "pcx", "bmw-320"]);
-  assert.deepEqual(ui.latestPerKind(all, 2).map((v) => v.slug), ["yfz", "pcx", "bmw-320", "tenere"]);
+  // O cartão das motas mostra a foto um pouco mais acima (a mota inteira).
+  assert.equal(ui.categoryOf("motas").photoPosition, "object-[85%_40%]");
+  // Na página inicial, os destaques de sempre logo a seguir aos cartões, e por baixo a faixa de serviços.
+  const order = loader()("src/themes/index.ts").getTheme("core3").homeSections;
+  assert.deepEqual(order.slice(0, 4), ["c3hero", "c3categories", "featured", "c3services"]);
 });
 
 test("Core3: the menu order drives the slide (Início → Motas → Moto 4 → Carros), and the Core's order stays", () => {

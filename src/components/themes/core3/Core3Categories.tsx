@@ -20,7 +20,7 @@ export function Core3Categories({ categories }: { categories: Core3Category[] })
             alt=""
             fill
             sizes="(max-width: 768px) 33vw, 30vw"
-            className="object-cover object-[85%_60%] transition-transform duration-500 group-hover:scale-105"
+            className={`object-cover ${c.photoPosition} transition-transform duration-500 group-hover:scale-105`}
           />
           <span aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/20 to-transparent" />
           <span className="relative flex h-full flex-col justify-end gap-1.5 p-3 md:justify-center md:gap-3 md:px-8">

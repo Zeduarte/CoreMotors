@@ -74,16 +74,17 @@ core2/  (só com o tema Core2 — Gestão → Versão do site)
                    Horizontais (~1376x768); a viatura à direita e um pouco
                    abaixo do meio (o lado esquerdo fica por baixo do nome, e no
                    telemóvel o cartão é quase quadrado).
-  A foto da loja (inicio.jpg) é um recorte das maquetes; pode trocar-se por uma
-  verdadeira com o mesmo nome.
+  A foto da loja (inicio.jpg) é um recorte das maquetes, ampliado 2x com
+  super-resolução (Real-ESRGAN) para ficar nítido; pode trocar-se por uma
+  verdadeira com o mesmo nome (~1936x704 ou maior).
 
 core3/  (só com o tema Core3 — Gestão → Versão do site)
 ------
   carros.jpg       Topo da página Carros (/carros): a loja com os automóveis.
-                   É um recorte AMPLIADO das maquetes (o original tinha ~400 px
-                   de largura), por isso fica um pouco desfocado num ecrã
-                   grande: troca-o por uma foto a sério (~1600x400 ou maior)
-                   com o mesmo nome. A parte da esquerda desvanece para o título.
+                   É um recorte das maquetes (~400 px) ampliado 4x com
+                   super-resolução (Real-ESRGAN): nítido, mas não é uma foto
+                   verdadeira. Troca-o por uma foto a sério (~1600x400 ou
+                   maior) com o mesmo nome. A parte da esquerda desvanece para o título.
   As páginas Motas e Moto 4 usam a foto do topo do stock das motas
   (motas/entrada.jpg); a página inicial e os cartões usam as de core2/.
 

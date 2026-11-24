@@ -232,7 +232,7 @@ export function Core2Stock({
  * pequena à esquerda; ao lado a marca, o modelo e o ano, duas linhas de dados,
  * o preço e a seta para a ficha.
  */
-export function RowCard({ vehicle: v }: { vehicle: Vehicle }) {
+function RowCard({ vehicle: v }: { vehicle: Vehicle }) {
   const cover = v.images[0];
   const [line1, line2] = rowLines(v);
   return (
