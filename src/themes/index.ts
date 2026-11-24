@@ -1,10 +1,11 @@
 import { core } from "./core";
 import { core2 } from "./core2";
+import { core3 } from "./core3";
 import { SITE_MODES, THEME_IDS, type SiteMode, type ThemeConfig, type ThemeId } from "./types";
 
 export * from "./types";
 
-export const THEMES: Record<ThemeId, ThemeConfig> = { core, core2 };
+export const THEMES: Record<ThemeId, ThemeConfig> = { core, core2, core3 };
 export const DEFAULT_THEME: ThemeId = "core";
 
 export function isThemeId(value: unknown): value is ThemeId {

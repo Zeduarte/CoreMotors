@@ -1,6 +1,7 @@
 import { getShowroomContent } from "@/lib/showroom-queries";
 import type { MetadataRoute } from "next";
 import { getSiteVehicleTypes, getVehicleList } from "@/lib/queries";
+import { getSiteTheme } from "@/lib/site-theme-query";
 import { supabasePublic } from "@/lib/supabase/public";
 import { seoPagesFor, seoPath, TYPE_PATH } from "@/lib/seo-pages";
 import { VEHICLE_TYPES } from "@/lib/vehicle-categories";
@@ -28,11 +29,13 @@ async function sitemapVehicles(): Promise<SitemapVehicle[]> {
 
 /** Sitemap gerado dinamicamente a partir das rotas estáticas + viaturas. Ver `lib/sitemap.ts`. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [vehicles, showroom] = await Promise.all([sitemapVehicles(), getShowroomContent()]);
+  const [vehicles, showroom, theme] = await Promise.all([sitemapVehicles(), getShowroomContent(), getSiteTheme()]);
 
   const staticPaths = [
     "",
     "/inventario",
+    // Core3: a página de stock da Moto 4 (as motas e os carros já estão nas listagens).
+    ...(theme === "core3" ? ["/moto4"] : []),
     // O questionário «Veículo ideal» está no menu principal.
     "/quiz",
     "/servicos",

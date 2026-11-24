@@ -9,7 +9,7 @@
   "scripts": {
     "predev": "node scripts/media-manifest.mjs && node scripts/build-extension.mjs",
     "dev": "next dev",
-    "dev:clean": "rm -rf .next && next dev",
+    "dev:clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev",
     "prebuild": "node scripts/media-manifest.mjs && node scripts/build-extension.mjs",
     "build": "node scripts/check-env.mjs && next build",
     "sql:instalar": "node scripts/sql-instalar.mjs",

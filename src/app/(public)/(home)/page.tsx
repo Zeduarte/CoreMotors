@@ -31,6 +31,14 @@ import { brandOptions, sameBrand } from "@/lib/brand-name";
 import { Fragment } from "react";
 import { getSiteTheme } from "@/lib/site-theme-query";
 import { getTheme, type HomeSection } from "@/themes/index";
+import { core2Serif } from "@/themes/core2/fonts";
+import { heroTexts } from "@/themes/core2/ui";
+import { core3Categories } from "@/themes/core3/ui";
+import { Core3Banner } from "@/components/themes/core3/Core3Banner";
+import { Core3Categories } from "@/components/themes/core3/Core3Categories";
+import { Core3Services } from "@/components/themes/core3/Core3Services";
+import { Core3Icon } from "@/components/themes/core3/icons";
+import Link from "next/link";
 
 // O canónico da página inicial (sem query strings) e o seu `og:url`. O título
 // e a descrição vêm da layout raiz.
@@ -99,7 +107,26 @@ export default async function HomePage() {
 
   // Cada secção da página inicial; o tema (Core / Core2) decide a ordem e
   // quais aparecem (src/themes).
+  // Core3: as categorias (Motas, Moto 4, Carros) e o texto do topo.
+  const categories = core3Categories(siteTypes);
+  const hero3 = heroTexts(siteTypes, categories.some((c) => c.key === "moto4"));
   const sections: Record<HomeSection, React.ReactNode> = {
+    c3hero: (
+      <Core3Banner photo="/media/core2/inicio.jpg" title={hero3.title} subtitle={hero3.subtitle} big>
+        {categories.length > 0 && (
+          <Link href={categories[0]!.href} className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-ink">
+            Ver {categories[0]!.short.toLowerCase()} <Core3Icon name="arrow" className="h-4 w-4" />
+          </Link>
+        )}
+        {categories.length > 1 && (
+          <Link href={categories.at(-1)!.href} className="inline-flex items-center gap-2 rounded-lg border border-white/30 px-5 py-2.5 text-sm font-semibold text-paper hover:border-white/60">
+            Ver {categories.at(-1)!.short.toLowerCase()} <Core3Icon name="arrow" className="h-4 w-4" />
+          </Link>
+        )}
+      </Core3Banner>
+    ),
+    c3categories: <Core3Categories categories={categories} />,
+    c3services: <Core3Services services={showroom.services} />,
     hero: (
       <Hero
         content={heroContent}
@@ -130,7 +157,7 @@ export default async function HomePage() {
     sold: <SoldShowcase vehicles={sold} />,
     showroom: (
       <div className="container-px">
-        <ServiceCards items={showroom.services} />
+        {theme !== "core3" && <ServiceCards items={showroom.services} />}
         <GoogleReviews config={showroom.google} />
         <FaqSection items={showroom.faqs.filter((f) => f.category === "geral")} />
       </div>
@@ -146,10 +173,11 @@ export default async function HomePage() {
   };
 
   return (
-    <>
+    // A serifada dos títulos do Core3 (só se descarrega nas páginas que a usam).
+    <div className={theme === "core3" ? core2Serif.variable : undefined}>
       {getTheme(theme).homeSections.map((key) => (
         <Fragment key={key}>{sections[key]}</Fragment>
       ))}
-    </>
+    </div>
   );
 }

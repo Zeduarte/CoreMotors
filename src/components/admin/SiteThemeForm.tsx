@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { saveSiteTheme } from "@/lib/actions/gestao";
-import { SITE_MODES, SITE_MODE_LABELS, type SiteMode, type ThemeId } from "@/themes/index";
+import { SITE_MODES, SITE_MODE_LABELS, type SiteMode, type ThemeId, type ThemeNote } from "@/themes/index";
 
 const MODE_HINT: Record<SiteMode, string> = {
   dark: "O de sempre: fundo preto.",
@@ -13,8 +13,9 @@ const MODE_HINT: Record<SiteMode, string> = {
 };
 
 /**
- * Gestão → Versão do site: um cartão por tema (Core, Core2). Em cada um, a
- * aparência: Escuro, Claro ou Automático (segue o sistema do dispositivo).
+ * Gestão → Versão do site: um cartão por tema (Core, Core2, Core3). Em cada
+ * um, a aparência: Escuro, Claro ou Automático (segue o sistema do
+ * dispositivo). O tema escolhido mostra o que muda no backoffice com ele.
  */
 export function SiteThemeForm({
   initial,
@@ -23,12 +24,13 @@ export function SiteThemeForm({
 }: {
   initial: ThemeId;
   initialModes: Record<ThemeId, SiteMode>;
-  themes: { id: ThemeId; label: string; description: string }[];
+  themes: { id: ThemeId; label: string; description: string; notes?: ThemeNote[] }[];
 }) {
   const router = useRouter();
   const [theme, setTheme] = useState<ThemeId>(initial);
   const [modes, setModes] = useState<Record<ThemeId, SiteMode>>(initialModes);
   const [pending, start] = useTransition();
+  const selectedNotes = themes.find((t) => t.id === theme)?.notes ?? [];
   const changed = theme !== initial || themes.some((t) => modes[t.id] !== initialModes[t.id]);
 
   function save() {
@@ -45,7 +47,7 @@ export function SiteThemeForm({
 
   return (
     <div className="card space-y-4 p-5">
-      <div role="group" aria-label="Versão do site" className="grid gap-3 sm:grid-cols-2">
+      <div role="group" aria-label="Versão do site" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {themes.map((t) => {
           const on = t.id === theme;
           return (
@@ -100,6 +102,26 @@ export function SiteThemeForm({
           );
         })}
       </div>
+      {selectedNotes.length > 0 && (
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm">
+          <p className="font-semibold text-paper">O que muda com o {themes.find((t) => t.id === theme)?.label}</p>
+          <ul className="mt-2 list-disc space-y-1.5 pl-5 text-paper/65">
+            {selectedNotes.map((n) => (
+              <li key={n.text}>
+                {n.text}
+                {n.href && (
+                  <>
+                    {" "}
+                    <a href={n.href} className="text-accent hover:underline">
+                      {n.link ?? "Abrir"} →
+                    </a>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <a href="/" target="_blank" rel="noreferrer" className="text-sm text-accent hover:underline">
           Ver o site ↗

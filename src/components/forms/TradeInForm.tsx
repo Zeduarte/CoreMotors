@@ -7,11 +7,32 @@ import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
 import { submitLead, type LeadActionState } from "@/lib/actions/leads";
 import { submitKeepingFields } from "@/lib/form-submit";
 
+/** Os textos do formulário: a retoma (o de sempre) ou a compra do Core3 («Compramos o seu veículo»). */
+const COPY = {
+  tradeIn: {
+    title: "Avaliar a minha retoma",
+    hint: "Diga-nos o que tem e recebe uma estimativa + marcação de avaliação.",
+    done: "Vamos analisar e entrar em contacto com uma estimativa.",
+    submit: "Pedir avaliação",
+    label: "Retoma",
+  },
+  sell: {
+    title: "Os dados do seu veículo",
+    hint: "Diga-nos o que tem: avaliamos e fazemos-lhe uma proposta, sem compromisso.",
+    done: "Vamos analisar e entrar em contacto com uma proposta.",
+    submit: "Pedir proposta",
+    label: "Compra",
+  },
+} as const;
+
 /**
  * Retoma (trade-in): o cliente descreve o carro atual e pede avaliação.
- * Cria uma lead `trade_in` com os detalhes do carro em `car_details`.
+ * Cria uma lead `trade_in` com os detalhes do carro em `car_details`. Com
+ * `variant="sell"` (Core3, «Compramos o seu veículo»), os textos falam de
+ * uma proposta de compra; a lead é a mesma.
  */
-export function TradeInForm() {
+export function TradeInForm({ variant = "tradeIn" }: { variant?: keyof typeof COPY }) {
+  const copy = COPY[variant];
   const primary = useVehicleWorld();
   const siteTypes = useSiteTypes();
   // Num site com carros e motas, o cliente diz o que quer trocar (como na
@@ -52,7 +73,7 @@ export function TradeInForm() {
     );
     formData.set(
       "car_label",
-      `Retoma: ${data.ti_make} ${data.ti_model} ${data.ti_year ?? ""}`.trim(),
+      `${copy.label}: ${data.ti_make} ${data.ti_model} ${data.ti_year ?? ""}`.trim(),
     );
     return formAction(formData);
   }
@@ -60,11 +81,9 @@ export function TradeInForm() {
   return (
     <div className="card p-6 md:p-8">
       <h2 className="text-xl font-semibold text-paper">
-        Avaliar a minha retoma
+        {copy.title}
       </h2>
-      <p className="mt-1 text-sm text-paper/50">
-        Diga-nos o que tem e recebe uma estimativa + marcação de avaliação.
-      </p>
+      <p className="mt-1 text-sm text-paper/50">{copy.hint}</p>
 
       <AnimatePresence mode="wait">
         {state.ok ? (
@@ -76,7 +95,7 @@ export function TradeInForm() {
           >
             <p className="text-lg font-semibold text-paper">Pedido recebido</p>
             <p className="mt-1 text-sm text-paper/60">
-              Vamos analisar e entrar em contacto com uma estimativa.
+              {copy.done}
             </p>
           </motion.div>
         ) : (
@@ -173,7 +192,7 @@ export function TradeInForm() {
               disabled={pending}
               className="btn-primary mt-1"
             >
-              {pending ? "A enviar…" : "Pedir avaliação"}
+              {pending ? "A enviar…" : copy.submit}
             </button>
           </motion.form>
         )}
