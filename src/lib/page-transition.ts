@@ -14,8 +14,11 @@ export const NAV_START_EVENT = "site:navigation-start";
 export type NavStartDetail = { pathname: string };
 export type NavDirection = "forward" | "back";
 
-/** Ordem do menu — a mesma do Header. O logótipo leva ao Início ("/"). */
-const SECTIONS = ["/", "/inventario", "/quiz", "/servicos", "/sobre", "/contactos"];
+/**
+ * Ordem do menu (a do Header do Core e a do Core3, juntas). O logótipo leva
+ * ao Início ("/"). Core3: Motas → Moto 4 → Carros → Vender → Contactos.
+ */
+const SECTIONS = ["/", "/motas", "/moto4", "/carros", "/inventario", "/quiz", "/servicos", "/vender", "/sobre", "/contactos"];
 
 /** Subpáginas fora das secções acima, e a secção a que pertencem. */
 const CHILDREN: [prefix: string, section: string][] = [
@@ -23,7 +26,6 @@ const CHILDREN: [prefix: string, section: string][] = [
   ["/favoritos", "/inventario"],
   ["/comparar", "/inventario"],
   ["/vendidos", "/inventario"],
-  ["/vender", "/servicos"],
   ["/politica-de", "/contactos"],
   ["/termos-condicoes", "/contactos"],
 ];

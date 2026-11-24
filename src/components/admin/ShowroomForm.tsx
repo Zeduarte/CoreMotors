@@ -199,7 +199,7 @@ export function ShowroomForm({
             Adicionar ponto de venda
           </button>
         </section>
-        <section className="card space-y-5 p-5">
+        <section id="servicos" className="card scroll-mt-24 space-y-5 p-5">
           <h3 className="text-lg font-semibold">Páginas de serviços</h3>
           <p className="text-sm text-paper/60">
             Publique apenas os serviços que presta. Substitua os textos por

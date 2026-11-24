@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 export default async function GestaoPage() {
   await requireOwner();
   const [current, media, legal] = await Promise.all([getSiteAppearance(), getMediaStorageStatus(), getLegalSettings()]);
-  const themes = Object.values(THEMES).map(({ id, label, description }) => ({ id, label, description }));
+  const themes = Object.values(THEMES).map(({ id, label, description, adminNotes }) => ({ id, label, description, notes: adminNotes ?? [] }));
 
   return (
     <>

@@ -4,6 +4,7 @@ import { siteDescription } from "@/lib/site-types";
 import type { VehicleType } from "@/lib/vehicle-categories";
 import { DEFAULT_BRANDING, type Branding } from "@/lib/branding";
 import { EMPTY_LEGAL, legalLine, type LegalInfo } from "@/lib/legal";
+import type { ThemeId } from "@/themes/index";
 import { ManageCookiesButton } from "@/components/site/ManageCookiesButton";
 
 // Links obrigatórios do rodapé. As políticas são páginas internas do site; o
@@ -19,12 +20,29 @@ const LEGAL_LINKS: { label: string; href: string; external?: boolean }[] = [
   { label: "Termos e Condições", href: "/termos-condicoes" },
 ];
 
+// A navegação do rodapé. No Core3 os serviços estão na página inicial (sem
+// menu), e o Sobre e o «Veículo ideal» saem do menu para aqui.
+const CORE_LINKS = [
+  { label: "Stock", href: "/inventario" },
+  { label: "Serviços", href: "/servicos" },
+  { label: "Sobre", href: "/sobre" },
+  { label: "Contactos", href: "/contactos" },
+];
+const CORE3_LINKS = [
+  { label: "Stock", href: "/inventario" },
+  { label: "Veículo ideal", href: "/quiz" },
+  { label: "Sobre", href: "/sobre" },
+  { label: "Contactos", href: "/contactos" },
+];
+
 export function Footer({
+  theme = "core",
   branding = DEFAULT_BRANDING,
   legal = EMPTY_LEGAL,
   background = null,
   siteTypes = ["car", "motorcycle"],
 }: {
+  theme?: ThemeId;
   branding?: Branding;
   /** Nome legal e NIF (Definições → Empresa). */
   legal?: LegalInfo;
@@ -81,38 +99,13 @@ export function Footer({
             Navegação
           </h2>
           <ul className="mt-4 space-y-3 text-sm">
-            <li>
-              <Link
-                href="/inventario"
-                className="font-medium text-paper transition-colors hover:text-accent"
-              >
-                Stock
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/servicos"
-                className="font-medium text-paper transition-colors hover:text-accent"
-              >
-                Serviços
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/sobre"
-                className="font-medium text-paper transition-colors hover:text-accent"
-              >
-                Sobre
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/contactos"
-                className="font-medium text-paper transition-colors hover:text-accent"
-              >
-                Contactos
-              </Link>
-            </li>
+            {(theme === "core3" ? CORE3_LINKS : CORE_LINKS).map((l) => (
+              <li key={l.href}>
+                <Link href={l.href} className="font-medium text-paper transition-colors hover:text-accent">
+                  {l.label}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
 

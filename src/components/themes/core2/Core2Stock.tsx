@@ -56,8 +56,17 @@ import { Core2Icon } from "./icons";
  * No telemóvel, a coluna abre-se com o botão «Filtros». A pesquisa fica no
  * endereço, como no stock do Core (ver `src/themes/core2/stock.ts`).
  */
-export function Core2Stock({ vehicles, siteTypes }: { vehicles: Vehicle[]; siteTypes: VehicleType[] }) {
-  const kinds = useMemo(() => kindsFor(siteTypes, vehicles), [siteTypes, vehicles]);
+export function Core2Stock({
+  vehicles,
+  siteTypes,
+  fixedKinds,
+}: {
+  vehicles: Vehicle[];
+  siteTypes: VehicleType[];
+  /** Os tipos à escolha, em vez de os do site (o Core3 passa `[]`: cada página é de um só tipo). */
+  fixedKinds?: StockKind[];
+}) {
+  const kinds = useMemo(() => fixedKinds ?? kindsFor(siteTypes, vehicles), [fixedKinds, siteTypes, vehicles]);
   // O endereço manda (lido do router, como no Core): ao voltar da ficha, a
   // pesquisa volta com ele.
   const searchParams = useSearchParams();
@@ -223,7 +232,7 @@ export function Core2Stock({ vehicles, siteTypes }: { vehicles: Vehicle[]; siteT
  * pequena à esquerda; ao lado a marca, o modelo e o ano, duas linhas de dados,
  * o preço e a seta para a ficha.
  */
-function RowCard({ vehicle: v }: { vehicle: Vehicle }) {
+export function RowCard({ vehicle: v }: { vehicle: Vehicle }) {
   const cover = v.images[0];
   const [line1, line2] = rowLines(v);
   return (

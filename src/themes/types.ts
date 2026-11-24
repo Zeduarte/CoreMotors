@@ -7,7 +7,7 @@
  * O tema ativo escolhe-se no backoffice, em Gestão (só o acesso core).
  */
 
-export const THEME_IDS = ["core", "core2"] as const;
+export const THEME_IDS = ["core", "core2", "core3"] as const;
 export type ThemeId = (typeof THEME_IDS)[number];
 
 /**
@@ -34,7 +34,12 @@ export type HomeSection =
   | "sold"
   | "showroom"
   | "testimonials"
-  | "contact";
+  | "contact"
+  // Core 3: o topo, os cartões das categorias, as últimas entradas e a faixa de serviços.
+  | "c3hero"
+  | "c3categories"
+  | "c3latest"
+  | "c3services";
 
 /** Os textos fixos do site que cada tema pode dizer de outra forma. */
 export interface ThemeTexts {
@@ -55,4 +60,13 @@ export interface ThemeConfig {
   texts: ThemeTexts;
   /** A ordem das secções da página inicial (as que faltarem não aparecem). */
   homeSections: HomeSection[];
+  /** O que muda no backoffice com este tema (em Gestão, com o tema escolhido). */
+  adminNotes?: ThemeNote[];
+}
+
+export interface ThemeNote {
+  text: string;
+  /** Uma ligação para onde se edita. */
+  href?: string;
+  link?: string;
 }

@@ -7,6 +7,8 @@ Tudo o que é fotografia ou vídeo fixo do site está aqui, em três pastas:
   motas/   -> fotos das motas (site só de motas, e o que é só de motas)
   comum/   -> o que aparece igual nos dois (páginas Sobre e Contactos)
   core2/   -> as fotos do tema Core2 (as maquetes), só quando o Core2 está ativo
+              (o Core3 usa as mesmas: a loja no topo da página inicial e os cartões)
+  core3/   -> as fotos só do tema Core3
 
 PARA TROCAR UMA IMAGEM: substitui o ficheiro mantendo EXATAMENTE o mesmo nome.
 Depois faz commit + push (o Netlify reconstrói e aplica). Localmente: para o
@@ -74,6 +76,17 @@ core2/  (só com o tema Core2 — Gestão → Versão do site)
                    telemóvel o cartão é quase quadrado).
   A foto da loja (inicio.jpg) é um recorte das maquetes; pode trocar-se por uma
   verdadeira com o mesmo nome.
+
+core3/  (só com o tema Core3 — Gestão → Versão do site)
+------
+  carros.jpg       Topo da página Carros (/carros): a loja com os automóveis.
+                   É um recorte AMPLIADO das maquetes (o original tinha ~400 px
+                   de largura), por isso fica um pouco desfocado num ecrã
+                   grande: troca-o por uma foto a sério (~1600x400 ou maior)
+                   com o mesmo nome. A parte da esquerda desvanece para o título.
+  As páginas Motas e Moto 4 usam a foto do topo do stock das motas
+  (motas/entrada.jpg); a página inicial e os cartões usam as de core2/.
+
 
 extra/
 ------

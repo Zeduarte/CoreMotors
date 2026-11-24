@@ -35,15 +35,17 @@ function loader(mocks = {}) {
   return load;
 }
 
-test("themes: Core and Core2, every home section, and the saved theme falls back to Core", () => {
+test("themes: Core, Core2 and Core3, every home section, and the saved theme falls back to Core", () => {
   const T = loader()("src/themes/index.ts");
-  assert.deepEqual(Object.keys(T.THEMES), ["core", "core2"]);
+  assert.deepEqual(Object.keys(T.THEMES), ["core", "core2", "core3"]);
   assert.equal(T.DEFAULT_THEME, "core");
   const sections = ["hero", "segments", "featured", "brands", "stock", "sell", "trust", "sold", "showroom", "testimonials", "contact"];
-  for (const id of ["core", "core2"]) {
+  // O Core3 troca o topo, os segmentos e os destaques pelos das maquetes.
+  const core3Sections = ["c3hero", "c3categories", "c3latest", "c3services", ...sections.filter((s) => !["hero", "segments", "featured"].includes(s))];
+  for (const id of ["core", "core2", "core3"]) {
     const t = T.getTheme(id);
     assert.equal(t.id, id);
-    assert.deepEqual([...t.homeSections].sort(), [...sections].sort(), `${id}: todas as secções da página inicial`);
+    assert.deepEqual([...t.homeSections].sort(), [...(id === "core3" ? core3Sections : sections)].sort(), `${id}: todas as secções da página inicial`);
     for (const key of ["navHome", "navStock", "navIdeal", "navServices", "navAbout", "navContacts"]) assert.ok(t.texts[key], `${id}: texto ${key}`);
   }
   // O Core2 é uma cópia (mudar um não mexe no outro).
@@ -55,18 +57,18 @@ test("themes: Core and Core2, every home section, and the saved theme falls back
   assert.deepEqual(T.SITE_MODES, ["dark", "light", "system"]);
   assert.deepEqual(Object.values(T.SITE_MODE_LABELS), ["Escuro", "Claro", "Automático"]);
   for (const raw of [null, {}, { theme: "core2" }, { modes: { core: "rosa" } }])
-    assert.deepEqual(T.parseSiteModes(raw), { core: "dark", core2: "dark" }, JSON.stringify(raw));
-  assert.deepEqual(T.parseSiteModes({ modes: { core: "light", core2: "system" } }), { core: "light", core2: "system" });
-  assert.deepEqual(T.parseSiteAppearance({ theme: "core2", modes: { core: "light", core2: "system" } }), {
-    theme: "core2",
-    mode: "system",
-    modes: { core: "light", core2: "system" },
+    assert.deepEqual(T.parseSiteModes(raw), { core: "dark", core2: "dark", core3: "dark" }, JSON.stringify(raw));
+  assert.deepEqual(T.parseSiteModes({ modes: { core: "light", core2: "system" } }), { core: "light", core2: "system", core3: "dark" });
+  assert.deepEqual(T.parseSiteAppearance({ theme: "core3", modes: { core: "light", core2: "system", core3: "light" } }), {
+    theme: "core3",
+    mode: "light",
+    modes: { core: "light", core2: "system", core3: "light" },
   });
   assert.equal(T.parseSiteAppearance({ theme: "core", modes: { core: "light" } }).mode, "light", "cada versão tem a sua");
-  // O CSS do Core2 fica todo debaixo do atributo do tema.
+  // O CSS do Core2 fica todo debaixo do atributo do tema (o do stock, partilhado com o Core3).
   const css = readFileSync("src/themes/core2.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   for (const rule of css.split("}").map((r) => r.trim()).filter(Boolean))
-    assert.match(rule, /^\[data-site-theme="core2"\]/, `regra fora do tema: ${rule.slice(0, 60)}`);
+    assert.match(rule, /^(\[data-site-theme="core2"\]|:is\(\[data-site-theme="core2"\], \[data-site-theme="core3"\]\))/, `regra fora do tema: ${rule.slice(0, 60)}`);
 });
 
 test("the public layout marks the theme and the home page follows the theme's section order", () => {
@@ -110,12 +112,13 @@ test("saving the site theme: only the owner, only known themes, and the public s
   assert.deepEqual(writes[0], ["site_content", { key: "theme", content: { theme: "core2" } }, { onConflict: "key" }]);
   assert.deepEqual(revalidated[0], ["/", "layout"]);
   // Com a aparência de cada versão (só modos conhecidos, todas as versões).
-  assert.equal((await saveSiteTheme("core", { core: "light", core2: "system" })).ok, true);
-  assert.deepEqual(writes[1][1], { key: "theme", content: { theme: "core", modes: { core: "light", core2: "system" } } });
-  assert.match((await saveSiteTheme("core", { core: "rosa", core2: "dark" })).error, /Escuro, Claro ou Automático/);
+  assert.equal((await saveSiteTheme("core", { core: "light", core2: "system", core3: "dark" })).ok, true);
+  assert.deepEqual(writes[1][1], { key: "theme", content: { theme: "core", modes: { core: "light", core2: "system", core3: "dark" } } });
+  assert.equal((await saveSiteTheme("core3", { core: "dark", core2: "dark", core3: "system" })).ok, true, "o Core3 é uma versão conhecida");
+  assert.match((await saveSiteTheme("core", { core: "rosa", core2: "dark", core3: "dark" })).error, /Escuro, Claro ou Automático/);
   assert.match((await saveSiteTheme("core", { core: "light" })).error, /Escuro, Claro ou Automático/);
   assert.match((await saveSiteTheme("core", null)).error, /Escuro, Claro ou Automático/);
-  assert.equal(writes.length, 2);
+  assert.equal(writes.length, 3);
 });
 
 test("Gestão: each version (Core, Core2) has Escuro · Claro · Automático, and saving sends the version and every appearance", async () => {
@@ -548,20 +551,28 @@ test("only the stock page changes with Core2 (top + list); the layout, the home 
   const layout = readFileSync("src/app/(public)/layout.tsx", "utf8");
   assert.match(layout, /<Header branding=\{branding\} stockSlugs=\{stockSlugs\} \/>/);
   assert.match(layout, /<GrainOverlay \/>/);
-  assert.doesNotMatch(layout, /components\/themes\/core2|themes\/core2\/|core2Serif/);
-  assert.doesNotMatch(readFileSync("src/app/(public)/(home)/page.tsx", "utf8"), /components\/themes\/core2|themes\/core2\//);
-  // Os componentes do Core2 só se usam na página do Stock.
+  assert.doesNotMatch(layout, /components\/themes\/core2/);
+  // A serifada no layout é só para o Core3 (o menu e a página inicial das maquetes).
+  assert.match(layout, /theme === "core3" \? core2Serif\.variable/);
+  assert.doesNotMatch(readFileSync("src/app/(public)/(home)/page.tsx", "utf8"), /components\/themes\/core2/);
+  // Os componentes do Core2 só se usam na página do Stock (e no stock por tipo do Core3).
   const users = execFileSync("git", ["grep", "-l", "--untracked", "-F", "@/components/themes/core2/", "--", "src"], { encoding: "utf8" }).trim().split("\n");
-  assert.deepEqual(users.filter((f) => !f.startsWith("src/components/themes/core2/")), ["src/app/(public)/inventario/page.tsx"]);
+  assert.deepEqual(users.filter((f) => !f.startsWith("src/components/themes/core2/")).sort(), [
+    "src/app/(public)/inventario/page.tsx",
+    "src/components/themes/core3/Core3CategoryPage.tsx",
+    "src/components/themes/core3/Core3Latest.tsx",
+  ]);
 });
 
 test("Core2 leaves the palette to the appearance (no colours of its own), the stock's fields follow it, and the photos come with the theme", () => {
   const css = readFileSync("src/themes/core2.css", "utf8");
   const rules = css.replace(/\/\*[\s\S]*?\*\//g, "");
   assert.doesNotMatch(rules, /--ink:|--paper:|--background:|color-scheme: (?:light|dark)|html:has|\.border-white|\.bg-white/);
-  assert.match(rules, /\[data-site-theme="core2"\] \.core2-stock \{\s*color-scheme: var\(--site-scheme, dark\);/);
+  // O stock e a serifada são do Core2 e do Core3 (que usa o mesmo stock).
+  const scope = ':is\\(\\[data-site-theme="core2"\\], \\[data-site-theme="core3"\\]\\)';
+  assert.match(rules, new RegExp(`${scope} \\.core2-stock \\{\\s*color-scheme: var\\(--site-scheme, dark\\);`));
   assert.match(rules, /border: 1px solid rgb\(var\(--site-film, 255 255 255\) \/ 0\.18\)/);
-  assert.match(rules, /\[data-site-theme="core2"\] \.core2-serif \{[^}]*var\(--font-core2-serif\)/);
+  assert.match(rules, new RegExp(`${scope} \\.core2-serif \\{[^}]*var\\(--font-core2-serif\\)`));
   assert.match(readFileSync("src/themes/core2/fonts.ts", "utf8"), /localFont\(\{[\s\S]*dm-serif-display[\s\S]*preload: false[\s\S]*--font-core2-serif/);
   // As fotos: a da loja (recorte das maquetes) e as originais das categorias (horizontais, 1376x768).
   const jpegSize = (buf) => {
@@ -580,4 +591,53 @@ test("Core2 leaves the palette to the appearance (no colours of its own), the st
   }
   // A viatura está à direita e em baixo nas fotos das categorias.
   assert.match(readFileSync("src/components/themes/core2/Core2StockTop.tsx", "utf8"), /object-\[85%_60%\]/);
+});
+
+test("Core3: categories follow what the site sells (Moto 4 only with stock), latest entries per type, one page per type", () => {
+  const ui = loader()("src/themes/core3/ui.ts");
+  const all = stockFixture();
+  assert.deepEqual(ui.core3Categories(["car", "motorcycle"], all).map((c) => [c.key, c.href, c.short]), [
+    ["motas", "/motas", "Motas"],
+    ["moto4", "/moto4", "Moto 4"],
+    ["carros", "/carros", "Carros"],
+  ]);
+  assert.deepEqual(ui.core3Categories(["car", "motorcycle"], all.filter((v) => v.body !== "Moto 4")).map((c) => c.key), ["motas", "carros"], "sem Moto 4 em stock, sem página");
+  assert.deepEqual(ui.core3Categories(["car"], all).map((c) => c.key), ["carros"]);
+  // A foto do topo: os carros a da loja (maqueta), as motas e a Moto 4 a das motas do site.
+  assert.equal(ui.categoryOf("carros").hero, "/media/core3/carros.jpg");
+  assert.equal(ui.categoryOf("motas").hero, null);
+  assert.equal(ui.categoryOf("carros").title, "Automóveis em stock");
+  // Últimas entradas: as mais recentes primeiro, no máximo N de cada tipo.
+  assert.deepEqual(ui.latestEntries(all, 3).map((v) => v.slug), ["yfz", "pcx", "bmw-320"]);
+  assert.deepEqual(ui.latestPerKind(all, 1).map((v) => v.slug), ["yfz", "pcx", "bmw-320"]);
+  assert.deepEqual(ui.latestPerKind(all, 2).map((v) => v.slug), ["yfz", "pcx", "bmw-320", "tenere"]);
+});
+
+test("Core3: the menu order drives the slide (Início → Motas → Moto 4 → Carros), and the Core's order stays", () => {
+  const { navDirection } = loader()("src/lib/page-transition.ts");
+  assert.equal(navDirection("/", "/motas"), "forward");
+  assert.equal(navDirection("/motas", "/moto4"), "forward");
+  assert.equal(navDirection("/moto4", "/carros"), "forward");
+  assert.equal(navDirection("/carros", "/motas"), "back");
+  assert.equal(navDirection("/carros", "/"), "back");
+  assert.equal(navDirection("/carros", "/contactos"), "forward");
+  // O Core continua: Início → Stock → Veículo ideal → Serviços → Sobre → Contactos.
+  assert.equal(navDirection("/inventario", "/quiz"), "forward");
+  assert.equal(navDirection("/sobre", "/servicos"), "back");
+  assert.equal(navDirection("/inventario", "/viaturas/bmw-320"), "forward");
+});
+
+test("Core3: the layout swaps the header, /motas and /carros become the stock pages, /moto4 exists only in Core3, Gestão explains the change", () => {
+  const layout = readFileSync("src/app/(public)/layout.tsx", "utf8");
+  assert.match(layout, /theme === "core3" \? \(\s*<Core3Header/);
+  for (const [path, kind] of [["motas", "motas"], ["carros", "carros"]])
+    assert.match(readFileSync(`src/app/(public)/${path}/(todos)/page.tsx`, "utf8"), new RegExp(`=== "core3"\\) return <Core3CategoryPage kind="${kind}" />`));
+  assert.match(readFileSync("src/app/(public)/moto4/layout.tsx", "utf8"), /theme !== "core3"[\s\S]*notFound\(\)/);
+  const home = readFileSync("src/app/(public)/(home)/page.tsx", "utf8");
+  assert.match(home, /theme !== "core3" && <ServiceCards/, "os serviços do Core3 estão na faixa, não em cartões");
+  const T = loader()("src/themes/index.ts");
+  assert.ok(T.getTheme("core3").adminNotes.some((n) => n.href === "/admin/pagina-inicial#servicos"));
+  assert.equal(T.getTheme("core").adminNotes, undefined);
+  // A foto do topo dos carros existe (recorte da maqueta, ampliado).
+  assert.deepEqual([...readFileSync("public/media/core3/carros.jpg").subarray(0, 3)], [0xff, 0xd8, 0xff]);
 });
