@@ -562,7 +562,7 @@ test("Core2 leaves the palette to the appearance (no colours of its own), the st
   assert.match(rules, /\[data-site-theme="core2"\] \.core2-stock \{\s*color-scheme: var\(--site-scheme, dark\);/);
   assert.match(rules, /border: 1px solid rgb\(var\(--site-film, 255 255 255\) \/ 0\.18\)/);
   assert.match(rules, /\[data-site-theme="core2"\] \.core2-serif \{[^}]*var\(--font-core2-serif\)/);
-  assert.match(readFileSync("src/themes/core2/fonts.ts", "utf8"), /DM_Serif_Display\([\s\S]*preload: false[\s\S]*--font-core2-serif/);
+  assert.match(readFileSync("src/themes/core2/fonts.ts", "utf8"), /localFont\(\{[\s\S]*dm-serif-display[\s\S]*preload: false[\s\S]*--font-core2-serif/);
   // As fotos: a da loja (recorte das maquetes) e as originais das categorias (horizontais, 1376x768).
   const jpegSize = (buf) => {
     for (let i = 2; i < buf.length; ) {

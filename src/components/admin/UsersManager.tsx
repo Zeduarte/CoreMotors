@@ -7,8 +7,10 @@ import {
   createUser,
   deleteUser,
   updateUserAccess,
+  updateUserDetails,
   type InviteResult,
 } from "@/lib/actions/users";
+import { sendWhatsAppTestToUser } from "@/lib/actions/notifications";
 import type { UserRole } from "@/lib/supabase/database.types";
 import {
   ADMIN_ONLY,
@@ -37,6 +39,8 @@ export interface UserItem {
   /** Email de contacto (null nas contas novas, que só têm o email interno). */
   email: string | null;
   full_name: string | null;
+  /** Telemóvel (avisos por WhatsApp e ordens por WhatsApp). */
+  phone: string | null;
   role: UserRole;
   allowed_sections: string[] | null;
   allowed_vehicle_types: string[] | null;
@@ -248,6 +252,26 @@ export function UsersManager({
             canManageAuth={canManageAuth}
             // O dono (acesso core) gera o link para a própria conta: não tem a quem o pedir.
             selfLink={u.id === currentUser.id && currentUser.is_owner && canManageAuth}
+            // Nome e telemóvel de qualquer pessoa, e o teste do WhatsApp: só o dono.
+            ownerTools={currentUser.is_owner && canManageAuth}
+            onSaveDetails={(details, done) =>
+              startTransition(async () => {
+                const res = await updateUserDetails(u.id, details);
+                if (res.ok) {
+                  toast.success("Dados atualizados.");
+                  done();
+                } else toast.error(res.error ?? "Erro.");
+              })
+            }
+            onTestWhatsApp={() => {
+              const who = u.full_name || u.username || "este utilizador";
+              if (!confirm(`Enviar as 5 mensagens de teste do WhatsApp para ${who}${u.phone ? ` (${u.phone})` : ""}?`)) return;
+              startTransition(async () => {
+                const res = await sendWhatsAppTestToUser(u.id);
+                if (res.ok) toast.success(`Teste enviado para ${who}: a Meta aceitou as 5 mensagens.`);
+                else toast.error(res.error ?? "A Meta recusou o envio.", { duration: 15000 });
+              });
+            }}
             pending={pending}
             onSave={(r, secs, types) =>
               startTransition(async () => {
@@ -297,6 +321,9 @@ function UserRow({
   assignable,
   canManageAuth,
   selfLink = false,
+  ownerTools = false,
+  onSaveDetails,
+  onTestWhatsApp,
   pending,
   onSave,
   onDelete,
@@ -308,6 +335,9 @@ function UserRow({
   assignable: Role[];
   canManageAuth: boolean;
   selfLink?: boolean;
+  ownerTools?: boolean;
+  onSaveDetails?: (details: { full_name: string; phone: string }, done: () => void) => void;
+  onTestWhatsApp?: () => void;
   pending: boolean;
   onSave: (role: UserRole, sections: string[], vehicleTypes: string[]) => void;
   onDelete: () => void;
@@ -323,6 +353,8 @@ function UserRow({
     choiceFor(effectiveVehicleTypes(user.role, user.allowed_vehicle_types)),
   );
   const who = user.full_name || user.username || "este utilizador";
+  const [editing, setEditing] = useState(false);
+  const [details, setDetails] = useState({ full_name: user.full_name ?? "", phone: user.phone ?? "" });
 
   function toggle(key: Section) {
     if (key === ALWAYS) return; // dashboard sempre ativo
@@ -346,6 +378,11 @@ function UserRow({
             {user.username ? <span className="font-mono">{user.username}</span> : "sem nome de utilizador"}
             {user.email && <span> · {user.email}</span>}
           </p>
+          {ownerTools && (
+            <p className="truncate text-xs text-paper/50">
+              {user.phone ? <>📱 {user.phone}</> : <span className="text-amber-300/80">sem telemóvel — não recebe avisos por WhatsApp</span>}
+            </p>
+          )}
           {user.invite && (
             <p
               className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] ${
@@ -426,6 +463,75 @@ function UserRow({
           )}
         </div>
       </div>
+
+      {ownerTools && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              setDetails({ full_name: user.full_name ?? "", phone: user.phone ?? "" });
+              setEditing((e) => !e);
+            }}
+            className="rounded-lg border border-white/15 px-2.5 py-1.5 text-xs text-paper/70 hover:border-accent hover:text-accent"
+          >
+            Editar dados
+          </button>
+          <button
+            type="button"
+            disabled={pending || !user.phone}
+            onClick={onTestWhatsApp}
+            title={user.phone ? "Envia as 5 mensagens de teste para o telemóvel desta pessoa" : "Preencha primeiro o telemóvel"}
+            className="rounded-lg border border-white/15 px-2.5 py-1.5 text-xs text-paper/70 hover:border-accent hover:text-accent disabled:opacity-40"
+          >
+            Testar WhatsApp
+          </button>
+        </div>
+      )}
+
+      {ownerTools && editing && (
+        <form
+          className="mt-3 grid gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSaveDetails?.(details, () => setEditing(false));
+          }}
+        >
+          <label className="block text-sm">
+            <span className="mb-1 block text-paper/70">Nome</span>
+            <input
+              className="field"
+              value={details.full_name}
+              onChange={(e) => setDetails((d) => ({ ...d, full_name: e.target.value }))}
+              maxLength={80}
+              required
+              minLength={2}
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-paper/70">Telemóvel</span>
+            <input
+              className="field"
+              value={details.phone}
+              onChange={(e) => setDetails((d) => ({ ...d, phone: e.target.value }))}
+              maxLength={30}
+              inputMode="tel"
+              placeholder="Ex.: 912 345 678"
+            />
+          </label>
+          <div className="flex gap-2">
+            <button type="submit" disabled={pending} className="btn-primary h-auto px-4 py-2 text-sm">
+              Guardar
+            </button>
+            <button type="button" onClick={() => setEditing(false)} className="text-xs text-paper/50 hover:text-paper">
+              Cancelar
+            </button>
+          </div>
+          <p className="text-xs text-paper/40 sm:col-span-3">
+            É para este número que vão os avisos por WhatsApp, e é por ele que as ordens por WhatsApp são reconhecidas.
+          </p>
+        </form>
+      )}
 
       {link && <InviteLinkBox link={link} who={who} self={isSelf} onClose={() => setLink(null)} />}
 

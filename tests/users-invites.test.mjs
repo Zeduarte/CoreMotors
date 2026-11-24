@@ -530,3 +530,75 @@ test('tokens: 43 caracteres base64url, hash sha256, estados do convite', () => {
   assert.match(u.passwordProblem('ç'.repeat(40), 'ç'.repeat(40)), /no máximo 72/);
   assert.equal(u.passwordProblem('ç'.repeat(36), 'ç'.repeat(36)), null);
 });
+
+test('editar dados (nome e telemóvel) de outra pessoa: só o dono; valida e avisa de telemóvel repetido', async () => {
+  const calls = [];
+  let updateError = null;
+  const client = {
+    from: (table) => ({
+      update: (row) => ({
+        eq: (_c, id) => ({
+          select: async () => {
+            calls.push([table, row, id]);
+            return updateError ? { data: null, error: updateError } : { data: id === 'nao-existe' ? [] : [{ id }], error: null };
+          },
+        }),
+      }),
+    }),
+  };
+  state.admin = { client, calls };
+  const id = '11111111-1111-4111-8111-111111111111';
+  state.me = ME;
+  assert.match((await users.updateUserDetails(id, { full_name: 'Ana', phone: '912345678' })).error, /Só o dono/);
+  assert.deepEqual(calls, []);
+
+  state.me = OWNER;
+  assert.deepEqual(await users.updateUserDetails(id, { full_name: '  Ana Silva ', phone: ' +351 912 345 678 ' }), { ok: true });
+  assert.deepEqual(calls[0], ['profiles', { full_name: 'Ana Silva', phone: '+351 912 345 678' }, id]);
+  // Telemóvel vazio fica sem telemóvel; nome curto e telefone com letras recusados.
+  await users.updateUserDetails(id, { full_name: 'Ana Silva', phone: '' });
+  assert.equal(calls[1][1].phone, null);
+  assert.match((await users.updateUserDetails(id, { full_name: 'A', phone: '' })).error, /nome/);
+  assert.match((await users.updateUserDetails(id, { full_name: 'Ana', phone: '91x' })).error, /Telefone inválido/);
+  assert.match((await users.updateUserDetails('../x', { full_name: 'Ana', phone: '' })).error, /inválido/);
+  updateError = { code: '23505' };
+  assert.match((await users.updateUserDetails(id, { full_name: 'Ana', phone: '912345678' })).error, /já está associado/);
+});
+
+test('teste do WhatsApp para outra pessoa: só o dono, e só para quem tem telemóvel', async () => {
+  const sent = [];
+  const profiles = {
+    '11111111-1111-4111-8111-111111111111': { phone: '912 345 678', full_name: 'Ana' },
+    '22222222-2222-4222-8222-222222222222': { phone: null, full_name: 'Rui' },
+  };
+  const notif = createLoader({
+    'next/cache': { revalidatePath() {} },
+    '@/lib/admin-queries': { getCurrentProfile: async () => state.me },
+    '@/lib/guard': { requireAdmin: async () => state.me, requireSection: async () => state.me },
+    '@/lib/supabase/server': { createClient: async () => ({}) },
+    '@/lib/supabase/admin': {
+      createAdminClient: () => ({
+        from: () => ({ select: () => ({ eq: (_c, id) => ({ maybeSingle: async () => ({ data: profiles[id] ?? null }) }) }) }),
+      }),
+    },
+    '@/lib/whatsapp/account': { whatsAppNumber: async () => ({ accessToken: 't', phoneNumberId: 'p' }) },
+    '@/lib/notifications': { backofficeBaseUrl: () => 'https://stand.pt' },
+    '@/lib/notifications-kick': { deliverNotificationsSoon() {} },
+    '@/lib/whatsapp/templates-create': { createMessageTemplates: async () => ({ ok: true, lines: [] }) },
+    '@/lib/whatsapp/send-template': {
+      NOTIFICATION_TEMPLATES: { lead: { example: ['a'] }, aviso: { example: ['b'] } },
+      templateLanguage: () => 'pt_PT',
+      templateName: (f) => `t_${f}`,
+      sendWhatsAppTemplate: async (to, t) => (sent.push([to, t.name]), { ok: true }),
+    },
+  })('src/lib/actions/notifications.ts');
+
+  state.me = ME;
+  assert.match((await notif.sendWhatsAppTestToUser('11111111-1111-4111-8111-111111111111')).error, /Só o dono/);
+  assert.deepEqual(sent, []);
+  state.me = OWNER;
+  assert.deepEqual(await notif.sendWhatsAppTestToUser('11111111-1111-4111-8111-111111111111'), { ok: true });
+  assert.deepEqual(sent, [['351912345678', 't_lead'], ['351912345678', 't_aviso']]);
+  assert.match((await notif.sendWhatsAppTestToUser('22222222-2222-4222-8222-222222222222')).error, /Rui não tem telemóvel/);
+  assert.match((await notif.sendWhatsAppTestToUser('33333333-3333-4333-8333-333333333333')).error, /não encontrado/);
+});

@@ -56,7 +56,8 @@ const fetchPlace = unstable_cache(
 
 export async function GET() {
   const { google } = await getShowroomContent();
-  if (!google.enabled || !google.placeId || !process.env.GOOGLE_PLACES_API_KEY)
+  // Sem chave válida («AIza…») nem se tenta: um Place ID na variável dava 400.
+  if (!google.enabled || !google.placeId || !process.env.GOOGLE_PLACES_API_KEY?.trim().startsWith("AIza"))
     return NextResponse.json({ available: false }, { headers });
   if (Date.now() - lastFailure < RETRY_AFTER_MS)
     return NextResponse.json({ available: false }, { headers });

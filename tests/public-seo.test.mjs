@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { readFileSync, existsSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
 import ts from 'typescript';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -460,9 +460,13 @@ test('google reviews: cached server-side, no public-submission quota spent', asy
   const realFetch = globalThis.fetch;
   let calls = 0;
   globalThis.fetch = async () => { calls++; return new Response(JSON.stringify({ rating: 4.8, userRatingCount: 10 }), { status: 200 }); };
-  process.env.GOOGLE_PLACES_API_KEY = 'k';
+  process.env.GOOGLE_PLACES_API_KEY = 'AIza-test';
   try {
     for (let i = 0; i < 3; i++) assert.equal((await (await route.GET()).json()).place.rating, 4.8);
+    assert.equal(calls, 1);
+    // Um Place ID posto na variável por engano não é uma chave: nem se pergunta ao Google.
+    process.env.GOOGLE_PLACES_API_KEY = 'ChIJ_place_id';
+    assert.equal((await (await route.GET()).json()).available, false);
     assert.equal(calls, 1);
   } finally {
     globalThis.fetch = realFetch;
@@ -561,7 +565,7 @@ test('root metadata: the company name from Settings in titles and og:site_name; 
   const layout = load('src/app/layout.tsx', {
     '@/lib/queries': { getBranding: async () => ({ companyName: 'CoreMotors' }), getSiteVehicleTypes: async () => ['car', 'motorcycle'] },
     '@/components/site/SiteRuntime': { SiteRuntime: () => null },
-    'next/font/google': { Inter: () => ({ variable: 'f' }) },
+    'next/font/local': { default: () => ({ variable: 'f' }) },
     './globals.css': {},
     __id: 'root-layout',
   });
@@ -659,4 +663,12 @@ test('the vehicle page keeps its own share image (opengraph-image next to it), w
   assert.equal(inherited.openGraph.images[0].url, 'https://stand.example/opengraph-image-1c1a04?x');
   assert.deepEqual((await pageMetadata(parentMetadata(), { path: '/c', images: ['https://f/a.jpg'] })).openGraph.images, ['https://f/a.jpg']);
   assert.match(readFileSync('src/app/(public)/viaturas/[slug]/page.tsx', 'utf8'), /path: `\/viaturas\/\$\{vehicle\.slug\}`,\s*images: false,/);
+});
+
+test('fonts ship with the project: no next/font/google (the build must not depend on Google Fonts answering)', () => {
+  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));
+  const offenders = walk('src').filter((f) => /\.[jt]sx?$/.test(f) && /from ['"]next\/font\/google['"]/.test(readFileSync(f, 'utf8')));
+  assert.deepEqual(offenders, []);
+  assert.ok(existsSync('src/fonts/inter-latin-wght-normal.woff2'));
+  assert.ok(existsSync('src/fonts/dm-serif-display-latin-400-normal.woff2'));
 });

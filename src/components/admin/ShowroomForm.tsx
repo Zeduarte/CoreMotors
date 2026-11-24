@@ -18,10 +18,11 @@ const AddressMapPicker = dynamic(() => import("@/components/admin/AddressMapPick
 });
 export function ShowroomForm({
   initial,
-  googleConfigured,
+  googleKey,
 }: {
   initial: ShowroomContent;
-  googleConfigured: boolean;
+  /** Estado de GOOGLE_PLACES_API_KEY: «invalid» quando não parece uma chave (ex.: tem o Place ID). */
+  googleKey: "ok" | "missing" | "invalid";
 }) {
   const [value, setValue] = useState(initial);
   const [pending, setPending] = useState(false);
@@ -394,9 +395,11 @@ export function ShowroomForm({
             />
           </label>
           <p className="text-sm text-paper/60">
-            {googleConfigured
+            {googleKey === "ok"
               ? "Chave Places configurada no servidor."
-              : "Para carregar a classificação e as avaliações, configure GOOGLE_PLACES_API_KEY no alojamento e ative Places API (New). Sem chave, mostramos apenas a ligação ao perfil."}{" "}
+              : googleKey === "invalid"
+                ? "A variável GOOGLE_PLACES_API_KEY não tem uma chave (as chaves começam por «AIza»; o Place ID vai neste campo acima, não lá). Crie uma chave da Places API (New) no Google Cloud e ponha-a no alojamento."
+                : "Para carregar a classificação e as avaliações, configure GOOGLE_PLACES_API_KEY no alojamento e ative Places API (New). Sem chave, mostramos apenas a ligação ao perfil."}{" "}
             Os pedidos à API podem ter custos no Google Cloud. Nunca introduza a
             chave neste formulário.
           </p>
