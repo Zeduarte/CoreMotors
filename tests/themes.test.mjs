@@ -715,3 +715,23 @@ test("Core3: the Core header with the Core3 menu, /motas and /carros become the 
   // A foto do topo dos carros existe (recorte da maqueta, ampliado).
   assert.deepEqual([...readFileSync("public/media/core3/carros.jpg").subarray(0, 3)], [0xff, 0xd8, 0xff]);
 });
+
+test("social links: only links of each network, typed loosely, as footer icons under the logo", () => {
+  const S = loader()("src/lib/social.ts");
+  assert.equal(S.normalizeSocial("facebook", "facebook.com/supermotas"), "https://facebook.com/supermotas");
+  assert.equal(S.normalizeSocial("facebook", "https://www.facebook.com/supermotas/"), "https://www.facebook.com/supermotas/");
+  assert.equal(S.normalizeSocial("facebook", "http://m.facebook.com/x"), "https://m.facebook.com/x");
+  assert.equal(S.normalizeSocial("instagram", "@super.motas"), "https://www.instagram.com/super.motas");
+  assert.equal(S.normalizeSocial("instagram", "instagram.com/supermotas"), "https://instagram.com/supermotas");
+  assert.equal(S.normalizeSocial("facebook", "  "), "", "vazio tira o ícone");
+  for (const [n, bad] of [["facebook", "https://evil.example/facebook.com"], ["facebook", "https://facebook.com"], ["instagram", "https://facebook.com/x"], ["facebook", "javascript:alert(1)"]])
+    assert.equal(S.normalizeSocial(n, bad), null, `${n}: ${bad}`);
+  assert.deepEqual(S.parseSocial({ facebook: "facebook.com/a", instagram: "https://evil.example/x", other: 1 }), { facebook: "https://facebook.com/a", instagram: "" });
+  assert.deepEqual(S.parseSocial(null), { facebook: "", instagram: "" });
+  // O rodapé mostra os ícones (só os que têm link) por baixo do logótipo; o layout lê-os.
+  const footer = readFileSync("src/components/layout/Footer.tsx", "utf8");
+  assert.match(footer, /SOCIAL_NETWORKS\.filter\(\(n\) => social\[n\]\)/);
+  assert.match(footer, /target="_blank"\s+rel="noopener noreferrer"/);
+  assert.match(readFileSync("src/app/(public)/layout.tsx", "utf8"), /social=\{social\}/);
+  assert.match(readFileSync("src/app/admin/(dashboard)/definicoes/page.tsx", "utf8"), /<SocialLinksForm initial=\{social\} \/>/);
+});

@@ -6,6 +6,7 @@ import { DEFAULT_BRANDING, type Branding } from "@/lib/branding";
 import { EMPTY_LEGAL, legalLine, type LegalInfo } from "@/lib/legal";
 import type { ThemeId } from "@/themes/index";
 import { core3Categories } from "@/themes/core3/ui";
+import { EMPTY_SOCIAL, SOCIAL_LABEL, SOCIAL_NETWORKS, type SocialLinks, type SocialNetwork } from "@/lib/social";
 import { ManageCookiesButton } from "@/components/site/ManageCookiesButton";
 
 // Links obrigatórios do rodapé. As políticas são páginas internas do site; o
@@ -37,12 +38,30 @@ const core3Links = (siteTypes: VehicleType[]) => [
   { label: "Contactos", href: "/contactos" },
 ];
 
+/** Os ícones das redes (traço, na cor do texto). */
+function SocialIcon({ network }: { network: SocialNetwork }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[1.1rem] w-[1.1rem]" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {network === "facebook" ? (
+        <path d="M15 3h-2.5A3.5 3.5 0 0 0 9 6.5V9H6.5v3.5H9V21h3.5v-8.5H15l.5-3.5h-3V7a1 1 0 0 1 1-1H15z" />
+      ) : (
+        <>
+          <rect x="3" y="3" width="18" height="18" rx="5" />
+          <circle cx="12" cy="12" r="4" />
+          <circle cx="17.5" cy="6.5" r="0.6" fill="currentColor" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export function Footer({
   theme = "core",
   branding = DEFAULT_BRANDING,
   legal = EMPTY_LEGAL,
   background = null,
   siteTypes = ["car", "motorcycle"],
+  social = EMPTY_SOCIAL,
 }: {
   theme?: ThemeId;
   branding?: Branding;
@@ -52,6 +71,8 @@ export function Footer({
   background?: string | null;
   /** O que o site vende (para a frase de apresentação). */
   siteTypes?: VehicleType[];
+  /** Facebook e Instagram (Definições → Contactos): os ícones por baixo do logótipo. */
+  social?: SocialLinks;
 }) {
   return (
     // `site-dark`: no modo claro fica como no escuro (foto de fundo com texto por cima).
@@ -94,6 +115,23 @@ export function Footer({
           <p className="mt-4 max-w-sm text-sm text-paper/85">
             {branding.tagline || siteDescription(siteTypes)}
           </p>
+          {SOCIAL_NETWORKS.some((n) => social[n]) && (
+            <ul className="mt-5 flex gap-3" aria-label="Redes sociais">
+              {SOCIAL_NETWORKS.filter((n) => social[n]).map((n) => (
+                <li key={n}>
+                  <a
+                    href={social[n]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${branding.companyName} no ${SOCIAL_LABEL[n]}`}
+                    className="grid h-10 w-10 place-items-center rounded-full border border-white/20 text-paper transition-colors hover:border-accent hover:text-accent"
+                  >
+                    <SocialIcon network={n} />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div>

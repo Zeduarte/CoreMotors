@@ -14,7 +14,7 @@ import { ChatProvider } from "@/components/chat/ChatContext";
 import { CompareProvider } from "@/components/inventory/CompareContext";
 import { CompareBar } from "@/components/inventory/CompareBar";
 import { DealerJsonLd } from "@/components/seo/DealerJsonLd";
-import { getBadges, getBranding, getLegal, getSoldVehicleList, getVehicleList } from "@/lib/queries";
+import { getBadges, getBranding, getLegal, getSocialLinks, getSoldVehicleList, getVehicleList } from "@/lib/queries";
 import { BadgesProvider } from "@/components/site/BadgesContext";
 import { existingMedia } from "@/lib/hero-media";
 import { OPTIONAL_MEDIA } from "@/lib/media";
@@ -38,7 +38,7 @@ export default async function PublicLayout({
   // Um só site: carros e motas juntos (os tipos de Definições → Tipo de site).
   // O tipo principal dá o aspeto (fotos e textos) — o dos carros, salvo num
   // site só de motas.
-  const [branding, type, siteTypes, badges, stock, sold, appearance, legal] = await Promise.all([
+  const [branding, type, siteTypes, badges, stock, sold, appearance, legal, social] = await Promise.all([
     getBranding(),
     getPublicVehicleType(),
     getSiteVehicleTypes(),
@@ -50,6 +50,8 @@ export default async function PublicLayout({
     // A versão do site (Gestão): Core ou Core2, e a aparência dela.
     getSiteAppearance(),
     getLegal(),
+    // Facebook e Instagram do rodapé (Definições → Contactos).
+    getSocialLinks(),
   ]);
   const { theme, mode } = appearance;
   // Sem stock nenhum (ou a leitura falhou), não se filtra nada: um erro
@@ -88,7 +90,7 @@ export default async function PublicLayout({
         {/* O cabeçalho é o do Core em todas as versões; o Core3 tem o seu menu. */}
         <Header branding={branding} stockSlugs={stockSlugs} nav={theme === "core3" ? core3Nav(siteTypes) : undefined} />
         <main id="conteudo" className="pt-16">{children}</main>
-        <Footer theme={theme} branding={branding} legal={legal} background={existingMedia(type, OPTIONAL_MEDIA.rodape)} siteTypes={siteTypes} />
+        <Footer theme={theme} branding={branding} legal={legal} background={existingMedia(type, OPTIONAL_MEDIA.rodape)} siteTypes={siteTypes} social={social} />
         {/* Assistente virtual + canais de contacto no mesmo botão flutuante.
             Na ficha de viatura o botão dá lugar à barra fixa do fundo.
             Sem chave da Anthropic configurada, fica só o contacto humano. */}

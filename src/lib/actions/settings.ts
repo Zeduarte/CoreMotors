@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/admin-queries";
 import { mergeBadges } from "@/lib/badges";
 import { SITE_MODES, typesOfMode, type SiteMode } from "@/lib/site-types";
+import { EMPTY_SOCIAL, SOCIAL_LABEL, SOCIAL_NETWORKS, normalizeSocial, type SocialNetwork } from "@/lib/social";
 import {
   afterBadgesSaved,
   afterBrandingSaved,
@@ -189,6 +190,29 @@ export async function saveCompany(input: unknown): Promise<SettingsResult> {
   }
 
   // Os contactos aparecem em todo o site → invalida a cache e revalida.
+  afterCompanySaved();
+  return { ok: true };
+}
+
+/**
+ * Redes sociais (Facebook, Instagram): os ícones do rodapé. Cada link tem de
+ * ser dessa rede; vazio tira o ícone. Apenas admin.
+ */
+export async function saveSocial(input: unknown): Promise<SettingsResult> {
+  if (!(await requireAdmin())) {
+    return { ok: false, error: "Sem permissão. Apenas administradores." };
+  }
+  const raw = (input ?? {}) as Partial<Record<SocialNetwork, unknown>>;
+  const content = { ...EMPTY_SOCIAL };
+  for (const n of SOCIAL_NETWORKS) {
+    const value = typeof raw[n] === "string" ? normalizeSocial(n, raw[n]) : "";
+    if (value === null) return { ok: false, error: `O link do ${SOCIAL_LABEL[n]} não parece ser do ${SOCIAL_LABEL[n]}.` };
+    content[n] = value;
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.from("site_content").upsert({ key: "social", content }, { onConflict: "key" });
+  if (error) return { ok: false, error: error.message };
+  // O rodapé está em todas as páginas.
   afterCompanySaved();
   return { ok: true };
 }

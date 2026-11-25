@@ -9,6 +9,7 @@ import type { CarWithMedia } from "@/lib/supabase/database.types";
 import type { Vehicle } from "@/types/vehicle";
 import { mergeHomeContent, type HomeContent } from "@/lib/home-content";
 import { mergeBadges, type BadgeDef } from "@/lib/badges";
+import { EMPTY_SOCIAL, parseSocial, type SocialLinks } from "@/lib/social";
 import {
   DEFAULT_BRANDING,
   DEFAULT_COMPANY,
@@ -197,6 +198,17 @@ const fetchHomeContent = cachedPublic(async () => {
 
 export async function getHomeContent(): Promise<HomeContent> {
   return safely("getHomeContent", fetchHomeContent, mergeHomeContent(null));
+}
+
+/** As redes sociais do stand (Definições → Contactos), no rodapé. */
+const fetchSocial = cachedPublic(async () => {
+  const { data, error } = await supabasePublic.from("site_content").select("content").eq("key", "social").maybeSingle();
+  if (error) throw new Error(error.message);
+  return parseSocial(data?.content ?? null);
+}, "social");
+
+export async function getSocialLinks(): Promise<SocialLinks> {
+  return safely("getSocialLinks", fetchSocial, EMPTY_SOCIAL);
 }
 
 /**
