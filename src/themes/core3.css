@@ -1,0 +1,16 @@
+/*
+ * Tema Core3 — o que muda no aspeto (o stock e a serifada são os do Core2,
+ * em core2.css). Tudo debaixo de [data-site-theme="core3"].
+ *
+ * No telemóvel há a barra Motas · Moto 4 · Carros em baixo (Core3MobileNav),
+ * com a altura em `--core3-nav`: o botão do WhatsApp e a barra de comparação
+ * sobem para ficar por cima dela.
+ */
+@media (max-width: 767px) {
+  [data-site-theme="core3"] .contact-fab {
+    bottom: calc(var(--core3-nav, 0px) + 1rem);
+  }
+  [data-site-theme="core3"] .compare-bar {
+    bottom: calc(var(--core3-nav, 0px) + 0.75rem);
+  }
+}

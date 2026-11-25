@@ -733,3 +733,20 @@ test("social links: only links of each network, typed loosely, as footer icons u
   assert.match(readFileSync("src/app/(public)/layout.tsx", "utf8"), /social=\{social\}/);
   assert.match(readFileSync("src/app/admin/(dashboard)/definicoes/page.tsx", "utf8"), /<SocialLinksForm initial=\{social\} \/>/);
 });
+
+test("Core3 on phones: Motas · Moto 4 · Carros fixed at the bottom (not on a vehicle page), the floating buttons go above it; no buttons on the home top", () => {
+  const layout = readFileSync("src/app/(public)/layout.tsx", "utf8");
+  assert.match(layout, /theme === "core3" && <Core3MobileNav categories=\{core3Categories\(siteTypes\)\} \/>/);
+  assert.match(layout, /import "@\/themes\/core3\.css"/);
+  const nav = readFileSync("src/components/themes/core3/Core3MobileNav.tsx", "utf8");
+  assert.match(nav, /md:hidden/, "só no telemóvel");
+  assert.match(nav, /\^\\\/viaturas\\\/\[\^\/\]\+\\\/\?\$/, "a ficha tem a sua barra no mesmo sítio");
+  assert.match(nav, /--core3-nav/);
+  const css = readFileSync("src/themes/core3.css", "utf8");
+  assert.match(css, /\[data-site-theme="core3"\] \.contact-fab \{\s*bottom: calc\(var\(--core3-nav, 0px\)/);
+  assert.match(css, /\[data-site-theme="core3"\] \.compare-bar \{\s*bottom: calc\(var\(--core3-nav, 0px\)/);
+  assert.match(readFileSync("src/components/layout/ContactFab.tsx", "utf8"), /className="contact-fab /);
+  assert.match(readFileSync("src/components/inventory/CompareBar.tsx", "utf8"), /className="compare-bar /);
+  // O topo da página inicial do Core3 só tem o título e a frase (sem «Ver motas» / «Ver carros»).
+  assert.match(readFileSync("src/app/(public)/(home)/page.tsx", "utf8"), /c3hero: <Core3Banner [^>]*big \/>/);
+});

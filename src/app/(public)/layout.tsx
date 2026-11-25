@@ -2,7 +2,8 @@ import { getPublicVehicleType, getSiteVehicleTypes } from "@/lib/vehicle-context
 import { VehicleWorld } from "@/components/site/VehicleWorld";
 import { LenisProvider } from "@/components/providers/LenisProvider";
 import { Header } from "@/components/layout/Header";
-import { core3Nav } from "@/themes/core3/ui";
+import { core3Categories, core3Nav } from "@/themes/core3/ui";
+import { Core3MobileNav } from "@/components/themes/core3/Core3MobileNav";
 import { Footer } from "@/components/layout/Footer";
 import { Suspense } from "react";
 import { ScrollProgress } from "@/components/ui/ScrollProgress";
@@ -25,6 +26,7 @@ import { SiteThemeProvider } from "@/components/site/SiteTheme";
 // O CSS de cada tema (sempre debaixo de [data-site-theme="…"]) e o da
 // aparência (Escuro / Claro / Automático, em [data-site-mode="…"]).
 import "@/themes/core2.css";
+import "@/themes/core3.css";
 import "@/themes/modes.css";
 
 /**
@@ -101,6 +103,8 @@ export default async function PublicLayout({
           chatEnabled={!!process.env.ANTHROPIC_API_KEY}
         />
         <CompareBar />
+        {/* Core3, no telemóvel: Motas · Moto 4 · Carros fixos em baixo. */}
+        {theme === "core3" && <Core3MobileNav categories={core3Categories(siteTypes)} />}
         <GrainOverlay />
       </div>
       </CompareProvider>

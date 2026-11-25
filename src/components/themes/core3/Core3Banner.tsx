@@ -4,8 +4,8 @@ import Link from "next/link";
 /**
  * O topo das páginas do Core3 (maquetes): o título com o traço de destaque e a
  * frase à esquerda, e a foto à direita a desvanecer para o título (no
- * telemóvel, por cima dele). A página inicial leva botões; as de stock levam o
- * caminho («Início › Carros › Automóveis em stock»).
+ * telemóvel, por cima dele). As páginas de stock levam o caminho por cima do
+ * título («Início › Carros › Automóveis em stock»).
  */
 export function Core3Banner({
   photo,
@@ -14,7 +14,6 @@ export function Core3Banner({
   big = false,
   crumbs,
   mobilePosition = "object-left",
-  children,
 }: {
   photo: string;
   title: string;
@@ -25,8 +24,6 @@ export function Core3Banner({
   crumbs?: { label: string; href?: string }[];
   /** Que parte da foto se vê no telemóvel (classe do Tailwind); no computador, sempre a esquerda. */
   mobilePosition?: string;
-  /** Os botões por baixo da frase. */
-  children?: React.ReactNode;
 }) {
   return (
     <section className="relative overflow-hidden text-paper">
@@ -55,7 +52,6 @@ export function Core3Banner({
         <h1 className={`core2-serif max-w-[36rem] leading-[1.04] ${big ? "text-[2.55rem] md:text-[3.45rem]" : "text-[2.1rem] md:text-[2.8rem]"}`}>{title}</h1>
         {big && <span aria-hidden className="mt-3 block h-1 w-14 rounded-full bg-accent md:mt-4 md:w-16" />}
         <p className={`mt-3 max-w-[30rem] leading-snug text-paper/75 ${big ? "text-[1.05rem] md:text-[1.2rem]" : "text-[0.95rem] md:text-base"}`}>{subtitle}</p>
-        {children && <div className="mt-5 flex flex-wrap gap-3">{children}</div>}
       </div>
     </section>
   );
