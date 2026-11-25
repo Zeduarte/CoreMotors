@@ -8,8 +8,9 @@ import type { Core3Category } from "@/themes/core3/ui";
 
 /**
  * Core3, no telemóvel: Motas · Moto 4 · Carros numa cápsula flutuante em
- * baixo (o mesmo vidro do cabeçalho), para trocar de página com o polegar (o deslize entre elas é o de sempre). Não aparece na
- * ficha de viatura, que tem a sua barra de contacto no mesmo sítio.
+ * baixo (o mesmo vidro do cabeçalho), para trocar entre as três com o polegar
+ * (com o deslize de sempre). Só aparece dentro dessas páginas — não na
+ * inicial, na ficha de viatura nem nas outras: liga as três entre si.
  *
  * A barra guarda a sua altura em `--core3-nav` (o botão do WhatsApp e a barra
  * de comparação sobem por cima dela, ver core3.css) e reserva esse espaço no
@@ -18,7 +19,10 @@ import type { Core3Category } from "@/themes/core3/ui";
 export function Core3MobileNav({ categories }: { categories: Pick<Core3Category, "key" | "href" | "short">[] }) {
   const pathname = usePathname();
   const bar = useRef<HTMLElement>(null);
-  const hidden = /^\/viaturas\/[^/]+\/?$/.test(pathname) || categories.length < 2;
+  // Só dentro das páginas de stock por tipo: liga-as entre si (entra-se nelas
+  // pelos cartões da página inicial ou pelo menu de cima).
+  const inCategory = categories.some((c) => pathname === c.href || pathname.startsWith(`${c.href}/`));
+  const hidden = !inCategory || categories.length < 2;
 
   useEffect(() => {
     const el = bar.current;

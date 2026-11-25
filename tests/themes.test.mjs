@@ -734,13 +734,13 @@ test("social links: only links of each network, typed loosely, as footer icons u
   assert.match(readFileSync("src/app/admin/(dashboard)/definicoes/page.tsx", "utf8"), /<SocialLinksForm initial=\{social\} \/>/);
 });
 
-test("Core3 on phones: Motas · Moto 4 · Carros fixed at the bottom (not on a vehicle page), the floating buttons go above it; no buttons on the home top", () => {
+test("Core3 on phones: Motas · Moto 4 · Carros at the bottom only inside those pages, the floating buttons go above it; no buttons on the home top", () => {
   const layout = readFileSync("src/app/(public)/layout.tsx", "utf8");
   assert.match(layout, /theme === "core3" && <Core3MobileNav categories=\{core3Categories\(siteTypes\)\} \/>/);
   assert.match(layout, /import "@\/themes\/core3\.css"/);
   const nav = readFileSync("src/components/themes/core3/Core3MobileNav.tsx", "utf8");
   assert.match(nav, /md:hidden/, "só no telemóvel");
-  assert.match(nav, /\^\\\/viaturas\\\/\[\^\/\]\+\\\/\?\$/, "a ficha tem a sua barra no mesmo sítio");
+  assert.match(nav, /const hidden = !inCategory/, "só dentro das páginas Motas, Moto 4 e Carros");
   assert.match(nav, /--core3-nav/);
   const css = readFileSync("src/themes/core3.css", "utf8");
   assert.match(css, /\[data-site-theme="core3"\] \.contact-fab \{\s*bottom: calc\(var\(--core3-nav, 0px\)/);
@@ -749,4 +749,20 @@ test("Core3 on phones: Motas · Moto 4 · Carros fixed at the bottom (not on a v
   assert.match(readFileSync("src/components/inventory/CompareBar.tsx", "utf8"), /className="compare-bar /);
   // O topo da página inicial do Core3 só tem o título e a frase (sem «Ver motas» / «Ver carros»).
   assert.match(readFileSync("src/app/(public)/(home)/page.tsx", "utf8"), /c3hero: <Core3Banner [^>]*big \/>/);
+});
+
+test("Core3 bottom switcher: shown on /motas, /moto4, /carros (and their pages), hidden on the home, a vehicle page and the rest", () => {
+  const React = require("react");
+  const { renderToStaticMarkup } = require("react-dom/server");
+  let path = "/";
+  const { Core3MobileNav } = loader(nextMocks(React, {
+    "next/navigation": { usePathname: () => path },
+    "framer-motion": { motion: { span: (p) => React.createElement("span", { className: p.className }) } },
+  }))("src/components/themes/core3/Core3MobileNav.tsx");
+  const cats = loader()("src/themes/core3/ui.ts").core3Categories(["car", "motorcycle"]);
+  const html = (p) => ((path = p), renderToStaticMarkup(React.createElement(Core3MobileNav, { categories: cats })));
+  for (const p of ["/", "/viaturas/bmw-320", "/contactos", "/inventario", "/vender"]) assert.equal(html(p), "", p);
+  for (const p of ["/motas", "/moto4", "/carros", "/carros/bmw"]) assert.match(html(p), /aria-label="Categorias"/, p);
+  assert.match(html("/moto4"), /href="\/moto4" aria-current="page"/);
+  assert.doesNotMatch(html("/moto4"), /href="\/motas" aria-current/);
 });
