@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Vehicle } from "@/types/vehicle";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
 import { AnimatedText } from "@/components/ui/AnimatedText";
+import { RowCard } from "@/components/themes/core2/RowCard";
 
 /**
  * «Viaturas em destaque» na homepage: carrossel horizontal com snap, setas e
@@ -13,18 +14,22 @@ import { AnimatedText } from "@/components/ui/AnimatedText";
  *
  * Telemóvel: um cartão largo de cada vez, à largura do ecrã (passa-se com
  * o dedo, as setas ou os pontos). Desktop: 2 (md), 3 (lg) ou 4 por página.
+ * Com `card="row"` (Core3) os cartões são deitados e ficam no máximo 3.
  */
 export function FeaturedVehicles({
   vehicles,
   total,
   eyebrow = "",
   title = "Viaturas em destaque",
+  card = "core",
 }: {
   vehicles: Vehicle[];
   /** Total de viaturas em stock — o número do botão «Mostrar todas». */
   total: number;
   eyebrow?: string;
   title?: string;
+  /** «row»: o cartão deitado do Core3 (foto à esquerda, dados à direita). */
+  card?: "core" | "row";
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [pages, setPages] = useState(1);
@@ -87,9 +92,15 @@ export function FeaturedVehicles({
             {shown.map((vehicle, i) => (
               <div
                 key={vehicle.slug}
-                className="w-full shrink-0 snap-start md:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)] min-[1400px]:w-[calc((100%-4.5rem)/4)]"
+                className={`w-full shrink-0 snap-start md:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)] ${
+                  card === "row" ? "" : "min-[1400px]:w-[calc((100%-4.5rem)/4)]"
+                }`}
               >
-                <VehicleCard vehicle={vehicle} priority={i < 3} />
+                {card === "row" ? (
+                  <RowCard vehicle={vehicle} sizes="(max-width: 768px) 40vw, 15vw" />
+                ) : (
+                  <VehicleCard vehicle={vehicle} priority={i < 3} />
+                )}
               </div>
             ))}
           </div>

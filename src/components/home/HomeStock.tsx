@@ -4,22 +4,27 @@ import { useState } from "react";
 import Link from "next/link";
 import type { Vehicle } from "@/types/vehicle";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
+import { RowCard } from "@/components/themes/core2/RowCard";
 
 const STEP = 12;
 
 /**
  * «Stock» na homepage: todas as viaturas disponíveis em grelha (4 por linha no
  * desktop largo). Mostra 12 de cada vez — «Ver mais» acrescenta as seguintes —
- * para a página não carregar dezenas de fotos de uma vez.
+ * para a página não carregar dezenas de fotos de uma vez. Com `card="row"`
+ * (Core3) os cartões são deitados, até 3 por linha.
  */
 export function HomeStock({
   vehicles,
   eyebrow = "Veja todos os nossos veículos disponíveis em loja.",
   title = "Stock",
+  card = "core",
 }: {
   vehicles: Vehicle[];
   eyebrow?: string;
   title?: string;
+  /** «row»: o cartão deitado do Core3 (foto à esquerda, dados à direita). */
+  card?: "core" | "row";
 }) {
   const [visible, setVisible] = useState(STEP);
   if (!vehicles.length) return null;
@@ -35,12 +40,16 @@ export function HomeStock({
         </h2>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {shown.map((vehicle) => (
-          // A mesma viatura já está nos destaques: sem foto partilhada aqui,
-          // senão o browser cancelava a transição para a ficha.
-          <VehicleCard key={vehicle.slug} vehicle={vehicle} sharedTransition={false} />
-        ))}
+      <div className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${card === "row" ? "" : "xl:grid-cols-4"}`}>
+        {shown.map((vehicle) =>
+          card === "row" ? (
+            <RowCard key={vehicle.slug} vehicle={vehicle} sizes="(max-width: 640px) 40vw, 15vw" />
+          ) : (
+            // A mesma viatura já está nos destaques: sem foto partilhada aqui,
+            // senão o browser cancelava a transição para a ficha.
+            <VehicleCard key={vehicle.slug} vehicle={vehicle} sharedTransition={false} />
+          ),
+        )}
       </div>
 
       <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">

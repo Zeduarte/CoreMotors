@@ -251,7 +251,7 @@ test("appearance CSS: dark keeps Tailwind's values, light (and Automático with 
     "src/app/(public)/sobre/page.tsx",
     "src/app/(public)/contactos/page.tsx",
     "src/components/vehicle/VehicleCard.tsx",
-    "src/components/themes/core2/Core2Stock.tsx",
+    "src/components/themes/core2/RowCard.tsx",
   ])
     assert.match(readFileSync(file, "utf8"), /className=\{?[`"]site-dark |"site-dark /, `${file}: zona com foto marcada`);
   // O cartão de cima do stock do Core fica na cor da página (no claro, branco).
@@ -616,12 +616,23 @@ test("only the stock page changes with Core2 (top + list); the layout, the home 
   // A serifada não vai para o layout: só as páginas que a usam a carregam.
   assert.doesNotMatch(layout, /core2Serif/);
   assert.doesNotMatch(readFileSync("src/app/(public)/(home)/page.tsx", "utf8"), /components\/themes\/core2/);
-  // Os componentes do Core2 só se usam na página do Stock (e no stock por tipo do Core3).
+  // Os componentes do Core2 só se usam na página do Stock (e no stock por tipo do Core3);
+  // o cartão deitado também nos destaques e no stock da página inicial, só com `card="row"` (Core3).
   const users = execFileSync("git", ["grep", "-l", "--untracked", "-F", "@/components/themes/core2/", "--", "src"], { encoding: "utf8" }).trim().split("\n");
   assert.deepEqual(users.filter((f) => !f.startsWith("src/components/themes/core2/")).sort(), [
     "src/app/(public)/inventario/page.tsx",
+    "src/components/home/FeaturedVehicles.tsx",
+    "src/components/home/HomeStock.tsx",
     "src/components/themes/core3/Core3CategoryPage.tsx",
   ]);
+  for (const f of ["src/components/home/FeaturedVehicles.tsx", "src/components/home/HomeStock.tsx"]) {
+    const code = readFileSync(f, "utf8");
+    assert.match(code, /import \{ RowCard \} from "@\/components\/themes\/core2\/RowCard";/);
+    assert.match(code, /card = "core"/);
+    assert.match(code, /card === "row" \? \(\s*<RowCard /);
+  }
+  const home = readFileSync("src/app/(public)/(home)/page.tsx", "utf8");
+  assert.equal(home.match(/card=\{theme === "core3" \? "row" : "core"\}/g)?.length, 2);
 });
 
 test("Core2 leaves the palette to the appearance (no colours of its own), the stock's fields follow it, and the photos come with the theme", () => {

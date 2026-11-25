@@ -134,9 +134,15 @@ export default async function HomePage() {
     // Por defeito escondida (Gestão → Página inicial, ou o antigo Página inicial → Secções).
     segments: <Segments segments={segments} />,
     // A lista vem com as marcadas como destaque primeiro, depois as mais recentes.
-    featured: <FeaturedVehicles vehicles={allVehicles} total={allVehicles.length} />,
+    featured: (
+      <FeaturedVehicles
+        vehicles={allVehicles}
+        total={allVehicles.length}
+        card={theme === "core3" ? "row" : "core"}
+      />
+    ),
     brands: <BrandMarquee brands={marqueeBrands} available={stockBrands} />,
-    stock: <HomeStock vehicles={allVehicles} />,
+    stock: <HomeStock vehicles={allVehicles} card={theme === "core3" ? "row" : "core"} />,
     // Num site com carros e motas, «Tem uma viatura para trocar?».
     sell: <SellCTA vehicleType={type} mixed={siteTypes.length > 1} />,
     trust: (
