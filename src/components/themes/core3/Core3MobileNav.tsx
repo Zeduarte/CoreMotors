@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
 import type { Core3Category } from "@/themes/core3/ui";
 
 /**
- * Core3, no telemóvel: Motas · Moto 4 · Carros fixos em baixo, para trocar de
- * página com o polegar (o deslize entre elas é o de sempre). Não aparece na
+ * Core3, no telemóvel: Motas · Moto 4 · Carros numa cápsula flutuante em
+ * baixo (o mesmo vidro do cabeçalho), para trocar de página com o polegar (o deslize entre elas é o de sempre). Não aparece na
  * ficha de viatura, que tem a sua barra de contacto no mesmo sítio.
  *
  * A barra guarda a sua altura em `--core3-nav` (o botão do WhatsApp e a barra
@@ -43,12 +44,14 @@ export function Core3MobileNav({ categories }: { categories: Pick<Core3Category,
   if (hidden) return null;
 
   return (
+    // Uma cápsula flutuante, com o vidro e a sombra do cabeçalho; o `nav` de
+    // fora não apanha cliques (só a cápsula), para não tapar a página dos lados.
     <nav
       ref={bar}
       aria-label="Categorias"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-ink-soft/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:hidden"
     >
-      <ul className="mx-auto grid max-w-md gap-1.5 px-3 py-2" style={{ gridTemplateColumns: `repeat(${categories.length}, minmax(0, 1fr))` }}>
+      <ul className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-white/[0.08] bg-ink-soft/75 p-1 shadow-lg shadow-black/30 backdrop-blur-xl">
         {categories.map((c) => {
           const active = pathname === c.href || pathname.startsWith(`${c.href}/`);
           return (
@@ -56,11 +59,19 @@ export function Core3MobileNav({ categories }: { categories: Pick<Core3Category,
               <Link
                 href={c.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex h-11 items-center justify-center rounded-xl text-sm font-semibold transition-colors ${
-                  active ? "bg-accent text-ink" : "text-paper/75 active:bg-white/10"
+                className={`relative block rounded-full px-4 py-2 text-[0.8rem] font-semibold transition-colors duration-300 ${
+                  active ? "text-ink" : "text-paper/70 active:text-paper"
                 }`}
               >
-                {c.short}
+                {/* O destaque desliza de uma categoria para a outra. */}
+                {active && (
+                  <motion.span
+                    layoutId="core3-mobile-nav"
+                    transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                    className="absolute inset-0 rounded-full bg-accent"
+                  />
+                )}
+                <span className="relative">{c.short}</span>
               </Link>
             </li>
           );
