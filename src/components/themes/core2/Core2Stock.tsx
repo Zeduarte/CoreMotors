@@ -10,7 +10,9 @@ import { trapTab } from "@/lib/focus-trap";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
 import { FadeImage } from "@/components/ui/FadeImage";
 import { setVehiclePreview } from "@/lib/vehicle-preview";
-import { dots, euros, priceText, rowLines } from "@/themes/core2/ui";
+import { rowLines } from "@/themes/core2/ui";
+import { formatNumber, formatPrice } from "@/lib/format";
+import { VehiclePrice } from "@/components/vehicle/VehiclePrice";
 import {
   CC_BUCKETS,
   DEFAULT_SORT,
@@ -264,7 +266,10 @@ function RowCard({ vehicle: v }: { vehicle: Vehicle }) {
           {line2}
         </p>
         <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-          <span className="core2-serif text-[1.6rem] leading-none text-accent">{priceText(v)}</span>
+          {/* O preço como no Core (letra, peso e «12 450 €»), com a baixa de preço. */}
+          <span className="whitespace-nowrap text-lg font-semibold text-accent">
+            <VehiclePrice vehicle={v} />
+          </span>
           <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/20 text-accent">
             <Core2Icon name="arrow" className="h-4 w-4" strokeWidth={2.4} />
           </span>
@@ -441,9 +446,9 @@ function FilterPanel({
             min={PRICE_STEP}
             max={PRICE_MAX}
             step={PRICE_STEP}
-            format={euros}
+            format={formatPrice}
             minLabel="0 €"
-            maxLabel={`${dots(PRICE_MAX)} €+`}
+            maxLabel={`${formatNumber(PRICE_MAX)} €+`}
             onChange={(maxPrice) => setBase({ maxPrice })}
           />
         </Section>
@@ -492,9 +497,9 @@ function FilterPanel({
             min={0}
             max={KM_MAX}
             step={KM_STEP}
-            format={(n) => `${dots(n)} km`}
+            format={(n) => `${formatNumber(n)} km`}
             minLabel="0 km"
-            maxLabel={`${dots(KM_MAX)} km+`}
+            maxLabel={`${formatNumber(KM_MAX)} km+`}
             onChange={(maxMileage) => setBase({ maxMileage })}
           />
         </Section>

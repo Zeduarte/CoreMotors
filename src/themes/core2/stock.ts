@@ -2,7 +2,7 @@ import type { SortKey, Vehicle, VehicleFilters } from "@/types/vehicle";
 import { CAR_BODIES, MOTORCYCLE_BODIES, type VehicleType } from "@/lib/vehicle-categories";
 import { applyFilters, emptyFilters, filtersFromQuery, filtersToQuery, sortFromQuery, sortVehicles } from "@/lib/vehicles";
 import { brandOptions, canonicalBrand, sameBrand } from "@/lib/brand-name";
-import { dots, euros } from "./ui";
+import { formatNumber, formatPrice } from "@/lib/format";
 
 /**
  * Stock do tema Core2: a lógica (sem interface), para se poder testar.
@@ -25,7 +25,7 @@ export const MOTO4 = "Moto 4";
 const KIND_ORDER: StockKind[] = ["motas", "moto4", "carros"];
 export const KIND_LABEL: Record<StockKind, string> = { motas: "Motas", moto4: "Moto 4", carros: "Carros" };
 
-/** As barras do preço e dos quilómetros: no fim («50.000 €+») é sem limite. */
+/** As barras do preço e dos quilómetros: no fim («50 000 €+») é sem limite. */
 export const PRICE_MAX = 50_000;
 export const PRICE_STEP = 500;
 export const KM_MAX = 100_000;
@@ -40,8 +40,8 @@ export const KM_STEP = 1_000;
 export const CC_BUCKETS = [
   { id: "125", label: "125 cc", range: "Até 250 cc", min: 0, max: 250 },
   { id: "450", label: "450 cc", range: "De 251 a 650 cc", min: 251, max: 650 },
-  { id: "800", label: "800 cc", range: "De 651 a 1.000 cc", min: 651, max: 1000 },
-  { id: "1200", label: "1200 cc+", range: "Mais de 1.000 cc", min: 1001, max: Infinity },
+  { id: "800", label: "800 cc", range: `De 651 a ${formatNumber(1000)} cc`, min: 651, max: 1000 },
+  { id: "1200", label: `${formatNumber(1200)} cc+`, range: `Mais de ${formatNumber(1000)} cc`, min: 1001, max: Infinity },
 ] as const;
 
 /** As ordens à escolha (como na maqueta, «Mais recentes» primeiro e por defeito). */
@@ -268,20 +268,20 @@ export function activeChips(f: Core2Filters): Chip[] {
   };
   add("query", b.query ? `«${b.query}»` : null);
   add("model", b.model);
-  add("minPrice", b.minPrice != null ? `Desde ${euros(b.minPrice)}` : null);
-  add("maxPrice", b.maxPrice != null ? `Até ${euros(b.maxPrice)}` : null);
+  add("minPrice", b.minPrice != null ? `Desde ${formatPrice(b.minPrice)}` : null);
+  add("maxPrice", b.maxPrice != null ? `Até ${formatPrice(b.maxPrice)}` : null);
   add("minYear", b.minYear != null ? `Desde ${b.minYear}` : null);
   add("maxYear", b.maxYear != null ? `Até ${b.maxYear}` : null);
-  add("minMileage", b.minMileage != null ? `Desde ${dots(b.minMileage)} km` : null);
-  add("maxMileage", b.maxMileage != null ? `Até ${dots(b.maxMileage)} km` : null);
+  add("minMileage", b.minMileage != null ? `Desde ${formatNumber(b.minMileage)} km` : null);
+  add("maxMileage", b.maxMileage != null ? `Até ${formatNumber(b.maxMileage)} km` : null);
   out.push(...f.cc.map((id) => ({ key: `cc:${id}`, label: CC_BUCKETS.find((x) => x.id === id)?.label ?? id })));
   add("fuel", b.fuel);
   add("transmission", b.transmission);
   add("color", b.color);
-  add("minPower", b.minPower != null ? `Desde ${dots(b.minPower)} cv` : null);
-  add("maxPower", b.maxPower != null ? `Até ${dots(b.maxPower)} cv` : null);
-  add("minDisplacement", b.minDisplacement != null ? `Desde ${dots(b.minDisplacement)} cc` : null);
-  add("maxDisplacement", b.maxDisplacement != null ? `Até ${dots(b.maxDisplacement)} cc` : null);
+  add("minPower", b.minPower != null ? `Desde ${formatNumber(b.minPower)} cv` : null);
+  add("maxPower", b.maxPower != null ? `Até ${formatNumber(b.maxPower)} cv` : null);
+  add("minDisplacement", b.minDisplacement != null ? `Desde ${formatNumber(b.minDisplacement)} cc` : null);
+  add("maxDisplacement", b.maxDisplacement != null ? `Até ${formatNumber(b.maxDisplacement)} cc` : null);
   add("doors", b.doors != null ? `${b.doors} portas` : null);
   add("seats", b.seats != null ? `${b.seats} lugares` : null);
   for (const [key, label] of Object.entries(FLAG_LABELS) as [BaseKey, string][]) if (b[key] === true) add(key, label);

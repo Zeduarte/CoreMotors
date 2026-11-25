@@ -342,7 +342,7 @@ test("Core2 stock: Tipo (Motas, Moto 4, Carros), brands, categories, cc, price, 
   assert.deepEqual(run({ makes: ["BMW", "Honda"] }), ["bmw-320", "gs", "pcx"]);
   assert.deepEqual(run({ bodies: ["Trail"] }), ["gs", "tenere"]);
   // Cilindrada com os nomes da maqueta; cada caixa apanha as motas mais perto dessa classe, sem buracos.
-  assert.deepEqual(S.CC_BUCKETS.map((b) => b.label), ["125 cc", "450 cc", "800 cc", "1200 cc+"]);
+  assert.deepEqual(S.CC_BUCKETS.map((b) => b.label), ["125 cc", "450 cc", "800 cc", "1\u00a0200 cc+"]);
   assert.deepEqual(run({ cc: ["125"] }), ["pcx"]);
   assert.deepEqual(run({ cc: ["450", "800"] }), ["tenere", "yfz"]);
   assert.deepEqual(run({ cc: ["1200"] }), ["gs"], "o carro de 1995 cc não é uma mota de 1200 cc+");
@@ -414,11 +414,11 @@ test("Core2 stock: everything goes to the address and back; old links and the to
   assert.deepEqual(S.firstValues(new URLSearchParams("marca=BMW&marca=Honda")), { marca: "BMW" });
 });
 
-test("Core2 stock: active filters as tags with «×», with dots as in the mockups", () => {
+test("Core2 stock: active filters as tags with «×», numbers as in the Core", () => {
   const S = loader()("src/themes/core2/stock.ts");
   const f = { ...S.emptyCore2(), kinds: ["moto4"], makes: ["Yamaha"], bodies: ["Trail"], cc: ["450"], base: { ...S.emptyCore2().base, maxPrice: 15000, maxMileage: 50000, minYear: 2010, query: "ténéré", warrantyOnly: true } };
   const chips = S.activeChips(f);
-  assert.deepEqual(chips.map((c) => c.label), ["Moto 4", "Yamaha", "Trail", "«ténéré»", "Até 15.000 €", "Desde 2010", "Até 50.000 km", "450 cc", "Com garantia"]);
+  assert.deepEqual(chips.map((c) => c.label), ["Moto 4", "Yamaha", "Trail", "«ténéré»", "Até 15\u00a0000\u00a0€", "Desde 2010", "Até 50\u00a0000 km", "450 cc", "Com garantia"]);
   assert.deepEqual(S.activeChips(S.emptyCore2()), []);
   // Cada «×» tira só o seu filtro.
   let left = f;
@@ -430,18 +430,16 @@ test("Core2 stock: active filters as tags with «×», with dots as in the mocku
   assert.deepEqual(left, S.emptyCore2());
 });
 
-test("Core2 stock texts and links: numbers with dots, the top's links, category cards and hero", () => {
+test("Core2 stock texts and links: numbers as in the Core, the top's links, category cards and hero", () => {
   const U = loader()("src/themes/core2/ui.ts");
-  assert.deepEqual([0, 950, 1301, 12900, 1234567].map(U.dots), ["0", "950", "1.301", "12.900", "1.234.567"]);
-  assert.equal(U.euros(9950), "9.950 €");
-  assert.equal(U.priceText({ price: 12900 }), "12.900 €");
-  assert.equal(U.priceText({ price: 0 }), "Sob consulta");
-  assert.equal(U.priceText({ price: 5000, priceOnRequest: true }), "Sob consulta");
+  // Os números e os preços como no Core («12 450 €», espaço nos milhares), em todos os temas.
+  assert.equal(U.dots, undefined, "sem formatos próprios (os pontos das maquetes)");
+  assert.equal(U.euros, undefined);
   // As duas linhas dos cartões do telemóvel: categoria • cc (carros: combustível); km • frase (sem frase, cv; carros, caixa).
   const [car, gs, , yfz] = stockFixture();
-  assert.deepEqual(U.rowLines(yfz), ["Moto 4 • 450 cc", "4.000 km • Excelente estado"]);
-  assert.deepEqual(U.rowLines(gs), ["Trail • 1.170 cc", "59.400 km • 125 cv"]);
-  assert.deepEqual(U.rowLines(car), ["Berlina • Diesel", "10.000 km • Automática"]);
+  assert.deepEqual(U.rowLines(yfz), ["Moto 4 • 450 cc", "4\u00a0000 km • Excelente estado"]);
+  assert.deepEqual(U.rowLines(gs), ["Trail • 1\u00a0170 cc", "59\u00a0400 km • 125 cv"]);
+  assert.deepEqual(U.rowLines(car), ["Berlina • Diesel", "10\u00a0000 km • Automática"]);
   // Os links do topo filtram a lista e saltam para ela.
   assert.deepEqual(Object.values(U.STOCK_LINKS), ["/inventario?tipo=motas&moto4=0#lista", "/inventario?tipo=moto4#lista", "/inventario?tipo=carros#lista"]);
   // Os cartões das categorias: «Automóveis» no computador, «Carros» no telemóvel; a Moto 4 só com alguma em stock.
@@ -516,10 +514,10 @@ test("Core2 stock list: filter column and active filters bar as in the mockup, t
   assert.match(html, />Ordenar por</);
   assert.match(html, /Aplicar filtros/);
   assert.match(html, /Limpar</);
-  assert.match(html, />0 €<\/span><span>50\.000 €\+</);
-  assert.match(html, />0 km<\/span><span>100\.000 km\+</);
-  for (const cc of ["125 cc", "450 cc", "800 cc", "1200 cc+"]) assert.ok(html.includes(`<span class="min-w-0 break-words">${cc}</span>`), cc);
-  assert.match(html, /title="Mais de 1\.000 cc"/);
+  assert.match(html, />0\s€<\/span><span>50\s000\s€\+</);
+  assert.match(html, />0 km<\/span><span>100\s000 km\+</);
+  for (const cc of [/125 cc/, /450 cc/, /800 cc/, /1\s200 cc\+/]) assert.match(html, new RegExp(`<span class="min-w-0 break-words">${cc.source}</span>`));
+  assert.match(html, /title="Mais de 1\s000 cc"/);
   assert.equal((html.match(/checked=""/g) ?? []).length, 2, "Motas e BMW escolhidas");
   // Em cima: «Filtros activos» com «×», quantos veículos e a ordem («Mais recentes» primeiro).
   assert.match(html, /Filtros activos:/);
@@ -537,8 +535,8 @@ test("Core2 stock list: filter column and active filters bar as in the mockup, t
   assert.match(row, /<a href="\/viaturas\/gs"/);
   assert.match(row, /<div class="site-dark relative w-\[41%\][^"]*"><img src="https:\/\/cdn\.example\/gs\.jpg" alt="BMW X"/);
   assert.match(row, /<p[^>]*>BMW<\/p><div[^>]*><h3[^>]*>X<\/h3><span[^>]*>2015<\/span>/);
-  assert.match(row, /Trail • 1\.170 cc<br\/>59\.400 km • 125 cv/);
-  assert.match(row, /core2-serif[^"]*text-accent">11\.900 €</);
+  assert.match(row, /Trail • 1\s170 cc<br\/>59\s400 km • 125 cv/);
+  assert.match(row, /class="whitespace-nowrap text-lg font-semibold text-accent"><span[^>]*><span>11\s900\s€</);
   // Grelha: 4 por linha nos ecrãs largos, 3 nos médios, 2 nos tablets e 1 no telemóvel; a coluna dos filtros um pouco mais estreita.
   assert.match(html, /grid gap-x-5 gap-y-3 sm:grid-cols-2 sm:gap-y-8 xl:grid-cols-3 min-\[1600px\]:grid-cols-4/);
   assert.match(html, /lg:grid-cols-\[19rem_minmax\(0,1fr\)\] xl:grid-cols-\[20\.5rem_minmax\(0,1fr\)\]/);
@@ -560,7 +558,7 @@ test("Core2 stock list: filter column and active filters bar as in the mockup, t
   assert.match(open, /<option value="year-desc" selected="">Mais recentes<\/option>/);
   assert.deepEqual([...open.matchAll(/data-card="([^"]+)"/g)].map((m) => m[1]), ["pcx", "tenere", "bmw-320", "gs", "yfz"]);
   assert.ok([...open.matchAll(/data-priority="([^"]+)"/g)].every((m) => m[1] === "false"), "a imagem principal é a do topo, não as dos cartões");
-  assert.match(open, /Moto 4 • 450 cc<br\/>4\.000 km • Excelente estado/);
+  assert.match(open, /Moto 4 • 450 cc<br\/>4\s000 km • Excelente estado/);
 
   // Nada encontrado: limpar.
   assert.match(render("preco_max=1000", both), /Nenhuma viatura corresponde aos filtros[\s\S]*Limpar filtros/);
