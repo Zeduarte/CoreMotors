@@ -4,7 +4,7 @@ import { pageMetadata } from "@/components/seo/page-metadata";
 import Link from "next/link";
 import Image from "next/image";
 import { getVehicleBySlug } from "@/lib/queries";
-import { bodyFieldLabel, formatKm, formatNumber, priceLabel } from "@/lib/format";
+import { bodyFieldLabel, formatKm, formatNumber, vehiclePriceLabel } from "@/lib/format";
 import type { Vehicle } from "@/types/vehicle";
 import { CompareRemove } from "@/components/inventory/CompareRemove";
 
@@ -39,9 +39,9 @@ const ROWS: {
 }[] = [
   {
     label: "Preço",
-    get: (v) => priceLabel(v.price, v.priceOnRequest),
+    get: (v) => vehiclePriceLabel(v),
     best: "min",
-    metric: (v) => (v.priceOnRequest || !v.price ? null : v.price),
+    metric: (v) => (v.priceOnRequest || !v.price || v.status === "sold" ? null : v.price),
   },
   { label: "Ano", get: (v) => String(v.year), best: "max", metric: (v) => v.year },
   {

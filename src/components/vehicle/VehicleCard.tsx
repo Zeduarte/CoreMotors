@@ -9,7 +9,7 @@ import { ViewTransition } from "@/components/ui/ViewTransition";
 import { VehiclePrice } from "@/components/vehicle/VehiclePrice";
 import { registrationLabel } from "@/lib/vehicle-categories";
 import type { Vehicle } from "@/types/vehicle";
-import { formatKm, priceLabel } from "@/lib/format";
+import { formatKm, vehiclePriceLabel } from "@/lib/format";
 import { CompareButton } from "@/components/inventory/CompareButton";
 import { FavoriteButton } from "@/components/inventory/FavoriteButton";
 import { badgesFor } from "@/lib/badges";
@@ -85,7 +85,7 @@ export function VehicleCard({
         // A foto à vista vai já para o esqueleto da ficha (ver loading.tsx).
         onClick={(e) => setVehiclePreview(vehicle.slug, e.currentTarget.querySelector("img")?.currentSrc)}
         className="block focus:outline-none"
-        aria-label={`${vehicle.make} ${vehicle.model} ${vehicle.year} — ${priceLabel(vehicle.price, vehicle.priceOnRequest)}`}
+        aria-label={`${vehicle.make} ${vehicle.model} ${vehicle.year} — ${vehiclePriceLabel(vehicle)}`}
       >
         <ViewTransition
           name={sharedTransition ? `vehicle-${vehicle.slug}` : undefined}

@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { getVehicleBySlug, getBranding } from "@/lib/queries";
-import { formatKm, priceLabel } from "@/lib/format";
+import { formatKm, vehiclePriceLabel } from "@/lib/format";
 import { DEFAULT_BRANDING } from "@/lib/branding";
 
 export const alt = "Viatura";
@@ -123,7 +123,7 @@ export default async function Image({
               {vehicle.transmission ? <div style={{ display: "flex" }}>{vehicle.transmission}</div> : null}
             </div>
             <div style={{ display: "flex", fontSize: 64, fontWeight: 700, color: accent }}>
-              {priceLabel(vehicle.price, vehicle.priceOnRequest)}
+              {vehiclePriceLabel(vehicle)}
             </div>
           </div>
         </div>

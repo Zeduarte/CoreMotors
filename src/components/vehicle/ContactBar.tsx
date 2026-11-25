@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Vehicle } from "@/types/vehicle";
-import { priceLabel } from "@/lib/format";
+import { vehiclePriceLabel } from "@/lib/format";
 import { waHref, type Company } from "@/lib/branding";
 import { site } from "@/lib/site";
 import { useChat } from "@/components/chat/ChatContext";
@@ -73,7 +73,7 @@ export function ContactBar({
   }, [enabled, question]);
 
   const url = `${site.url}/viaturas/${vehicle.slug}`;
-  const message = `Olá! Tenho interesse no ${vehicle.make} ${vehicle.model} ${vehicle.year} (${priceLabel(vehicle.price, vehicle.priceOnRequest)}).\n${url}`;
+  const message = `Olá! Tenho interesse no ${vehicle.make} ${vehicle.model} ${vehicle.year} (${vehiclePriceLabel(vehicle)}).\n${url}`;
 
   return (
     // `fixed`, não `sticky`: em `sticky` a barra só colava dentro da caixa
@@ -90,7 +90,7 @@ export function ContactBar({
             {vehicle.make} {vehicle.model}
           </p>
           <p className="text-lg font-semibold text-accent">
-            {priceLabel(vehicle.price, vehicle.priceOnRequest)}
+            {vehiclePriceLabel(vehicle)}
           </p>
         </div>
 
