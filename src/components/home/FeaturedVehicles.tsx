@@ -94,7 +94,7 @@ export function FeaturedVehicles({
             {title}
           </AnimatedText>
         </div>
-        {/* Computador: ao lado do título. Telemóvel: por baixo dos 3 cartões. */}
+        {/* Computador: ao lado do título. Telemóvel: por baixo dos cartões e dos pontos. */}
         {row && shown.length > 0 && <div className="hidden md:block">{allLink}</div>}
       </div>
 
@@ -135,8 +135,6 @@ export function FeaturedVehicles({
                 ))}
           </div>
 
-          {row && <div className="mt-3 md:hidden">{allLink}</div>}
-
           {pages > 1 && (
             <div className="mt-6 flex items-center justify-center gap-4">
               <button
@@ -173,6 +171,8 @@ export function FeaturedVehicles({
               </button>
             </div>
           )}
+
+          {row && <div className="mt-6 md:hidden">{allLink}</div>}
 
           {!row && (
           <div className="mt-10 flex justify-center">
