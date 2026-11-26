@@ -465,7 +465,7 @@ test("Core2 stock top: title and the shop photo, then the category cards (no but
   const render = (props) => renderToStaticMarkup(React.createElement(Core2StockTop, props));
   const html = render({ siteTypes: ["car", "motorcycle"], hasMoto4: true });
   // O topo: título (o h1 da página), traço, frase e a foto da loja (sem botões: as categorias estão por baixo).
-  assert.match(html, /<h1[^>]*core2-serif[^>]*>A sua próxima aventura começa aqui\.<\/h1>/);
+  assert.match(html, /<h1[^>]*font-sans[^>]*font-semibold[^>]*>A sua próxima aventura começa aqui\.<\/h1>/);
   assert.ok(html.includes("Motas, moto 4 e automóveis selecionados, com qualidade, confiança e o acompanhamento de uma equipa especializada."));
   assert.match(html, /src="\/media\/core2\/inicio\.jpg"/);
   assert.doesNotMatch(html, /Ver motas|Ver carros/);
@@ -507,7 +507,7 @@ test("Core2 stock list: filter column and active filters bar as in the mockup, t
   assert.doesNotMatch(html, /bg-white(?!\/)|neutral-/);
   assert.doesNotMatch(html, /<h1/, "o h1 é o título do topo");
   // A coluna: «Filtros», quantos resultados, as secções, «Ordenar por» e os dois botões.
-  assert.match(html, /<h2[^>]*core2-serif[^>]*>.*Filtros<\/h2>/);
+  assert.match(html, /<h2[^>]*font-sans[^>]*font-semibold[^>]*>.*Filtros<\/h2>/);
   assert.match(html, /1 resultado</);
   const sections = [...html.matchAll(/aria-expanded="true"[^>]*>([^<]+)</g)].map((m) => m[1]);
   assert.deepEqual(sections, ["Tipo", "Marca", "Categoria", "Preço máximo", "Ano", "Quilómetros", "Cilindrada"]);

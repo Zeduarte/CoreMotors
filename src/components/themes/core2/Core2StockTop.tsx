@@ -31,7 +31,7 @@ export function Core2StockTop({ siteTypes, hasMoto4 }: { siteTypes: VehicleType[
           <div className="absolute inset-0 hidden bg-gradient-to-r from-ink from-[6%] via-ink/45 via-[20%] to-transparent to-[42%] md:block" />
         </div>
         <div className="container-px relative -mt-9 pb-2 md:mt-0 md:flex md:min-h-[22rem] md:flex-col md:justify-center md:py-10">
-          <h1 className="core2-serif max-w-[36rem] text-[2.55rem] leading-[1.04] md:text-[3.45rem]">{hero.title}</h1>
+          <h1 className="max-w-[36rem] font-sans text-[2.3rem] font-semibold leading-[1.06] tracking-tight md:text-[3.1rem]">{hero.title}</h1>
           <span aria-hidden className="mt-3 block h-1 w-14 rounded-full bg-accent md:mt-4 md:w-16" />
           <p className="mt-4 max-w-[30rem] text-[1.05rem] leading-snug text-paper/75 md:text-[1.2rem]">{hero.subtitle}</p>
         </div>

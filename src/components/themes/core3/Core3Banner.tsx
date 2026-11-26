@@ -49,7 +49,8 @@ export function Core3Banner({
             ))}
           </nav>
         )}
-        <h1 className={`core2-serif max-w-[36rem] leading-[1.04] ${big ? "text-[2.55rem] md:text-[3.45rem]" : "text-[2.1rem] md:text-[2.8rem]"}`}>{title}</h1>
+        {/* Páginas do stock (Motas, Moto 4, Carros): a letra do site; a serifada fica só no topo da página inicial. */}
+        <h1 className={`max-w-[36rem] leading-[1.04] ${big ? "core2-serif text-[2.55rem] md:text-[3.45rem]" : "font-sans font-semibold tracking-tight text-[2rem] md:text-[2.6rem]"}`}>{title}</h1>
         {big && <span aria-hidden className="mt-3 block h-1 w-14 rounded-full bg-accent md:mt-4 md:w-16" />}
         <p className={`mt-3 max-w-[30rem] leading-snug text-paper/75 ${big ? "text-[1.05rem] md:text-[1.2rem]" : "text-[0.95rem] md:text-base"}`}>{subtitle}</p>
       </div>

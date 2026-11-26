@@ -339,7 +339,7 @@ function FilterPanel({
   return (
     <div className="rounded-xl border border-white/10 bg-ink-soft">
       <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-5">
-        <h2 className="core2-serif flex items-center gap-3 text-[2rem] leading-none">
+        <h2 className="flex items-center gap-3 font-sans text-[1.6rem] font-semibold leading-none tracking-tight">
           <Core2Icon name="sliders" className="h-7 w-7 text-accent" strokeWidth={2.2} /> Filtros
         </h2>
         <span className="text-[0.95rem] text-paper/70" aria-live="polite">
