@@ -78,7 +78,7 @@ export function FeaturedVehicles({
   const allLink = (
     <Link
       href="/inventario"
-      className="group inline-flex shrink-0 items-center gap-2 rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-ink transition-transform duration-300 ease-premium hover:scale-[1.03]"
+      className="group inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 md:w-auto text-sm font-semibold text-ink transition-transform duration-300 ease-premium hover:scale-[1.03]"
     >
       Ver todas as {total} viaturas
       <span aria-hidden className="transition-transform duration-300 group-hover:translate-x-1">→</span>
@@ -94,7 +94,8 @@ export function FeaturedVehicles({
             {title}
           </AnimatedText>
         </div>
-        {row && shown.length > 0 && allLink}
+        {/* Computador: ao lado do título. Telemóvel: por baixo dos 3 cartões. */}
+        {row && shown.length > 0 && <div className="hidden md:block">{allLink}</div>}
       </div>
 
       {shown.length === 0 ? (
@@ -133,6 +134,8 @@ export function FeaturedVehicles({
                   </div>
                 ))}
           </div>
+
+          {row && <div className="mt-3 md:hidden">{allLink}</div>}
 
           {pages > 1 && (
             <div className="mt-6 flex items-center justify-center gap-4">
