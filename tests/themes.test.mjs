@@ -629,8 +629,13 @@ test("only the stock page changes with Core2 (top + list); the layout, the home 
     const code = readFileSync(f, "utf8");
     assert.match(code, /import \{ RowCard \} from "@\/components\/themes\/core2\/RowCard";/);
     assert.match(code, /card = "core"/);
-    assert.match(code, /card === "row" \? \(\s*<RowCard /);
+    // O cartão deitado só com `card === "row"` (nos destaques, guardado em `row`).
+    assert.match(code, /card === "row"/);
+    assert.match(code, /<RowCard /);
   }
+  const featured = readFileSync("src/components/home/FeaturedVehicles.tsx", "utf8");
+  assert.match(featured, /const row = card === "row";/);
+  assert.match(featured, /row\s*\?\s*groups\.map/);
   const home = readFileSync("src/app/(public)/(home)/page.tsx", "utf8");
   assert.equal(home.match(/card=\{theme === "core3" \? "row" : "core"\}/g)?.length, 2);
 });

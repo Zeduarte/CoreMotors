@@ -58,9 +58,12 @@ export function Core2Stock({
   vehicles,
   siteTypes,
   fixedKinds,
+  wide = false,
 }: {
   vehicles: Vehicle[];
   siteTypes: VehicleType[];
+  /** Filtros e cartões à largura toda do ecrã no computador (páginas Motas, Moto 4 e Carros do Core3). */
+  wide?: boolean;
   /** Os tipos à escolha, em vez de os do site (o Core3 passa `[]`: cada página é de um só tipo). */
   fixedKinds?: StockKind[];
 }) {
@@ -134,7 +137,7 @@ export function Core2Stock({
   return (
     // `#lista`: os botões e as categorias do topo saltam para aqui.
     <div id="lista" className="core2-stock scroll-mt-20 pb-24 pt-8 text-paper md:pt-10">
-      <div className="container-px">
+      <div className={wide ? "w-full px-6 md:px-8 xl:px-10" : "container-px"}>
         <div className="grid gap-6 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[20.5rem_minmax(0,1fr)]">
           {/* Coluna dos filtros (no telemóvel, no painel do botão «Filtros»). */}
           <aside aria-label="Filtros" className="hidden lg:block">
@@ -202,7 +205,7 @@ export function Core2Stock({
             ) : (
               <section aria-label="Viaturas" className="mt-6">
                 {/* Sem `priority` nas fotos: a imagem principal da página é a do topo. */}
-                <ul className="grid gap-x-5 gap-y-3 sm:grid-cols-2 sm:gap-y-8 xl:grid-cols-3 min-[1600px]:grid-cols-4">
+                <ul className={`grid gap-x-5 gap-y-3 sm:grid-cols-2 sm:gap-y-8 xl:grid-cols-3 min-[1600px]:grid-cols-4 ${wide ? "min-[2100px]:grid-cols-5" : ""}`}>
                   {results.map((v) => (
                     <li key={v.slug}>
                       <div className="hidden sm:block">
