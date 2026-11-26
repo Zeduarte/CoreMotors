@@ -635,7 +635,7 @@ test("only the stock page changes with Core2 (top + list); the layout, the home 
   }
   const featured = readFileSync("src/components/home/FeaturedVehicles.tsx", "utf8");
   assert.match(featured, /const row = card === "row";/);
-  assert.match(featured, /row \? \(\s*<RowCard /);
+  assert.match(featured, /row\s*\?\s*groups\.map/);
   const home = readFileSync("src/app/(public)/(home)/page.tsx", "utf8");
   assert.equal(home.match(/card=\{theme === "core3" \? "row" : "core"\}/g)?.length, 2);
 });

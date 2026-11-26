@@ -16,7 +16,8 @@ import { RowCard } from "@/components/themes/core2/RowCard";
  * o dedo, as setas ou os pontos). Desktop: 2 (md), 3 (lg) ou 4 por página.
  * Com `card="row"` (Core3) os cartões são deitados e ficam no máximo 3; o
  * «Ver todas as N viaturas» fica em cima, ao lado do título (como na maqueta),
- * com o fundo laranja.
+ * com o fundo laranja; no telemóvel os cartões vão 3 de cada vez,
+ * empilhados (desliza-se para o grupo seguinte, ou pelos pontos e setas).
  */
 export function FeaturedVehicles({
   vehicles,
@@ -71,6 +72,9 @@ export function FeaturedVehicles({
 
   const shown = vehicles.slice(0, 10);
   const row = card === "row";
+  // Telemóvel (Core3): 3 cartões empilhados de cada vez, como na maqueta.
+  const groups: Vehicle[][] = [];
+  for (let i = 0; i < shown.length; i += 3) groups.push(shown.slice(i, i + 3));
   const allLink = (
     <Link
       href="/inventario"
@@ -104,20 +108,30 @@ export function FeaturedVehicles({
             ref={trackRef}
             className="-mx-6 flex snap-x snap-mandatory scroll-px-6 gap-4 overflow-x-auto scroll-smooth px-6 pb-4 [-ms-overflow-style:none] [scrollbar-width:none] md:-mx-8 md:scroll-px-8 md:gap-6 md:px-8 [&::-webkit-scrollbar]:hidden"
           >
-            {shown.map((vehicle, i) => (
-              <div
-                key={vehicle.slug}
-                className={`w-full shrink-0 snap-start md:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)] ${
-                  row ? "" : "min-[1400px]:w-[calc((100%-4.5rem)/4)]"
-                }`}
-              >
-                {row ? (
-                  <RowCard vehicle={vehicle} sizes="(max-width: 768px) 40vw, 15vw" />
-                ) : (
-                  <VehicleCard vehicle={vehicle} priority={i < 3} />
-                )}
-              </div>
-            ))}
+            {row
+              ? groups.map((group, g) => (
+                  // Telemóvel: um grupo de 3 cartões empilhados, à largura do
+                  // ecrã. Computador: `md:contents` desfaz o grupo e os
+                  // cartões ficam lado a lado, 3 por página.
+                  <div key={g} className="flex w-full shrink-0 snap-start flex-col gap-3 md:contents">
+                    {group.map((vehicle) => (
+                      <div
+                        key={vehicle.slug}
+                        className="md:w-[calc((100%-1.5rem)/2)] md:shrink-0 md:snap-start lg:w-[calc((100%-3rem)/3)]"
+                      >
+                        <RowCard vehicle={vehicle} sizes="(max-width: 768px) 40vw, 15vw" />
+                      </div>
+                    ))}
+                  </div>
+                ))
+              : shown.map((vehicle, i) => (
+                  <div
+                    key={vehicle.slug}
+                    className="w-full shrink-0 snap-start md:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)] min-[1400px]:w-[calc((100%-4.5rem)/4)]"
+                  >
+                    <VehicleCard vehicle={vehicle} priority={i < 3} />
+                  </div>
+                ))}
           </div>
 
           {pages > 1 && (
