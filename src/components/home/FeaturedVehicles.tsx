@@ -16,9 +16,7 @@ import { RowCard } from "@/components/themes/core2/RowCard";
  * o dedo, as setas ou os pontos). Desktop: 2 (md), 3 (lg) ou 4 por página.
  * Com `card="row"` (Core3) os cartões são deitados e ficam no máximo 3; o
  * «Ver todas as N viaturas» fica em cima, ao lado do título (como na maqueta),
- * e no telemóvel os cartões vão empilhados de 3 em 3, em colunas que se
- * deslizam para o lado — a coluna seguinte espreita na margem, para se ver
- * que há mais.
+ * com o fundo laranja.
  */
 export function FeaturedVehicles({
   vehicles,
@@ -73,13 +71,10 @@ export function FeaturedVehicles({
 
   const shown = vehicles.slice(0, 10);
   const row = card === "row";
-  // Telemóvel (Core3): colunas de 3 cartões empilhados.
-  const groups: Vehicle[][] = [];
-  for (let i = 0; i < shown.length; i += 3) groups.push(shown.slice(i, i + 3));
   const allLink = (
     <Link
       href="/inventario"
-      className="group inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-accent hover:underline md:text-base"
+      className="group inline-flex shrink-0 items-center gap-2 rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-ink transition-transform duration-300 ease-premium hover:scale-[1.03]"
     >
       Ver todas as {total} viaturas
       <span aria-hidden className="transition-transform duration-300 group-hover:translate-x-1">→</span>
@@ -109,40 +104,21 @@ export function FeaturedVehicles({
             ref={trackRef}
             className="-mx-6 flex snap-x snap-mandatory scroll-px-6 gap-4 overflow-x-auto scroll-smooth px-6 pb-4 [-ms-overflow-style:none] [scrollbar-width:none] md:-mx-8 md:scroll-px-8 md:gap-6 md:px-8 [&::-webkit-scrollbar]:hidden"
           >
-            {row
-              ? groups.map((group, g) => (
-                  // Telemóvel: uma coluna de 3 cartões, mais estreita do que o
-                  // ecrã para a seguinte espreitar. Computador: `md:contents`
-                  // desfaz a coluna e cada cartão fica lado a lado.
-                  <div
-                    key={g}
-                    className={`flex shrink-0 snap-start flex-col gap-3 md:contents ${groups.length > 1 ? "w-[86%]" : "w-full"}`}
-                  >
-                    {group.map((vehicle) => (
-                      <div
-                        key={vehicle.slug}
-                        className="md:w-[calc((100%-1.5rem)/2)] md:shrink-0 md:snap-start lg:w-[calc((100%-3rem)/3)]"
-                      >
-                        <RowCard vehicle={vehicle} sizes="(max-width: 768px) 40vw, 15vw" />
-                      </div>
-                    ))}
-                  </div>
-                ))
-              : shown.map((vehicle, i) => (
-                  <div
-                    key={vehicle.slug}
-                    className="w-full shrink-0 snap-start md:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)] min-[1400px]:w-[calc((100%-4.5rem)/4)]"
-                  >
-                    <VehicleCard vehicle={vehicle} priority={i < 3} />
-                  </div>
-                ))}
+            {shown.map((vehicle, i) => (
+              <div
+                key={vehicle.slug}
+                className={`w-full shrink-0 snap-start md:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)] ${
+                  row ? "" : "min-[1400px]:w-[calc((100%-4.5rem)/4)]"
+                }`}
+              >
+                {row ? (
+                  <RowCard vehicle={vehicle} sizes="(max-width: 768px) 40vw, 15vw" />
+                ) : (
+                  <VehicleCard vehicle={vehicle} priority={i < 3} />
+                )}
+              </div>
+            ))}
           </div>
-
-          {row && pages > 1 && (
-            <p className="mt-1 text-center text-xs text-paper/50 md:hidden" aria-hidden>
-              Deslize para o lado para ver mais →
-            </p>
-          )}
 
           {pages > 1 && (
             <div className="mt-6 flex items-center justify-center gap-4">
@@ -181,7 +157,8 @@ export function FeaturedVehicles({
             </div>
           )}
 
-          <div className={`mt-10 flex justify-center ${row ? "hidden" : ""}`}>
+          {!row && (
+          <div className="mt-10 flex justify-center">
             <Link
               href="/inventario"
               className="group inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-3.5 text-sm font-semibold text-ink transition-transform duration-300 ease-premium hover:scale-[1.03]"
@@ -190,6 +167,7 @@ export function FeaturedVehicles({
               <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
             </Link>
           </div>
+          )}
         </>
       )}
     </section>
