@@ -105,9 +105,26 @@ export default async function PublicLayout({
           chatEnabled={!!process.env.ANTHROPIC_API_KEY}
         />
         <CompareBar />
-        {/* Core3, no telemóvel: Motas · Moto 4 · Carros fixos em baixo. */}
-        {theme === "core3" && <Core3MobileNav // Em baixo, sem «Contactos»: o botão do WhatsApp ao lado ocupa esse lugar.
-          items={bottomMenu ? core3Nav(siteTypes).filter((i) => i.href !== "/contactos") : core3Categories(siteTypes).map((c) => ({ href: c.href, label: c.short }))} everywhere={bottomMenu} />}
+        {/* Telemóvel: a barra de baixo. Core3: Motas · Moto 4 · Carros (ou o menu todo, se
+            Gestão o pedir). Core2: Motas · Carros, só no stock, para trocar de tipo. */}
+        <Suspense fallback={null}>
+          {theme === "core3" && (
+            <Core3MobileNav
+              // Em baixo, sem «Contactos»: o botão do WhatsApp ao lado ocupa esse lugar.
+              items={bottomMenu ? core3Nav(siteTypes).filter((i) => i.href !== "/contactos") : core3Categories(siteTypes).map((c) => ({ href: c.href, label: c.short }))}
+              everywhere={bottomMenu}
+            />
+          )}
+          {theme === "core2" && siteTypes.includes("motorcycle") && siteTypes.includes("car") && (
+            <Core3MobileNav
+              showOn={["/inventario"]}
+              items={[
+                { href: "/inventario?tipo=motas#lista", label: "Motas", tipo: ["motas", "moto4"] },
+                { href: "/inventario?tipo=carros#lista", label: "Carros", tipo: ["carros"] },
+              ]}
+            />
+          )}
+        </Suspense>
         <GrainOverlay />
       </div>
       </CompareProvider>

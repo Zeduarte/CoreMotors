@@ -14,7 +14,7 @@ export const core2: ThemeConfig = {
   ...core,
   id: "core2",
   label: "Core2",
-  description: "Igual ao Core, com a página do Stock das maquetes (topo com foto, filtros e cartões).",
+  description: "Igual ao Core, com a página do Stock das maquetes (topo com foto, filtros) e os cartões deitados do Core3; no telemóvel, Motas · Carros em baixo no stock.",
   texts: { ...core.texts },
   homeSections: [...core.homeSections],
 };

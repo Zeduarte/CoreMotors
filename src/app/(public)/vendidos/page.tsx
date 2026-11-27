@@ -23,7 +23,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 export default async function SoldPage() {
   const [vehicles, theme] = await Promise.all([getSoldVehicleList(), getSiteTheme()]);
-  const row = theme === "core3";
+  const row = theme === "core2" || theme === "core3";
 
   return (
     <div className="container-px pb-24 pt-32 md:pt-40">

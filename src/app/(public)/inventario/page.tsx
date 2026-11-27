@@ -106,7 +106,7 @@ export default async function InventoryPage({
     return (
       <div className={core2Serif.variable}>
         <Core2StockTop siteTypes={siteTypes} hasMoto4={stock.some((v) => kindOf(v) === "moto4")} />
-        <Core2Stock key={JSON.stringify(sp)} vehicles={stock} siteTypes={siteTypes} />
+        <Core2Stock key={JSON.stringify(sp)} vehicles={stock} siteTypes={siteTypes} card="row" />
       </div>
     );
   }

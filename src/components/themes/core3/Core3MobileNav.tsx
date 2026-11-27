@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 
@@ -18,12 +18,17 @@ import { motion } from "framer-motion";
 export function Core3MobileNav({
   items,
   everywhere = false,
+  showOn,
 }: {
-  items: { href: string; label: string }[];
+  /** `tipo`: no stock do Core2 (`/inventario?tipo=…`) a opção está ativa quando o filtro é um destes tipos. */
+  items: { href: string; label: string; tipo?: string[] }[];
   /** Menu em baixo (Gestão): as opções do menu (sem Contactos), em todas as páginas menos a ficha da viatura. */
   everywhere?: boolean;
+  /** Só nestas páginas (caminhos exatos), em vez das de stock por tipo (Core2: `/inventario`). */
+  showOn?: string[];
 }) {
   const pathname = usePathname();
+  const tipos = (useSearchParams().get("tipo") ?? "").split(",").filter(Boolean);
   const bar = useRef<HTMLElement>(null);
   // Só dentro das páginas de stock por tipo: liga-as entre si (entra-se nelas
   // pelos cartões da página inicial ou pelo menu de cima).
@@ -31,7 +36,7 @@ export function Core3MobileNav({
     pathname === "/inventario" || items.some((c) => pathname === c.href || pathname.startsWith(`${c.href}/`));
   // Na ficha da viatura a barra fixa do fundo (contactar) ocupa o lugar desta.
   const onVehiclePage = /^\/viaturas\/[^/]+/.test(pathname);
-  const hidden = items.length < 2 || (everywhere ? onVehiclePage : !inCategory);
+  const hidden = items.length < 2 || (showOn ? !showOn.includes(pathname) : everywhere ? onVehiclePage : !inCategory);
   const compact = items.length > 3;
 
   useEffect(() => {
@@ -70,7 +75,9 @@ export function Core3MobileNav({
     >
       <ul className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-white/[0.08] bg-ink-soft/75 p-1 shadow-lg shadow-black/30 backdrop-blur-xl">
         {items.map((c) => {
-          const active = pathname === c.href || pathname.startsWith(`${c.href}/`);
+          const active = c.tipo
+            ? tipos.length > 0 && tipos.every((t) => c.tipo!.includes(t))
+            : pathname === c.href || pathname.startsWith(`${c.href}/`);
           return (
             <li key={c.href}>
               <Link

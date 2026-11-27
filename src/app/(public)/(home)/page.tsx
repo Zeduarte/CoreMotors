@@ -114,6 +114,8 @@ export default async function HomePage() {
   // Gestão (`order`, em cima).
   // Core3: as categorias (Motas, Moto 4, Carros) e o texto do topo.
   const categories = core3Categories(siteTypes);
+  // Core2 e Core3: o cartão deitado (foto à esquerda) nos destaques, no stock e nos vendidos.
+  const rowCards = theme === "core2" || theme === "core3";
   const hero3 = heroTexts(siteTypes, categories.some((c) => c.key === "moto4"));
   const sections: Record<HomeSection, React.ReactNode> = {
     c3hero: <Core3Banner photo="/media/core2/inicio.jpg" title={hero3.title} subtitle={hero3.subtitle} big />,
@@ -138,13 +140,13 @@ export default async function HomePage() {
       <FeaturedVehicles
         vehicles={allVehicles}
         total={allVehicles.length}
-        card={theme === "core3" ? "row" : "core"}
+        card={rowCards ? "row" : "core"}
         // Core3: abre a 1.ª categoria (Motas, ou Carros num site só de carros) e o visitante filtra.
         allHref={theme === "core3" ? categories[0]?.href : undefined}
       />
     ),
     brands: <BrandMarquee brands={marqueeBrands} available={stockBrands} />,
-    stock: <HomeStock vehicles={allVehicles} card={theme === "core3" ? "row" : "core"} />,
+    stock: <HomeStock vehicles={allVehicles} card={rowCards ? "row" : "core"} />,
     // Num site com carros e motas, «Tem uma viatura para trocar?».
     sell: <SellCTA vehicleType={type} mixed={siteTypes.length > 1} />,
     trust: (
@@ -154,7 +156,7 @@ export default async function HomePage() {
         poster={existingMedia(type, OPTIONAL_MEDIA.confiancaPoster)}
       />
     ),
-    sold: <SoldShowcase vehicles={sold} card={theme === "core3" ? "row" : "core"} />,
+    sold: <SoldShowcase vehicles={sold} card={rowCards ? "row" : "core"} />,
     showroom: (
       <div className="container-px">
         {theme !== "core3" && <ServiceCards items={showroom.services} />}
