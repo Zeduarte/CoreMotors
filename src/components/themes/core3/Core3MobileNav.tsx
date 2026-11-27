@@ -71,7 +71,7 @@ export function Core3MobileNav({
     <nav
       ref={bar}
       aria-label="Categorias"
-      className={`pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:hidden pr-[5.25rem]`}
+      className={`pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:hidden ${items.length > 2 ? "pr-[5.25rem]" : ""}`}
     >
       <ul className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-white/[0.08] bg-ink-soft/75 p-1 shadow-lg shadow-black/30 backdrop-blur-xl">
         {items.map((c) => {

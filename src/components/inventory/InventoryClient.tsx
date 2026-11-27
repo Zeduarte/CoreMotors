@@ -26,6 +26,7 @@ const StockAlertForm = dynamic(() => import("./StockAlertForm").then((m) => m.St
 import { sameBrand } from "@/lib/brand-name";
 import { Filters } from "./Filters";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
+import { RowCard } from "@/components/themes/core2/RowCard";
 
 /**
  * Tira os filtros que o tipo escolhido não tem. Um link antigo
@@ -97,6 +98,7 @@ export function InventoryClient({
   header,
   headerByType,
   vehicleTypes = ["car", "motorcycle"],
+  card = "core",
 }: {
   vehicles: Vehicle[];
   initialFilters?: Partial<VehicleFilters>;
@@ -118,6 +120,8 @@ export function InventoryClient({
    * Carros · Motas»; com um só, o tipo fica fixo (e fora do endereço).
    */
   vehicleTypes?: VehicleType[];
+  /** «row»: o cartão deitado (Core2/Core3: foto à esquerda, dados à direita). */
+  card?: "core" | "row";
 }) {
   const locked = vehicleTypes.length === 1 ? vehicleTypes[0]! : null;
   // O endereço manda: ao voltar da ficha, o Next pode repor a página com os
@@ -297,7 +301,11 @@ export function InventoryClient({
       ) : (
         <motion.div
           layout
-          className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 min-[1400px]:grid-cols-4"
+          className={
+            card === "row"
+              ? "grid gap-3 md:grid-cols-2 min-[1500px]:grid-cols-3"
+              : "grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 min-[1400px]:grid-cols-4"
+          }
         >
           {/* `initial={false}`: ao chegar à página os cartões já lá estão (a
               página entra a deslizar); só os que entram ao filtrar animam. */}
@@ -320,7 +328,11 @@ export function InventoryClient({
                   layout: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
                 }}
               >
-                <VehicleCard vehicle={vehicle} priority={i < 3} />
+                {card === "row" ? (
+                  <RowCard vehicle={vehicle} sizes="(max-width: 768px) 40vw, 15vw" />
+                ) : (
+                  <VehicleCard vehicle={vehicle} priority={i < 3} />
+                )}
               </motion.div>
             ))}
           </AnimatePresence>

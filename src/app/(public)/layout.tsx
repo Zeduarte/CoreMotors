@@ -106,7 +106,7 @@ export default async function PublicLayout({
         />
         <CompareBar />
         {/* Telemóvel: a barra de baixo. Core3: Motas · Moto 4 · Carros (ou o menu todo, se
-            Gestão o pedir). Core2: Motas · Carros, só no stock, para trocar de tipo. */}
+            Gestão o pedir). Core2: Motas · Carros (centrados), só no stock, para trocar de tipo. */}
         <Suspense fallback={null}>
           {theme === "core3" && (
             <Core3MobileNav
@@ -119,8 +119,8 @@ export default async function PublicLayout({
             <Core3MobileNav
               showOn={["/inventario"]}
               items={[
-                { href: "/inventario?tipo=motas#lista", label: "Motas", tipo: ["motas", "moto4"] },
-                { href: "/inventario?tipo=carros#lista", label: "Carros", tipo: ["carros"] },
+                { href: "/inventario?tipo=motas", label: "Motas", tipo: ["motas", "moto4"] },
+                { href: "/inventario?tipo=carros", label: "Carros", tipo: ["carros"] },
               ]}
             />
           )}

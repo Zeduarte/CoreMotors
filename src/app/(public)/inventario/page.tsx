@@ -13,9 +13,7 @@ import { SeoLinks } from "@/components/seo/SeoLinks";
 import { Suspense } from "react";
 import { Core3Banner } from "@/components/themes/core3/Core3Banner";
 import { Core2Stock } from "@/components/themes/core2/Core2Stock";
-import { Core2StockTop } from "@/components/themes/core2/Core2StockTop";
 import { core2Serif } from "@/themes/core2/fonts";
-import { kindOf } from "@/themes/core2/stock";
 import { getSiteTheme } from "@/lib/site-theme-query";
 import { toListVehicle } from "@/lib/vehicle-list";
 
@@ -94,23 +92,6 @@ export default async function InventoryPage({
         : null;
   const all = await getVehicles();
 
-  // Tema Core2: a página das maquetes — em cima a foto da loja e os cartões
-  // das categorias, por baixo a coluna dos filtros e a grelha com os cartões
-  // das viaturas (os do Core; no telemóvel, deitados, com a frase curta do
-  // anúncio). Sem os campos do OLX (não têm caixa nesta coluna). A letra
-  // serifada é só desta página.
-  if (theme === "core2") {
-    const stock = all
-      .filter((v) => siteTypes.includes(v.vehicleType ?? "car"))
-      .map((v) => ({ ...toListVehicle(v), tagline: v.tagline }));
-    return (
-      <div className={core2Serif.variable}>
-        <Core2StockTop siteTypes={siteTypes} hasMoto4={stock.some((v) => kindOf(v) === "moto4")} />
-        <Core2Stock key={JSON.stringify(sp)} vehicles={stock} siteTypes={siteTypes} card="row" />
-      </div>
-    );
-  }
-
   // Tema Core3: o stock de todas as categorias (o «Ver todas as viaturas» da
   // página inicial), com o topo do Core3 e o stock do Core2 à largura toda.
   // Sem isto caía na página do Core.
@@ -163,6 +144,8 @@ export default async function InventoryPage({
         initialSort={sortFromQuery(sp)}
         olxFieldsByType={olxFieldsByType}
         vehicleTypes={siteTypes}
+        // Core2: a página e os filtros do Core, com o cartão deitado do Core3.
+        card={theme === "core2" ? "row" : "core"}
       />
 
       {/* Pesquisas populares: páginas por marca, categoria e preço (Google),
