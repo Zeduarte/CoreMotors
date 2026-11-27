@@ -59,6 +59,7 @@ export function Core2Stock({
   siteTypes,
   fixedKinds,
   wide = false,
+  card = "core",
 }: {
   vehicles: Vehicle[];
   siteTypes: VehicleType[];
@@ -66,6 +67,8 @@ export function Core2Stock({
   wide?: boolean;
   /** Os tipos à escolha, em vez de os do site (o Core3 passa `[]`: cada página é de um só tipo). */
   fixedKinds?: StockKind[];
+  /** «row»: o cartão deitado em todos os ecrãs, como nos destaques (Core3). */
+  card?: "core" | "row";
 }) {
   const kinds = useMemo(() => fixedKinds ?? kindsFor(siteTypes, vehicles), [fixedKinds, siteTypes, vehicles]);
   // O endereço manda (lido do router, como no Core): ao voltar da ficha, a
@@ -205,15 +208,27 @@ export function Core2Stock({
             ) : (
               <section aria-label="Viaturas" className="mt-6">
                 {/* Sem `priority` nas fotos: a imagem principal da página é a do topo. */}
-                <ul className={`grid gap-x-5 gap-y-3 sm:grid-cols-2 sm:gap-y-8 xl:grid-cols-3 min-[1600px]:grid-cols-4 ${wide ? "min-[2100px]:grid-cols-5" : ""}`}>
+                <ul
+                  className={
+                    card === "row"
+                      ? "grid gap-3 md:grid-cols-2 min-[1500px]:grid-cols-3"
+                      : `grid gap-x-5 gap-y-3 sm:grid-cols-2 sm:gap-y-8 xl:grid-cols-3 min-[1600px]:grid-cols-4 ${wide ? "min-[2100px]:grid-cols-5" : ""}`
+                  }
+                >
                   {results.map((v) => (
                     <li key={v.slug}>
-                      <div className="hidden sm:block">
-                        <VehicleCard vehicle={v} />
-                      </div>
-                      <div className="sm:hidden">
-                        <RowCard vehicle={v} />
-                      </div>
+                      {card === "row" ? (
+                        <RowCard vehicle={v} sizes="(max-width: 768px) 40vw, 15vw" />
+                      ) : (
+                        <>
+                          <div className="hidden sm:block">
+                            <VehicleCard vehicle={v} />
+                          </div>
+                          <div className="sm:hidden">
+                            <RowCard vehicle={v} />
+                          </div>
+                        </>
+                      )}
                     </li>
                   ))}
                 </ul>

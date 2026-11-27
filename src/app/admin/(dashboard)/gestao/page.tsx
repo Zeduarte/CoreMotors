@@ -49,7 +49,7 @@ export default async function GestaoPage() {
           todas as versões. Cada versão pode ser escura, clara ou seguir o sistema de quem visita.
         </p>
       </div>
-      <SiteThemeForm initial={current.theme} initialModes={current.modes} themes={themes} />
+      <SiteThemeForm initial={current.theme} initialModes={current.modes} initialMobileMenu={current.mobileMenu} themes={themes} />
 
       <div className="mb-6 mt-10">
         <h2 className="text-lg font-semibold text-paper">Página inicial</h2>

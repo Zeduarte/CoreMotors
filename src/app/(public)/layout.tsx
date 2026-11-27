@@ -56,6 +56,8 @@ export default async function PublicLayout({
     getSocialLinks(),
   ]);
   const { theme, mode } = appearance;
+  // Core3: o menu em baixo (telemóvel) em vez dos 3 traços em cima.
+  const bottomMenu = theme === "core3" && appearance.mobileMenu === "bottom";
   // Sem stock nenhum (ou a leitura falhou), não se filtra nada: um erro
   // passageiro não pode apagar a comparação de quem está a navegar.
   const stockSlugs = stock.length ? stock.map((v) => v.slug) : undefined;
@@ -90,7 +92,7 @@ export default async function PublicLayout({
           <NavigationProgress />
         </Suspense>
         {/* O cabeçalho é o do Core em todas as versões; o Core3 tem o seu menu. */}
-        <Header branding={branding} stockSlugs={stockSlugs} nav={theme === "core3" ? core3Nav(siteTypes) : undefined} />
+        <Header branding={branding} stockSlugs={stockSlugs} nav={theme === "core3" ? core3Nav(siteTypes) : undefined} bottomMenu={bottomMenu} />
         <main id="conteudo" className="pt-16">{children}</main>
         <Footer theme={theme} branding={branding} legal={legal} background={existingMedia(type, OPTIONAL_MEDIA.rodape)} siteTypes={siteTypes} social={social} />
         {/* Assistente virtual + canais de contacto no mesmo botão flutuante.
@@ -104,7 +106,8 @@ export default async function PublicLayout({
         />
         <CompareBar />
         {/* Core3, no telemóvel: Motas · Moto 4 · Carros fixos em baixo. */}
-        {theme === "core3" && <Core3MobileNav categories={core3Categories(siteTypes)} />}
+        {theme === "core3" && <Core3MobileNav // Em baixo, sem «Contactos»: o botão do WhatsApp ao lado ocupa esse lugar.
+          items={bottomMenu ? core3Nav(siteTypes).filter((i) => i.href !== "/contactos") : core3Categories(siteTypes).map((c) => ({ href: c.href, label: c.short }))} everywhere={bottomMenu} />}
         <GrainOverlay />
       </div>
       </CompareProvider>

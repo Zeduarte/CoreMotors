@@ -127,7 +127,7 @@ export default async function InventoryPage({
           crumbs={[{ label: "Início", href: "/" }, { label: "Stock" }]}
         />
         <Suspense fallback={null}>
-          <Core2Stock key={JSON.stringify(sp)} vehicles={stock} siteTypes={siteTypes} wide />
+          <Core2Stock key={JSON.stringify(sp)} vehicles={stock} siteTypes={siteTypes} wide card="row" />
         </Suspense>
       </div>
     );

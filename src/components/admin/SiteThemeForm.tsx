@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { saveSiteTheme } from "@/lib/actions/gestao";
-import { SITE_MODES, SITE_MODE_LABELS, type SiteMode, type ThemeId, type ThemeNote } from "@/themes/index";
+import { SITE_MODES, SITE_MODE_LABELS, type MobileMenu, type SiteMode, type ThemeId, type ThemeNote } from "@/themes/index";
 
 const MODE_HINT: Record<SiteMode, string> = {
   dark: "O de sempre: fundo preto.",
@@ -20,22 +20,25 @@ const MODE_HINT: Record<SiteMode, string> = {
 export function SiteThemeForm({
   initial,
   initialModes,
+  initialMobileMenu,
   themes,
 }: {
   initial: ThemeId;
   initialModes: Record<ThemeId, SiteMode>;
+  initialMobileMenu: MobileMenu;
   themes: { id: ThemeId; label: string; description: string; notes?: ThemeNote[] }[];
 }) {
   const router = useRouter();
   const [theme, setTheme] = useState<ThemeId>(initial);
   const [modes, setModes] = useState<Record<ThemeId, SiteMode>>(initialModes);
+  const [mobileMenu, setMobileMenu] = useState<MobileMenu>(initialMobileMenu);
   const [pending, start] = useTransition();
   const selectedNotes = themes.find((t) => t.id === theme)?.notes ?? [];
-  const changed = theme !== initial || themes.some((t) => modes[t.id] !== initialModes[t.id]);
+  const changed = theme !== initial || themes.some((t) => modes[t.id] !== initialModes[t.id]) || mobileMenu !== initialMobileMenu;
 
   function save() {
     start(async () => {
-      const r = await saveSiteTheme(theme, modes);
+      const r = await saveSiteTheme(theme, modes, mobileMenu);
       if (!r.ok) {
         toast.error(r.error ?? "Não foi possível guardar.");
         return;
@@ -98,6 +101,32 @@ export function SiteThemeForm({
                 })}
               </div>
               <p className="mt-2 text-xs text-paper/45">{MODE_HINT[modes[t.id]]}</p>
+
+              {t.id === "core3" && (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold text-paper/70">Menu no telemóvel</p>
+                  <div role="group" aria-label="Menu no telemóvel" className="mt-1.5 grid grid-cols-2 gap-1 rounded-full border border-white/10 p-1">
+                    {(["top", "bottom"] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        aria-pressed={mobileMenu === m}
+                        onClick={() => setMobileMenu(m)}
+                        className={`rounded-full px-2 py-1.5 text-xs font-semibold transition-colors ${
+                          mobileMenu === m ? "bg-paper text-ink" : "text-paper/65 hover:text-paper"
+                        }`}
+                      >
+                        {m === "top" ? "Em cima" : "Em baixo"}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-paper/45">
+                    {mobileMenu === "top"
+                      ? "Os 3 traços no cabeçalho abrem o menu."
+                      : "Sem os 3 traços: Motas · Moto 4 · Carros · Vender numa barra em baixo (o WhatsApp ao lado faz de Contactos), em todas as páginas."}
+                  </p>
+                </div>
+              )}
             </div>
           );
         })}

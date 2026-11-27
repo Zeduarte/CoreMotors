@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import type { Core3Category } from "@/themes/core3/ui";
 
 /**
  * Core3, no telemóvel: Motas · Moto 4 · Carros numa cápsula flutuante em
@@ -16,14 +15,24 @@ import type { Core3Category } from "@/themes/core3/ui";
  * de comparação sobem por cima dela, ver core3.css) e reserva esse espaço no
  * fim da página, para não tapar o rodapé.
  */
-export function Core3MobileNav({ categories }: { categories: Pick<Core3Category, "key" | "href" | "short">[] }) {
+export function Core3MobileNav({
+  items,
+  everywhere = false,
+}: {
+  items: { href: string; label: string }[];
+  /** Menu em baixo (Gestão): as opções do menu (sem Contactos), em todas as páginas menos a ficha da viatura. */
+  everywhere?: boolean;
+}) {
   const pathname = usePathname();
   const bar = useRef<HTMLElement>(null);
   // Só dentro das páginas de stock por tipo: liga-as entre si (entra-se nelas
   // pelos cartões da página inicial ou pelo menu de cima).
   const inCategory =
-    pathname === "/inventario" || categories.some((c) => pathname === c.href || pathname.startsWith(`${c.href}/`));
-  const hidden = !inCategory || categories.length < 2;
+    pathname === "/inventario" || items.some((c) => pathname === c.href || pathname.startsWith(`${c.href}/`));
+  // Na ficha da viatura a barra fixa do fundo (contactar) ocupa o lugar desta.
+  const onVehiclePage = /^\/viaturas\/[^/]+/.test(pathname);
+  const hidden = items.length < 2 || (everywhere ? onVehiclePage : !inCategory);
+  const compact = items.length > 3;
 
   useEffect(() => {
     const el = bar.current;
@@ -34,6 +43,8 @@ export function Core3MobileNav({ categories }: { categories: Pick<Core3Category,
       // Só no telemóvel: no computador a barra está escondida (altura 0).
       const h = el.offsetHeight;
       root.style.setProperty("--core3-nav", `${h}px`);
+      // O botão do WhatsApp fica ao lado da cápsula, à mesma altura.
+      root.dataset.core3Nav = "side";
       document.body.style.paddingBottom = h ? `${h}px` : before;
     };
     apply();
@@ -42,6 +53,7 @@ export function Core3MobileNav({ categories }: { categories: Pick<Core3Category,
     return () => {
       observer.disconnect();
       root.style.removeProperty("--core3-nav");
+      delete root.dataset.core3Nav;
       document.body.style.paddingBottom = before;
     };
   }, [hidden]);
@@ -54,17 +66,17 @@ export function Core3MobileNav({ categories }: { categories: Pick<Core3Category,
     <nav
       ref={bar}
       aria-label="Categorias"
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:hidden"
+      className={`pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:hidden pr-[5.25rem]`}
     >
       <ul className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-white/[0.08] bg-ink-soft/75 p-1 shadow-lg shadow-black/30 backdrop-blur-xl">
-        {categories.map((c) => {
+        {items.map((c) => {
           const active = pathname === c.href || pathname.startsWith(`${c.href}/`);
           return (
-            <li key={c.key}>
+            <li key={c.href}>
               <Link
                 href={c.href}
                 aria-current={active ? "page" : undefined}
-                className={`relative block rounded-full px-4 py-2 text-[0.8rem] font-semibold transition-colors duration-300 ${
+                className={`relative block rounded-full ${compact ? "px-2.5 py-2 text-[0.75rem]" : "px-4 py-2 text-[0.8rem]"} font-semibold transition-colors duration-300 ${
                   active ? "text-ink" : "text-paper/70 active:text-paper"
                 }`}
               >
@@ -76,7 +88,7 @@ export function Core3MobileNav({ categories }: { categories: Pick<Core3Category,
                     className="absolute inset-0 rounded-full bg-accent"
                   />
                 )}
-                <span className="relative">{c.short}</span>
+                <span className="relative">{c.label}</span>
               </Link>
             </li>
           );
