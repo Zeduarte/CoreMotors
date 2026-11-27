@@ -43,6 +43,8 @@ export function Core3MobileNav({
       // Só no telemóvel: no computador a barra está escondida (altura 0).
       const h = el.offsetHeight;
       root.style.setProperty("--core3-nav", `${h}px`);
+      // Com 3 opções o botão do WhatsApp cabe ao lado da cápsula; com 5, fica por cima.
+      root.dataset.core3Nav = everywhere ? "stack" : "side";
       document.body.style.paddingBottom = h ? `${h}px` : before;
     };
     apply();
@@ -51,9 +53,10 @@ export function Core3MobileNav({
     return () => {
       observer.disconnect();
       root.style.removeProperty("--core3-nav");
+      delete root.dataset.core3Nav;
       document.body.style.paddingBottom = before;
     };
-  }, [hidden]);
+  }, [hidden, everywhere]);
 
   if (hidden) return null;
 
@@ -63,7 +66,7 @@ export function Core3MobileNav({
     <nav
       ref={bar}
       aria-label="Categorias"
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:hidden"
+      className={`pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:hidden ${everywhere ? "" : "pr-[5.75rem]"}`}
     >
       <ul className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-white/[0.08] bg-ink-soft/75 p-1 shadow-lg shadow-black/30 backdrop-blur-xl">
         {items.map((c) => {
