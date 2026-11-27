@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentProfile } from "@/lib/admin-queries";
 import { revalidatePublic } from "@/lib/public-cache";
 import { createClient } from "@/lib/supabase/server";
-import { THEME_IDS, getTheme, isSiteMode, isThemeId, resolveLayout, type SiteMode, type ThemeId } from "@/themes/index";
+import { THEME_IDS, getTheme, isMobileMenu, isSiteMode, isThemeId, resolveLayout, type SiteMode, type ThemeId } from "@/themes/index";
 
 export interface GestaoResult {
   ok: boolean;
@@ -16,17 +16,21 @@ export interface GestaoResult {
  * de cada um (Escuro, Claro ou Automático). Só o acesso core (o dono da conta);
  * na base de dados, a 0055 faz a mesma regra.
  */
-export async function saveSiteTheme(theme: unknown, modes?: unknown): Promise<GestaoResult> {
+export async function saveSiteTheme(theme: unknown, modes?: unknown, mobileMenu?: unknown): Promise<GestaoResult> {
   const me = await getCurrentProfile();
   if (!me?.is_owner) return { ok: false, error: "Só o acesso core pode mudar a versão do site." };
   if (!isThemeId(theme)) return { ok: false, error: "Escolha uma das versões." };
   // A aparência de cada versão (todas as versões, cada uma com um modo conhecido).
-  let content: { theme: ThemeId; modes?: Record<ThemeId, SiteMode> } = { theme };
+  let content: { theme: ThemeId; modes?: Record<ThemeId, SiteMode>; mobileMenu?: string } = { theme };
+  if (mobileMenu !== undefined) {
+    if (!isMobileMenu(mobileMenu)) return { ok: false, error: "Escolha o menu em cima ou em baixo." };
+    content.mobileMenu = mobileMenu;
+  }
   if (modes !== undefined) {
     const m = modes as Record<string, unknown> | null;
     if (!m || typeof m !== "object" || !THEME_IDS.every((id) => isSiteMode(m[id])))
       return { ok: false, error: "Escolha Escuro, Claro ou Automático para cada versão." };
-    content = { theme, modes: Object.fromEntries(THEME_IDS.map((id) => [id, m[id]])) as Record<ThemeId, SiteMode> };
+    content = { ...content, modes: Object.fromEntries(THEME_IDS.map((id) => [id, m[id]])) as Record<ThemeId, SiteMode> };
   }
   return writeThemeContent(content);
 }

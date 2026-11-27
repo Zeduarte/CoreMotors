@@ -39,8 +39,24 @@ export function parseSiteModes(content: unknown): Record<ThemeId, SiteMode> {
 }
 
 /** A versão em uso, a aparência dela e a página inicial escolhida para cada tema. */
+/** Core3, no telemóvel: o menu em cima (os 3 traços) ou todas as opções numa barra em baixo. */
+export type MobileMenu = "top" | "bottom";
+export const MOBILE_MENUS: readonly MobileMenu[] = ["top", "bottom"];
+export const DEFAULT_MOBILE_MENU: MobileMenu = "top";
+
+export function isMobileMenu(value: unknown): value is MobileMenu {
+  return typeof value === "string" && (MOBILE_MENUS as readonly string[]).includes(value);
+}
+
+export function parseMobileMenu(content: unknown): MobileMenu {
+  const raw = (content as { mobileMenu?: unknown } | null)?.mobileMenu;
+  return isMobileMenu(raw) ? raw : DEFAULT_MOBILE_MENU;
+}
+
 export interface SiteAppearance {
   theme: ThemeId;
+  /** Só o Core3 usa: onde fica o menu no telemóvel. */
+  mobileMenu: MobileMenu;
   mode: SiteMode;
   modes: Record<ThemeId, SiteMode>;
   layouts: HomeLayouts;
@@ -49,7 +65,7 @@ export interface SiteAppearance {
 export function parseSiteAppearance(content: unknown): SiteAppearance {
   const theme = parseThemeId(content);
   const modes = parseSiteModes(content);
-  return { theme, mode: modes[theme], modes, layouts: parseLayouts(content) };
+  return { theme, mode: modes[theme], modes, mobileMenu: parseMobileMenu(content), layouts: parseLayouts(content) };
 }
 
 export function getTheme(id: ThemeId): ThemeConfig {

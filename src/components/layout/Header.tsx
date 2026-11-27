@@ -41,6 +41,7 @@ export function Header({
   branding = DEFAULT_BRANDING,
   stockSlugs,
   nav: themeNav,
+  bottomMenu = false,
 }: {
   branding?: Branding;
   /**
@@ -48,6 +49,8 @@ export function Header({
    * Carros · Vender · Contactos). Sem isto, o menu de sempre com os nomes do tema.
    */
   nav?: { href: string; label: string }[];
+  /** Core3: no telemóvel o menu vai para uma barra em baixo, por isso não há os 3 traços. */
+  bottomMenu?: boolean;
   /**
    * As viaturas no site agora (à venda e reservadas). O contador dos
    * favoritos conta só estas, como a página /favoritos: uma viatura vendida,
@@ -190,7 +193,8 @@ export function Header({
           })}
         </ul>
 
-        <div className="hidden items-center gap-3 md:flex">
+        {/* Menu em baixo (Core3): no telemóvel fica só o coração dos favoritos. */}
+        <div className={bottomMenu ? "flex items-center gap-3" : "hidden items-center gap-3 md:flex"}>
           {/* Sem pré-carregamento: a lista dos favoritos vem do stock atual
               (o router do Next guardava a pré-carregada até 5 minutos, e
               mostrava viaturas que entretanto saíram do site). */}
@@ -223,14 +227,14 @@ export function Header({
           </Link>
           <a
             href={branding.company.phoneHref}
-            className="rounded-full border border-white/15 px-5 py-2 text-sm font-medium text-paper transition-colors duration-300 hover:border-accent hover:text-accent"
+            className={`${bottomMenu ? "hidden md:block " : ""}rounded-full border border-white/15 px-5 py-2 text-sm font-medium text-paper transition-colors duration-300 hover:border-accent hover:text-accent`}
           >
             {branding.company.phone}
           </a>
         </div>
 
         {/* Em mobile só há espaço para a versão curta, ao lado do menu. */}
-        <div className="flex items-center gap-2 md:hidden">
+        <div className={`items-center gap-2 md:hidden ${bottomMenu ? "hidden" : "flex"}`}>
 
         {/* Botão mobile */}
         <button

@@ -1,7 +1,7 @@
 import "server-only";
 import { cachedPublic, safely } from "@/lib/public-cache";
 import { supabasePublic } from "@/lib/supabase/public";
-import { DEFAULT_MODE, DEFAULT_THEME, THEME_IDS, parseSiteAppearance, type SiteAppearance, type ThemeId } from "@/themes/index";
+import { DEFAULT_MOBILE_MENU, DEFAULT_MODE, DEFAULT_THEME, THEME_IDS, parseSiteAppearance, type SiteAppearance, type ThemeId } from "@/themes/index";
 
 /**
  * O tema do site público (Gestão → Versão do site): Core ou Core2, e a
@@ -22,6 +22,7 @@ const fetchSiteAppearance = cachedPublic(async () => {
 const FALLBACK: SiteAppearance = {
   theme: DEFAULT_THEME,
   mode: DEFAULT_MODE,
+  mobileMenu: DEFAULT_MOBILE_MENU,
   modes: Object.fromEntries(THEME_IDS.map((id) => [id, DEFAULT_MODE])) as SiteAppearance["modes"],
   layouts: {},
 };
