@@ -4,6 +4,8 @@ import { core3 } from "./core3";
 import { SITE_MODES, THEME_IDS, type SiteMode, type ThemeConfig, type ThemeId } from "./types";
 
 export * from "./types";
+export * from "./home-layout";
+import { parseLayouts, type HomeLayouts } from "./home-layout";
 
 export const THEMES: Record<ThemeId, ThemeConfig> = { core, core2, core3 };
 export const DEFAULT_THEME: ThemeId = "core";
@@ -36,17 +38,18 @@ export function parseSiteModes(content: unknown): Record<ThemeId, SiteMode> {
   ) as Record<ThemeId, SiteMode>;
 }
 
-/** A versão em uso e a aparência dela. */
+/** A versão em uso, a aparência dela e a página inicial escolhida para cada tema. */
 export interface SiteAppearance {
   theme: ThemeId;
   mode: SiteMode;
   modes: Record<ThemeId, SiteMode>;
+  layouts: HomeLayouts;
 }
 
 export function parseSiteAppearance(content: unknown): SiteAppearance {
   const theme = parseThemeId(content);
   const modes = parseSiteModes(content);
-  return { theme, mode: modes[theme], modes };
+  return { theme, mode: modes[theme], modes, layouts: parseLayouts(content) };
 }
 
 export function getTheme(id: ThemeId): ThemeConfig {

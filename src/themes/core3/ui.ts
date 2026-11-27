@@ -30,6 +30,11 @@ export interface Core3Category {
   subtitle: string;
   /** A foto do topo da página (as motas e a Moto 4 usam a das motas do site). */
   hero: string | null;
+  /**
+   * Que parte da foto do topo se vê no telemóvel (no computador, a esquerda a
+   * desvanecer para o título). Classe do Tailwind, escrita por inteiro.
+   */
+  heroMobilePosition: string;
 }
 
 const CATEGORIES: Record<StockKind, Omit<Core3Category, "key" | "href">> = {
@@ -41,6 +46,7 @@ const CATEGORIES: Record<StockKind, Omit<Core3Category, "key" | "href">> = {
     title: "Motas em stock",
     subtitle: "Encontre a mota certa com filtros simples e uma navegação clara.",
     hero: null,
+    heroMobilePosition: "object-left",
   },
   moto4: {
     short: "Moto 4",
@@ -50,6 +56,7 @@ const CATEGORIES: Record<StockKind, Omit<Core3Category, "key" | "href">> = {
     title: "Moto 4 em stock",
     subtitle: "Quads e side-by-side prontos para a aventura, com filtros simples.",
     hero: null,
+    heroMobilePosition: "object-left",
   },
   carros: {
     short: "Carros",
@@ -59,6 +66,8 @@ const CATEGORIES: Record<StockKind, Omit<Core3Category, "key" | "href">> = {
     title: "Automóveis em stock",
     subtitle: "Encontre o automóvel certo com filtros simples e uma navegação clara.",
     hero: "/media/core3/carros.jpg",
+    // A foto é muito larga: no telemóvel vê-se a direita (a loja e os carros).
+    heroMobilePosition: "object-right",
   },
 };
 
@@ -78,6 +87,16 @@ export function core3Categories(siteTypes: VehicleType[]): Core3Category[] {
     ...(siteTypes.includes("car") ? (["carros"] as const) : []),
   ];
   return keys.map(categoryOf);
+}
+
+/** O menu do Core3 (no cabeçalho do Core): as páginas de stock por tipo, «Vender» e «Contactos». */
+export function core3Nav(siteTypes: VehicleType[]): { href: string; label: string }[] {
+  return [
+    ...core3Categories(siteTypes).map((c) => ({ href: c.href, label: c.short })),
+    // «Compramos o seu veículo» (a avaliação da retoma).
+    { href: "/vender", label: "Vender" },
+    { href: "/contactos", label: "Contactos" },
+  ];
 }
 
 /** A faixa de serviços: o que não depende do backoffice (as retomas, que levam ao «Vender», e a entrega). */

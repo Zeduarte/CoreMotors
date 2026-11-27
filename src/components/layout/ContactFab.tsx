@@ -52,7 +52,7 @@ export function ContactFab({
   return (
     // O WhatsApp fica em baixo por ser o canal mais usado — é o que apanha
     // o polegar primeiro em mobile.
-    <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3">
+    <div className="contact-fab fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3">
       {channels.map((c) => (
         <a
           key={c.key}

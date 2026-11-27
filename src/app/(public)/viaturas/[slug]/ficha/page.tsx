@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getVehicleBySlug, getBranding } from "@/lib/queries";
-import { formatKm, formatNumber, priceLabel } from "@/lib/format";
+import { formatKm, formatNumber, vehiclePriceLabel } from "@/lib/format";
 import { qrDataUrl } from "@/lib/qr";
 import { site } from "@/lib/site";
 import { PrintButton } from "@/components/vehicle/PrintButton";
@@ -45,7 +45,7 @@ export default async function FichaPage({ params }: { params: Params }) {
   const isMoto = vehicle.vehicleType === "motorcycle";
   // As linhas a `null` não aparecem: uma ficha cheia de «—» parece incompleta.
   const specs: [string, string | null][] = [
-    ["Preço", priceLabel(vehicle.price, vehicle.priceOnRequest)],
+    ["Preço", vehiclePriceLabel(vehicle)],
     [
       "Primeira matrícula",
       registrationLabel(vehicle.year, vehicle.registrationMonth),
@@ -133,7 +133,7 @@ export default async function FichaPage({ params }: { params: Params }) {
               </p>
             )}
             <p className="mt-2 text-2xl font-bold text-accent">
-              {priceLabel(vehicle.price, vehicle.priceOnRequest)}
+              {vehiclePriceLabel(vehicle)}
             </p>
           </div>
           {qr && (

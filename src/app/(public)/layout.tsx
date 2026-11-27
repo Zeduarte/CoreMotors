@@ -2,9 +2,8 @@ import { getPublicVehicleType, getSiteVehicleTypes } from "@/lib/vehicle-context
 import { VehicleWorld } from "@/components/site/VehicleWorld";
 import { LenisProvider } from "@/components/providers/LenisProvider";
 import { Header } from "@/components/layout/Header";
-import { Core3Header } from "@/components/themes/core3/Core3Header";
-import { core3Categories } from "@/themes/core3/ui";
-import { core2Serif } from "@/themes/core2/fonts";
+import { core3Categories, core3Nav } from "@/themes/core3/ui";
+import { Core3MobileNav } from "@/components/themes/core3/Core3MobileNav";
 import { Footer } from "@/components/layout/Footer";
 import { Suspense } from "react";
 import { ScrollProgress } from "@/components/ui/ScrollProgress";
@@ -16,7 +15,7 @@ import { ChatProvider } from "@/components/chat/ChatContext";
 import { CompareProvider } from "@/components/inventory/CompareContext";
 import { CompareBar } from "@/components/inventory/CompareBar";
 import { DealerJsonLd } from "@/components/seo/DealerJsonLd";
-import { getBadges, getBranding, getLegal, getSoldVehicleList, getVehicleList } from "@/lib/queries";
+import { getBadges, getBranding, getLegal, getSocialLinks, getSoldVehicleList, getVehicleList } from "@/lib/queries";
 import { BadgesProvider } from "@/components/site/BadgesContext";
 import { existingMedia } from "@/lib/hero-media";
 import { OPTIONAL_MEDIA } from "@/lib/media";
@@ -27,6 +26,7 @@ import { SiteThemeProvider } from "@/components/site/SiteTheme";
 // O CSS de cada tema (sempre debaixo de [data-site-theme="…"]) e o da
 // aparência (Escuro / Claro / Automático, em [data-site-mode="…"]).
 import "@/themes/core2.css";
+import "@/themes/core3.css";
 import "@/themes/modes.css";
 
 /**
@@ -40,7 +40,7 @@ export default async function PublicLayout({
   // Um só site: carros e motas juntos (os tipos de Definições → Tipo de site).
   // O tipo principal dá o aspeto (fotos e textos) — o dos carros, salvo num
   // site só de motas.
-  const [branding, type, siteTypes, badges, stock, sold, appearance, legal] = await Promise.all([
+  const [branding, type, siteTypes, badges, stock, sold, appearance, legal, social] = await Promise.all([
     getBranding(),
     getPublicVehicleType(),
     getSiteVehicleTypes(),
@@ -52,6 +52,8 @@ export default async function PublicLayout({
     // A versão do site (Gestão): Core ou Core2, e a aparência dela.
     getSiteAppearance(),
     getLegal(),
+    // Facebook e Instagram do rodapé (Definições → Contactos).
+    getSocialLinks(),
   ]);
   const { theme, mode } = appearance;
   // Sem stock nenhum (ou a leitura falhou), não se filtra nada: um erro
@@ -70,7 +72,7 @@ export default async function PublicLayout({
           cria caixa, por isso não altera o layout. */}
       {/* `data-site-theme`: o CSS de cada tema (src/themes/<tema>.css);
           `data-site-mode`: escuro, claro ou o do sistema (src/themes/modes.css). */}
-      <div className={`site contents ${theme === "core3" ? core2Serif.variable : ""}`} data-site-theme={theme} data-site-mode={mode}>
+      <div className="site contents" data-site-theme={theme} data-site-mode={mode}>
         {/* Entrada da 1.ª visita: a foto das motas enquanto o site carrega. */}
         <SiteIntro name={branding.companyName} label={vehiclesLabel(siteTypes)} />
         {/* Salto para conteúdo — acessibilidade por teclado. */}
@@ -87,13 +89,10 @@ export default async function PublicLayout({
           <NavigationEvents />
           <NavigationProgress />
         </Suspense>
-        {theme === "core3" ? (
-          <Core3Header branding={branding} categories={core3Categories(siteTypes)} stockSlugs={stockSlugs} />
-        ) : (
-          <Header branding={branding} stockSlugs={stockSlugs} />
-        )}
+        {/* O cabeçalho é o do Core em todas as versões; o Core3 tem o seu menu. */}
+        <Header branding={branding} stockSlugs={stockSlugs} nav={theme === "core3" ? core3Nav(siteTypes) : undefined} />
         <main id="conteudo" className="pt-16">{children}</main>
-        <Footer theme={theme} branding={branding} legal={legal} background={existingMedia(type, OPTIONAL_MEDIA.rodape)} siteTypes={siteTypes} />
+        <Footer theme={theme} branding={branding} legal={legal} background={existingMedia(type, OPTIONAL_MEDIA.rodape)} siteTypes={siteTypes} social={social} />
         {/* Assistente virtual + canais de contacto no mesmo botão flutuante.
             Na ficha de viatura o botão dá lugar à barra fixa do fundo.
             Sem chave da Anthropic configurada, fica só o contacto humano. */}
@@ -104,6 +103,8 @@ export default async function PublicLayout({
           chatEnabled={!!process.env.ANTHROPIC_API_KEY}
         />
         <CompareBar />
+        {/* Core3, no telemóvel: Motas · Moto 4 · Carros fixos em baixo. */}
+        {theme === "core3" && <Core3MobileNav categories={core3Categories(siteTypes)} />}
         <GrainOverlay />
       </div>
       </CompareProvider>

@@ -26,4 +26,5 @@ export const core: ThemeConfig = {
     "testimonials",
     "contact",
   ],
+  fixedSections: ["hero"],
 };

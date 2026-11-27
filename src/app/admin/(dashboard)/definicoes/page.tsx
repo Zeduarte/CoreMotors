@@ -5,7 +5,8 @@ import { BrandingForm } from "@/components/admin/BrandingForm";
 import { CompanyForm } from "@/components/admin/CompanyForm";
 import { BadgesForm } from "@/components/admin/BadgesForm";
 import { PhotoOptimizer } from "@/components/admin/PhotoOptimizer";
-import { getBadges, getSiteVehicleTypes } from "@/lib/queries";
+import { getBadges, getSiteVehicleTypes, getSocialLinks } from "@/lib/queries";
+import { SocialLinksForm } from "@/components/admin/SocialLinksForm";
 import { SiteModeForm } from "@/components/admin/SiteModeForm";
 import { siteModeOf } from "@/lib/site-types";
 
@@ -17,12 +18,13 @@ export default async function SettingsPage() {
   // as fotos (photos.ts só pede o separador); gravar é só para o administrador.
   const isAdmin = me.role === "admin";
 
-  const [settings, company, badges, siteTypes, legal] = await Promise.all([
+  const [settings, company, badges, siteTypes, legal, social] = await Promise.all([
     getSiteSettings(),
     getCompanySettings(),
     getBadges(),
     getSiteVehicleTypes(),
     getLegalSettings(),
+    getSocialLinks(),
   ]);
 
   return (
@@ -55,11 +57,12 @@ export default async function SettingsPage() {
       <div className="mt-10 mb-6 border-t border-white/10 pt-8">
         <h2 className="text-lg font-semibold text-paper">Contactos</h2>
         <p className="mt-1 text-sm text-paper/50">
-          WhatsApp e Messenger. Os restantes contactos vêm do ponto de venda principal (Página inicial).
+          WhatsApp, Messenger e redes sociais. Os restantes contactos vêm do ponto de venda principal (Página inicial).
         </p>
       </div>
 
       <CompanyForm initial={company} />
+      <SocialLinksForm initial={social} />
 
       <div className="mt-10 mb-6 border-t border-white/10 pt-8">
         <h2 className="text-lg font-semibold text-paper">Identificação legal</h2>

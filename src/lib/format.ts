@@ -26,6 +26,18 @@ export function priceLabel(
   return eur.format(value);
 }
 
+/**
+ * O preço de uma viatura para o público: nas vendidas não se mostra o valor
+ * (em todos os temas), só «Vendido».
+ */
+export function vehiclePriceLabel(v: {
+  price: number;
+  priceOnRequest?: boolean;
+  status?: string | null;
+}): string {
+  return v.status === "sold" ? "Vendido" : priceLabel(v.price, v.priceOnRequest);
+}
+
 export function formatKm(value: number): string {
   return `${number.format(value)} km`;
 }

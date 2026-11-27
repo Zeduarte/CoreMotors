@@ -10,7 +10,7 @@ import {
   getVehicleList,
 } from "@/lib/queries";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
-import { formatKm, priceLabel } from "@/lib/format";
+import { formatKm, vehiclePriceLabel } from "@/lib/format";
 import { Gallery } from "@/components/vehicle/Gallery";
 import { Specs } from "@/components/vehicle/Specs";
 import { SpecGrid } from "@/components/vehicle/SpecGrid";
@@ -58,7 +58,7 @@ export async function generateMetadata(
   if (!vehicle) return { title: "Viatura não encontrada" };
 
   const title = `${vehicle.make} ${vehicle.model} ${vehicle.year}`;
-  const description = [vehicle.tagline?.trim(), `${priceLabel(vehicle.price, vehicle.priceOnRequest)} · ${formatKm(vehicle.mileage)} · ${vehicle.fuel}.`].filter(Boolean).join(" ");
+  const description = [vehicle.tagline?.trim(), `${vehiclePriceLabel(vehicle)} · ${formatKm(vehicle.mileage)} · ${vehicle.fuel}.`].filter(Boolean).join(" ");
 
   return pageMetadata(parent, {
     title,
@@ -205,7 +205,7 @@ export default async function VehiclePage({ params }: { params: Params }) {
                 <FavoriteButton slug={vehicle.slug} variant="inline" />
                 <ShareButton
                   title={`${vehicle.make} ${vehicle.model} ${vehicle.year}`}
-                  text={`${vehicle.make} ${vehicle.model} ${vehicle.year} · ${priceLabel(vehicle.price, vehicle.priceOnRequest)}`}
+                  text={`${vehicle.make} ${vehicle.model} ${vehicle.year} · ${vehiclePriceLabel(vehicle)}`}
                 />
                 {/* Pouco usada: não é pré-carregada (só ao clicar). */}
                 <Link
@@ -252,7 +252,7 @@ export default async function VehiclePage({ params }: { params: Params }) {
                   status={vehicle.status ?? "published"}
                   company={branding.company}
                   price={<VehiclePrice vehicle={vehicle} />}
-                  priceValue={vehicle.priceOnRequest ? null : vehicle.price}
+                  priceValue={vehicle.priceOnRequest || vehicle.status === "sold" ? null : vehicle.price}
                   warrantyMonths={vehicle.warrantyMonths}
                   recentViews={recentViews}
                   canReserve={canReserve}

@@ -472,7 +472,7 @@ test("the stock header photo follows the type (motorcycles with «Motas» or on 
 
 test("favourites and compare counters count only what the site shows now; /favoritos is not prefetched", () => {
   const layout = readFileSync("src/app/(public)/layout.tsx", "utf8");
-  assert.match(layout, /<Header branding=\{branding\} stockSlugs=\{stockSlugs\} \/>/);
+  assert.match(layout, /<Header branding=\{branding\} stockSlugs=\{stockSlugs\}[ />]/);
   assert.match(layout, /<CompareProvider available=\{stockSlugs && \[\.\.\.stockSlugs, \.\.\.sold\.map\(\(v\) => v\.slug\)\]\}>/);
   // Sem stock lido (erro passageiro), não se filtra nem apaga nada.
   assert.match(layout, /stock\.length \? stock\.map\(\(v\) => v\.slug\) : undefined/);

@@ -33,7 +33,8 @@ export function buildVehicleJsonLd(
   // As moto 4 (quads) não são motociclos; ficam no tipo genérico.
   const type = moto ? (vehicle.body === "Moto 4" ? "Vehicle" : "Motorcycle") : "Car";
   const url = `${site.url}/viaturas/${vehicle.slug}`;
-  const hasPrice = !vehicle.priceOnRequest && vehicle.price > 0;
+  // Vendida: sem preço (não se mostra em lado nenhum).
+  const hasPrice = vehicle.status !== "sold" && !vehicle.priceOnRequest && vehicle.price > 0;
   const description = vehicle.description?.trim();
   const images = vehicle.images.filter((i) => !isPlaceholderImage(i.src)).map((i) => absolute(i.src));
 

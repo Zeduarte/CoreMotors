@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { resolve, dirname, join } from 'node:path';
 import ts from 'typescript';
 import React from 'react';
@@ -671,4 +672,16 @@ test('fonts ship with the project: no next/font/google (the build must not depen
   assert.deepEqual(offenders, []);
   assert.ok(existsSync('src/fonts/inter-latin-wght-normal.woff2'));
   assert.ok(existsSync('src/fonts/dm-serif-display-latin-400-normal.woff2'));
+});
+
+test("sold vehicles never show their price (every theme): «Vendido» in the cards, the page, the PDF, sharing and Google", () => {
+  const { vehiclePriceLabel } = load('src/lib/format.ts');
+  assert.equal(vehiclePriceLabel({ price: 12450, status: "sold" }), "Vendido");
+  assert.match(vehiclePriceLabel({ price: 12450, status: "published" }), /^12\s450\s€$/);
+  assert.equal(vehiclePriceLabel({ price: 0, status: "published" }), "Sob consulta");
+  assert.match(readFileSync("src/components/vehicle/VehiclePrice.tsx", "utf8"), /if \(vehicle\.status === "sold"\) return <span>\{vehiclePriceLabel\(vehicle\)\}<\/span>;/);
+  // Nenhuma página pública formata o preço de uma viatura sem passar por aqui.
+  const raw = spawnSync("git", ["grep", "-n", "-E", "priceLabel\\((vehicle|v)\\.price\\b", "--", "src/app/(public)", "src/components"], { encoding: "utf8" }).stdout.trim();
+  assert.equal(raw, "");
+  assert.match(readFileSync("src/components/seo/VehicleJsonLd.tsx", "utf8"), /const hasPrice = vehicle\.status !== "sold" &&/);
 });

@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Vehicle } from "@/types/vehicle";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
 import { AnimatedText } from "@/components/ui/AnimatedText";
+import { RowCard } from "@/components/themes/core2/RowCard";
 
 /**
  * «Viaturas em destaque» na homepage: carrossel horizontal com snap, setas e
@@ -13,18 +14,25 @@ import { AnimatedText } from "@/components/ui/AnimatedText";
  *
  * Telemóvel: um cartão largo de cada vez, à largura do ecrã (passa-se com
  * o dedo, as setas ou os pontos). Desktop: 2 (md), 3 (lg) ou 4 por página.
+ * Com `card="row"` (Core3) os cartões são deitados e ficam no máximo 3; o
+ * «Ver todas as N viaturas» fica em cima, ao lado do título (como na maqueta),
+ * com o fundo laranja; no telemóvel os cartões vão 3 de cada vez,
+ * empilhados (desliza-se para o grupo seguinte, ou pelos pontos e setas).
  */
 export function FeaturedVehicles({
   vehicles,
   total,
   eyebrow = "",
   title = "Viaturas em destaque",
+  card = "core",
 }: {
   vehicles: Vehicle[];
   /** Total de viaturas em stock — o número do botão «Mostrar todas». */
   total: number;
   eyebrow?: string;
   title?: string;
+  /** «row»: o cartão deitado do Core3 (foto à esquerda, dados à direita). */
+  card?: "core" | "row";
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [pages, setPages] = useState(1);
@@ -63,14 +71,31 @@ export function FeaturedVehicles({
   }
 
   const shown = vehicles.slice(0, 10);
+  const row = card === "row";
+  // Telemóvel (Core3): 3 cartões empilhados de cada vez, como na maqueta.
+  const groups: Vehicle[][] = [];
+  for (let i = 0; i < shown.length; i += 3) groups.push(shown.slice(i, i + 3));
+  const allLink = (
+    <Link
+      href="/inventario"
+      className="group inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 md:w-auto text-sm font-semibold text-ink transition-transform duration-300 ease-premium hover:scale-[1.03]"
+    >
+      Ver todas as {total} viaturas
+      <span aria-hidden className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+    </Link>
+  );
 
   return (
     <section className="container-px py-16 md:py-24">
-      <div className="mb-8 md:mb-10">
-        {eyebrow && <p className="eyebrow mb-3">{eyebrow}</p>}
-        <AnimatedText as="h2" className="text-3xl font-semibold text-paper md:text-4xl">
-          {title}
-        </AnimatedText>
+      <div className={`mb-8 md:mb-10 ${row ? "flex flex-wrap items-end justify-between gap-x-6 gap-y-2" : ""}`}>
+        <div>
+          {eyebrow && <p className="eyebrow mb-3">{eyebrow}</p>}
+          <AnimatedText as="h2" className="text-3xl font-semibold text-paper md:text-4xl">
+            {title}
+          </AnimatedText>
+        </div>
+        {/* Computador: ao lado do título. Telemóvel: por baixo dos cartões e dos pontos. */}
+        {row && shown.length > 0 && <div className="hidden md:block">{allLink}</div>}
       </div>
 
       {shown.length === 0 ? (
@@ -84,14 +109,30 @@ export function FeaturedVehicles({
             ref={trackRef}
             className="-mx-6 flex snap-x snap-mandatory scroll-px-6 gap-4 overflow-x-auto scroll-smooth px-6 pb-4 [-ms-overflow-style:none] [scrollbar-width:none] md:-mx-8 md:scroll-px-8 md:gap-6 md:px-8 [&::-webkit-scrollbar]:hidden"
           >
-            {shown.map((vehicle, i) => (
-              <div
-                key={vehicle.slug}
-                className="w-full shrink-0 snap-start md:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)] min-[1400px]:w-[calc((100%-4.5rem)/4)]"
-              >
-                <VehicleCard vehicle={vehicle} priority={i < 3} />
-              </div>
-            ))}
+            {row
+              ? groups.map((group, g) => (
+                  // Telemóvel: um grupo de 3 cartões empilhados, à largura do
+                  // ecrã. Computador: `md:contents` desfaz o grupo e os
+                  // cartões ficam lado a lado, 3 por página.
+                  <div key={g} className="flex w-full shrink-0 snap-start flex-col gap-3 md:contents">
+                    {group.map((vehicle) => (
+                      <div
+                        key={vehicle.slug}
+                        className="md:w-[calc((100%-1.5rem)/2)] md:shrink-0 md:snap-start lg:w-[calc((100%-3rem)/3)]"
+                      >
+                        <RowCard vehicle={vehicle} sizes="(max-width: 768px) 40vw, 15vw" />
+                      </div>
+                    ))}
+                  </div>
+                ))
+              : shown.map((vehicle, i) => (
+                  <div
+                    key={vehicle.slug}
+                    className="w-full shrink-0 snap-start md:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)] min-[1400px]:w-[calc((100%-4.5rem)/4)]"
+                  >
+                    <VehicleCard vehicle={vehicle} priority={i < 3} />
+                  </div>
+                ))}
           </div>
 
           {pages > 1 && (
@@ -131,6 +172,9 @@ export function FeaturedVehicles({
             </div>
           )}
 
+          {row && <div className="mt-6 md:hidden">{allLink}</div>}
+
+          {!row && (
           <div className="mt-10 flex justify-center">
             <Link
               href="/inventario"
@@ -140,6 +184,7 @@ export function FeaturedVehicles({
               <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
             </Link>
           </div>
+          )}
         </>
       )}
     </section>

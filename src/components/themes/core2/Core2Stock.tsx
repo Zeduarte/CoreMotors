@@ -1,16 +1,14 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { SortKey, Vehicle, VehicleFilters } from "@/types/vehicle";
 import type { VehicleType } from "@/lib/vehicle-categories";
 import { sameBrand } from "@/lib/brand-name";
 import { trapTab } from "@/lib/focus-trap";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
-import { FadeImage } from "@/components/ui/FadeImage";
-import { setVehiclePreview } from "@/lib/vehicle-preview";
-import { dots, euros, priceText, rowLines } from "@/themes/core2/ui";
+import { formatNumber, formatPrice } from "@/lib/format";
+import { RowCard } from "./RowCard";
 import {
   CC_BUCKETS,
   DEFAULT_SORT,
@@ -60,9 +58,12 @@ export function Core2Stock({
   vehicles,
   siteTypes,
   fixedKinds,
+  wide = false,
 }: {
   vehicles: Vehicle[];
   siteTypes: VehicleType[];
+  /** Filtros e cartões à largura toda do ecrã no computador (páginas Motas, Moto 4 e Carros do Core3). */
+  wide?: boolean;
   /** Os tipos à escolha, em vez de os do site (o Core3 passa `[]`: cada página é de um só tipo). */
   fixedKinds?: StockKind[];
 }) {
@@ -136,7 +137,7 @@ export function Core2Stock({
   return (
     // `#lista`: os botões e as categorias do topo saltam para aqui.
     <div id="lista" className="core2-stock scroll-mt-20 pb-24 pt-8 text-paper md:pt-10">
-      <div className="container-px">
+      <div className={wide ? "w-full px-6 md:px-8 xl:px-10" : "container-px"}>
         <div className="grid gap-6 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[20.5rem_minmax(0,1fr)]">
           {/* Coluna dos filtros (no telemóvel, no painel do botão «Filtros»). */}
           <aside aria-label="Filtros" className="hidden lg:block">
@@ -204,7 +205,7 @@ export function Core2Stock({
             ) : (
               <section aria-label="Viaturas" className="mt-6">
                 {/* Sem `priority` nas fotos: a imagem principal da página é a do topo. */}
-                <ul className="grid gap-x-5 gap-y-3 sm:grid-cols-2 sm:gap-y-8 xl:grid-cols-3 min-[1600px]:grid-cols-4">
+                <ul className={`grid gap-x-5 gap-y-3 sm:grid-cols-2 sm:gap-y-8 xl:grid-cols-3 min-[1600px]:grid-cols-4 ${wide ? "min-[2100px]:grid-cols-5" : ""}`}>
                   {results.map((v) => (
                     <li key={v.slug}>
                       <div className="hidden sm:block">
@@ -224,53 +225,6 @@ export function Core2Stock({
 
       {sheet && <FilterSheet onClose={() => setSheet(false)}>{panel(true)}</FilterSheet>}
     </div>
-  );
-}
-
-/**
- * Telemóvel: o cartão deitado de uma viatura (como na maqueta) — a foto
- * pequena à esquerda; ao lado a marca, o modelo e o ano, duas linhas de dados,
- * o preço e a seta para a ficha.
- */
-function RowCard({ vehicle: v }: { vehicle: Vehicle }) {
-  const cover = v.images[0];
-  const [line1, line2] = rowLines(v);
-  return (
-    <Link
-      href={`/viaturas/${v.slug}`}
-      // A foto à vista vai já para o esqueleto da ficha (ver loading.tsx).
-      onClick={(e) => setVehiclePreview(v.slug, e.currentTarget.querySelector("img")?.currentSrc)}
-      className="group flex min-h-[8.5rem] overflow-hidden rounded-xl border border-white/10 bg-ink-soft"
-    >
-      <div className="site-dark relative w-[41%] shrink-0 overflow-hidden bg-ink-muted">
-        {cover && (
-          <FadeImage src={cover.src} alt={cover.alt || `${v.make} ${v.model}`} fill sizes="45vw" className="object-cover" />
-        )}
-        {v.status === "reserved" && (
-          <span className="absolute left-2 top-2 rounded-full bg-accent px-2 py-0.5 text-[0.7rem] font-semibold text-white">Reservado</span>
-        )}
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col px-3.5 py-3">
-        <p className="text-[0.9rem] font-bold leading-tight">{v.make}</p>
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-          <h3 className="text-[1.1rem] font-bold leading-tight">{v.model}</h3>
-          {v.year ? (
-            <span className="rounded-md border border-white/20 px-1.5 py-px text-[0.72rem] font-medium tabular-nums text-paper/85">{v.year}</span>
-          ) : null}
-        </div>
-        <p className="mt-1.5 text-[0.78rem] leading-snug text-paper/65">
-          {line1}
-          <br />
-          {line2}
-        </p>
-        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-          <span className="core2-serif text-[1.6rem] leading-none text-accent">{priceText(v)}</span>
-          <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/20 text-accent">
-            <Core2Icon name="arrow" className="h-4 w-4" strokeWidth={2.4} />
-          </span>
-        </div>
-      </div>
-    </Link>
   );
 }
 
@@ -388,7 +342,7 @@ function FilterPanel({
   return (
     <div className="rounded-xl border border-white/10 bg-ink-soft">
       <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-5">
-        <h2 className="core2-serif flex items-center gap-3 text-[2rem] leading-none">
+        <h2 className="flex items-center gap-3 font-sans text-[1.6rem] font-semibold leading-none tracking-tight">
           <Core2Icon name="sliders" className="h-7 w-7 text-accent" strokeWidth={2.2} /> Filtros
         </h2>
         <span className="text-[0.95rem] text-paper/70" aria-live="polite">
@@ -441,9 +395,9 @@ function FilterPanel({
             min={PRICE_STEP}
             max={PRICE_MAX}
             step={PRICE_STEP}
-            format={euros}
+            format={formatPrice}
             minLabel="0 €"
-            maxLabel={`${dots(PRICE_MAX)} €+`}
+            maxLabel={`${formatNumber(PRICE_MAX)} €+`}
             onChange={(maxPrice) => setBase({ maxPrice })}
           />
         </Section>
@@ -492,9 +446,9 @@ function FilterPanel({
             min={0}
             max={KM_MAX}
             step={KM_STEP}
-            format={(n) => `${dots(n)} km`}
+            format={(n) => `${formatNumber(n)} km`}
             minLabel="0 km"
-            maxLabel={`${dots(KM_MAX)} km+`}
+            maxLabel={`${formatNumber(KM_MAX)} km+`}
             onChange={(maxMileage) => setBase({ maxMileage })}
           />
         </Section>

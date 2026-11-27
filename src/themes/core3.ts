@@ -3,8 +3,8 @@ import type { ThemeConfig } from "./types";
 
 /**
  * Core3: o site das maquetes da Supermotas. Parte do Core e muda:
- * - o menu (Motas · Moto 4 · Carros · Vender · Contactos, sem stock misturado), com
- *   o deslize entre páginas na ordem do menu;
+ * - o menu (no cabeçalho do Core): Motas · Moto 4 · Carros · Vender ·
+ *   Contactos, sem stock misturado, com o deslize na ordem do menu;
  * - a página inicial: topo, cartões das categorias, viaturas em destaque e a
  *   faixa de serviços (os serviços deixam de ter menu), e depois o resto de sempre;
  * - Motas, Moto 4 e Carros: cada uma é o stock do Core2 só desse tipo.
@@ -31,6 +31,7 @@ export const core3: ThemeConfig = {
     "testimonials",
     "contact",
   ],
+  fixedSections: ["c3hero", "c3categories"],
   adminNotes: [
     { text: "Menu: Motas · Moto 4 · Carros · Vender · Contactos, sem stock misturado. A Moto 4 (as viaturas da categoria «Moto 4») aparece sempre num site que venda motas. «Vender» abre «Compramos o seu veículo» (a avaliação da retoma)." },
     {

@@ -19,7 +19,7 @@ export function CompareBar() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 80, opacity: 0 }}
           transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 [view-transition-name:compare-bar]"
+          className="compare-bar fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 [view-transition-name:compare-bar]"
         >
           <div className="flex items-center gap-4 rounded-full border border-white/10 bg-ink-soft/95 px-5 py-3 shadow-xl shadow-black/40 backdrop-blur">
             <span className="text-sm text-paper">
