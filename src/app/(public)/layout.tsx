@@ -106,7 +106,8 @@ export default async function PublicLayout({
         />
         <CompareBar />
         {/* Core3, no telemóvel: Motas · Moto 4 · Carros fixos em baixo. */}
-        {theme === "core3" && <Core3MobileNav items={bottomMenu ? core3Nav(siteTypes) : core3Categories(siteTypes).map((c) => ({ href: c.href, label: c.short }))} everywhere={bottomMenu} />}
+        {theme === "core3" && <Core3MobileNav // Em baixo, sem «Contactos»: o botão do WhatsApp ao lado ocupa esse lugar.
+          items={bottomMenu ? core3Nav(siteTypes).filter((i) => i.href !== "/contactos") : core3Categories(siteTypes).map((c) => ({ href: c.href, label: c.short }))} everywhere={bottomMenu} />}
         <GrainOverlay />
       </div>
       </CompareProvider>

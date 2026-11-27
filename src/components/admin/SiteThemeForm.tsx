@@ -123,7 +123,7 @@ export function SiteThemeForm({
                   <p className="mt-2 text-xs text-paper/45">
                     {mobileMenu === "top"
                       ? "Os 3 traços no cabeçalho abrem o menu."
-                      : "Sem os 3 traços: Motas · Moto 4 · Carros · Vender · Contactos numa barra em baixo, em todas as páginas."}
+                      : "Sem os 3 traços: Motas · Moto 4 · Carros · Vender numa barra em baixo (o WhatsApp ao lado faz de Contactos), em todas as páginas."}
                   </p>
                 </div>
               )}
