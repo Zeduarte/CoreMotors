@@ -33,7 +33,7 @@ export async function Core3CategoryPage({ kind }: { kind: StockKind }) {
       />
       {/* `useSearchParams` (os filtros no endereço) pede um Suspense numa página estática. */}
       <Suspense fallback={null}>
-        <Core2Stock vehicles={vehicles} siteTypes={siteTypes} fixedKinds={[]} wide />
+        <Core2Stock vehicles={vehicles} siteTypes={siteTypes} fixedKinds={[]} wide card="row" />
       </Suspense>
     </div>
   );

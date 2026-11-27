@@ -154,7 +154,7 @@ export default async function HomePage() {
         poster={existingMedia(type, OPTIONAL_MEDIA.confiancaPoster)}
       />
     ),
-    sold: <SoldShowcase vehicles={sold} />,
+    sold: <SoldShowcase vehicles={sold} card={theme === "core3" ? "row" : "core"} />,
     showroom: (
       <div className="container-px">
         {theme !== "core3" && <ServiceCards items={showroom.services} />}

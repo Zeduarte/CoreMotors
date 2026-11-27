@@ -2,6 +2,8 @@ import type { Metadata, ResolvingMetadata } from "next";
 import { pageMetadata } from "@/components/seo/page-metadata";
 import Link from "next/link";
 import { getSoldVehicleList } from "@/lib/queries";
+import { getSiteTheme } from "@/lib/site-theme-query";
+import { RowCard } from "@/components/themes/core2/RowCard";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
 
 export const revalidate = 60;
@@ -20,7 +22,8 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 export default async function SoldPage() {
-  const vehicles = await getSoldVehicleList();
+  const [vehicles, theme] = await Promise.all([getSoldVehicleList(), getSiteTheme()]);
+  const row = theme === "core3";
 
   return (
     <div className="container-px pb-24 pt-32 md:pt-40">
@@ -37,10 +40,20 @@ export default async function SoldPage() {
       </header>
 
       {vehicles.length > 0 ? (
-        <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 min-[1400px]:grid-cols-4">
-          {vehicles.map((v) => (
-            <VehicleCard key={v.slug} vehicle={v} sharedTransition={false} />
-          ))}
+        <div
+          className={
+            row
+              ? "grid gap-3 md:grid-cols-2 min-[1500px]:grid-cols-3"
+              : "grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 min-[1400px]:grid-cols-4"
+          }
+        >
+          {vehicles.map((v) =>
+            row ? (
+              <RowCard key={v.slug} vehicle={v} sizes="(max-width: 768px) 40vw, 15vw" />
+            ) : (
+              <VehicleCard key={v.slug} vehicle={v} sharedTransition={false} />
+            ),
+          )}
         </div>
       ) : (
         <div className="rounded-3xl border border-white/10 bg-ink-muted/40 p-12 text-center">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Vehicle } from "@/types/vehicle";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
+import { RowCard } from "@/components/themes/core2/RowCard";
 import { Reveal } from "@/components/ui/Reveal";
 
 /**
@@ -8,7 +9,7 @@ import { Reveal } from "@/components/ui/Reveal";
  * confiança. Mostra as últimas vendas e um botão para a lista completa
  * (`/vendidos`). Não renderiza nada se ainda não houver vendas.
  */
-export function SoldShowcase({ vehicles }: { vehicles: Vehicle[] }) {
+export function SoldShowcase({ vehicles, card = "core" }: { vehicles: Vehicle[]; card?: "core" | "row" }) {
   if (vehicles.length === 0) return null;
 
   return (
@@ -34,11 +35,19 @@ export function SoldShowcase({ vehicles }: { vehicles: Vehicle[] }) {
 
       <Reveal
         stagger={0.08}
-        className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 min-[1400px]:grid-cols-4"
+        className={
+          card === "row"
+            ? "grid gap-3 md:grid-cols-2 lg:grid-cols-3"
+            : "grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 min-[1400px]:grid-cols-4"
+        }
       >
-        {vehicles.map((v) => (
-          <VehicleCard key={v.slug} vehicle={v} sharedTransition={false} />
-        ))}
+        {vehicles.map((v) =>
+          card === "row" ? (
+            <RowCard key={v.slug} vehicle={v} sizes="(max-width: 768px) 40vw, 15vw" />
+          ) : (
+            <VehicleCard key={v.slug} vehicle={v} sharedTransition={false} />
+          ),
+        )}
       </Reveal>
 
       {/* Botão para mobile (o do cabeçalho só aparece em ≥md). */}
