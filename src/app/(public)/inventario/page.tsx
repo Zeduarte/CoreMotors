@@ -10,6 +10,8 @@ import { inventoryWithOlx } from "@/lib/olx/search";
 import { filtersFromQuery, sortFromQuery } from "@/lib/vehicles";
 import { InventoryClient } from "@/components/inventory/InventoryClient";
 import { SeoLinks } from "@/components/seo/SeoLinks";
+import { Suspense } from "react";
+import { Core3Banner } from "@/components/themes/core3/Core3Banner";
 import { Core2Stock } from "@/components/themes/core2/Core2Stock";
 import { Core2StockTop } from "@/components/themes/core2/Core2StockTop";
 import { core2Serif } from "@/themes/core2/fonts";
@@ -105,6 +107,28 @@ export default async function InventoryPage({
       <div className={core2Serif.variable}>
         <Core2StockTop siteTypes={siteTypes} hasMoto4={stock.some((v) => kindOf(v) === "moto4")} />
         <Core2Stock key={JSON.stringify(sp)} vehicles={stock} siteTypes={siteTypes} />
+      </div>
+    );
+  }
+
+  // Tema Core3: o stock de todas as categorias (o «Ver todas as viaturas» da
+  // página inicial), com o topo do Core3 e o stock do Core2 à largura toda.
+  // Sem isto caía na página do Core.
+  if (theme === "core3") {
+    const stock = all
+      .filter((v) => siteTypes.includes(v.vehicleType ?? "car"))
+      .map((v) => ({ ...toListVehicle(v), tagline: v.tagline }));
+    return (
+      <div className={core2Serif.variable}>
+        <Core3Banner
+          photo={asset(mediaFor("motorcycle").entrada)}
+          title="Todas as viaturas em stock"
+          subtitle="Motas, Moto 4 e automóveis num só sítio, com filtros simples."
+          crumbs={[{ label: "Início", href: "/" }, { label: "Stock" }]}
+        />
+        <Suspense fallback={null}>
+          <Core2Stock key={JSON.stringify(sp)} vehicles={stock} siteTypes={siteTypes} wide />
+        </Suspense>
       </div>
     );
   }
