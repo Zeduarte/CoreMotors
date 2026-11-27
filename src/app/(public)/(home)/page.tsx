@@ -139,6 +139,8 @@ export default async function HomePage() {
         vehicles={allVehicles}
         total={allVehicles.length}
         card={theme === "core3" ? "row" : "core"}
+        // Core3: abre a 1.ª categoria (Motas, ou Carros num site só de carros) e o visitante filtra.
+        allHref={theme === "core3" ? categories[0]?.href : undefined}
       />
     ),
     brands: <BrandMarquee brands={marqueeBrands} available={stockBrands} />,
