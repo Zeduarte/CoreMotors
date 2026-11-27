@@ -25,6 +25,7 @@ export function FeaturedVehicles({
   eyebrow = "",
   title = "Viaturas em destaque",
   card = "core",
+  allHref = "/inventario",
 }: {
   vehicles: Vehicle[];
   /** Total de viaturas em stock — o número do botão «Mostrar todas». */
@@ -33,6 +34,8 @@ export function FeaturedVehicles({
   title?: string;
   /** «row»: o cartão deitado do Core3 (foto à esquerda, dados à direita). */
   card?: "core" | "row";
+  /** Para onde vai «Ver todas as N viaturas» (Core3: a página de Motas). */
+  allHref?: string;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [pages, setPages] = useState(1);
@@ -77,7 +80,7 @@ export function FeaturedVehicles({
   for (let i = 0; i < shown.length; i += 3) groups.push(shown.slice(i, i + 3));
   const allLink = (
     <Link
-      href="/inventario"
+      href={allHref}
       className="group inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 md:w-auto text-sm font-semibold text-ink transition-transform duration-300 ease-premium hover:scale-[1.03]"
     >
       Ver todas as {total} viaturas
